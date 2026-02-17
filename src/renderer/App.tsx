@@ -1,13 +1,15 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import { Toaster } from 'sonner';
 
 // Features & Shared
-import { useUser } from '@renderer/features/auth';
-import { AnimatedPage } from '@renderer/features/layout';
+import { UserProvider, useUser } from '@renderer/features/auth';
+import { ShiftProvider } from '@renderer/features/pos';
+import { MainLayout, AnimatedPage, useTheme } from '@renderer/features/layout';
 import { useOnboarding } from '@renderer/features/onboarding';
+import { ThemeProvider } from '@hooks/use-theme';
 
-// Layout & Pages
-import MainLayout from '@renderer/MainLayout';
+// Pages
 import LoginPage from '@pages/login/page';
 import DashboardPage from '@pages/dashboard/page';
 import InventoryPage from '@pages/inventory/page';
@@ -17,11 +19,34 @@ import SettingsPage from '@pages/settings/page';
 import OnboardingPage from '@pages/onboarding/page';
 
 export default function App() {
+  return (
+    <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
+      <UserProvider>
+        <ShiftProvider>
+          <AppRoutes />
+          <ToasterWithTheme />
+        </ShiftProvider>
+      </UserProvider>
+    </ThemeProvider>
+  );
+}
+
+function ToasterWithTheme() {
+  const { theme } = useTheme();
+  return (
+    <Toaster 
+      position="top-center" 
+      richColors 
+      theme={theme === 'dark' ? 'dark' : 'light'} 
+    />
+  );
+}
+
+function AppRoutes() {
   const { user, setUser } = useUser();
   const { onboardingCompleted, completeOnboarding } = useOnboarding();
   const location = useLocation();
 
-  // Show loading while checking onboarding status
   if (onboardingCompleted === null) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -36,7 +61,6 @@ export default function App() {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        {/* Public Routes */}
         <Route 
           path="/onboarding" 
           element={<OnboardingPage onComplete={completeOnboarding} />} 
@@ -53,7 +77,6 @@ export default function App() {
           }
         />
 
-        {/* Protected Routes */}
         <Route element={user ? <MainLayout /> : <Navigate to="/login" />}>
           <Route path="dashboard" element={<AnimatedPage><DashboardPage /></AnimatedPage>} />
           <Route path="inventory" element={<AnimatedPage><InventoryPage /></AnimatedPage>} />
@@ -63,7 +86,6 @@ export default function App() {
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Route>
 
-        {/* Redirects */}
         <Route
           path="*"
           element={<Navigate to={onboardingCompleted ? "/login" : "/onboarding"} />}

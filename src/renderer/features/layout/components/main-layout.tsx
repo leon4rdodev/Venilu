@@ -5,7 +5,7 @@ import { Spinner } from "@components/ui/spinner"
 import { Outlet, useLocation, Navigate } from "react-router-dom"
 import { cn } from "@lib/utils"
 
-export default function MainLayout() {
+export function MainLayout() {
   const { collapsed } = useSidebar()
   const { user } = useUser();
   const { activeShift, isLoading: isShiftLoading } = useShift();

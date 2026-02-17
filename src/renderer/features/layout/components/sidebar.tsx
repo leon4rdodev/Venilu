@@ -24,7 +24,9 @@ const navItems: NavItem[] = [
   { to: "/settings", icon: Settings, label: "Ajustes" },
 ];
 
-export function Sidebar({ userRole }: { userRole: string | null }) {
+type SidebarProps = { userRole: string | null };
+
+export function Sidebar({ userRole }: SidebarProps) {
   const { pathname } = useLocation();
 
   const visibleNavItems = useMemo(() => {

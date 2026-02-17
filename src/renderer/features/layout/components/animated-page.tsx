@@ -21,7 +21,14 @@ const pageTransition = {
   duration: 0,
 };
 
-export const AnimatedPage = ({ children }: { children: React.ReactNode }) => {
+// Assuming AnimatedPageProps is defined elsewhere or needs to be added.
+// For the purpose of this edit, we'll define a basic one if not provided.
+interface AnimatedPageProps {
+  children: React.ReactNode;
+  className?: string; // Added className based on the instruction
+}
+
+export function AnimatedPage({ children, className }: AnimatedPageProps) {
   return (
     <motion.div
       initial="initial"
@@ -29,6 +36,7 @@ export const AnimatedPage = ({ children }: { children: React.ReactNode }) => {
       exit="out"
       variants={pageVariants}
       transition={pageTransition}
+      className={className}
     >
       {children}
     </motion.div>
