@@ -19,13 +19,20 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
 
+    "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@renderer/*": ["src/renderer/*"],
+      "@main/*": ["src/main/*"],
+      "@shared/*": ["src/shared/*"],
+      "@components/*": ["./src/renderer/components/*"],
+      "@hooks/*": ["./src/renderer/hooks/*"],
+      "@lib/*": ["./src/renderer/lib/*"],
+      "@pages/*": ["./src/renderer/pages/*"]
     }
   },
-  "include": ["src"],
+  "include": ["src/renderer", "src/main", "src/shared"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

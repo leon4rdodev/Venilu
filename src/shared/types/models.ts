@@ -1,0 +1,88 @@
+export type UserRole = 'admin' | 'employee';
+export type PaymentMethod = 'cash' | 'card' | 'transfer';
+export type ShiftStatus = 'open' | 'closed';
+
+export interface User {
+  id: string;
+  username: string;
+  name: string;
+  role: UserRole;
+  created_at: string | Date;
+  updated_at: string | Date;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  created_at: string | Date;
+  updated_at: string | Date;
+  product_count?: number;
+}
+
+export interface Product {
+    id: string;
+    name: string;
+    description?: string;
+    sale_price: number;
+    cost_price: number;
+    stock: number;
+    category_id?: string;
+    category?: Category | null;
+    barcode?: string;
+    sku?: string;
+    min_stock?: number;
+    created_at: string | Date;
+    updated_at: string | Date;
+    has_sales?: boolean;
+}
+
+export interface Sale {
+    id: string;
+    user_id: string;
+    user?: User;
+    shift_id: string;
+    sale_date: string | Date;
+    total_amount: number;
+    amount_paid?: number;
+    change_given?: number;
+    payment_method: PaymentMethod;
+    items?: SaleItem[];
+    created_at: string | Date;
+    updated_at: string | Date;
+}
+
+export interface SaleItem {
+    id?: string;
+    sale_id?: string;
+    product_id: string;
+    product_name: string;
+    quantity: number;
+    unit_price: number;
+    total_price: number;
+    price_at_sale?: number; // legacy/frontend mapping
+}
+
+export interface Shift {
+    id: string;
+    user_id: string;
+    start_time: string | Date;
+    end_time?: string | Date;
+    initial_cash: number;
+    final_cash?: number;
+    expected_cash?: number;
+    difference?: number;
+    status: ShiftStatus;
+    sales?: Sale[];
+}
+
+export interface Setting {
+    id: number;
+    business_name: string;
+    business_address: string;
+    business_phone: string;
+    business_email: string;
+    business_tax_id: string;
+    logo_filename: string | null;
+    printer_name: string | null;
+    paper_size: string;
+}
