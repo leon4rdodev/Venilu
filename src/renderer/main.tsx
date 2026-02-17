@@ -1,16 +1,16 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { HashRouter as Router } from 'react-router-dom'
-import App from './App.tsx'
-import './index.css'
-import { ThemeProvider } from './hooks/use-theme.tsx' // Import the new ThemeProvider
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { Providers } from '@renderer/shared/components/Providers';
+import App from './App';
+import './index.css';
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+const rootElement = document.getElementById('root');
+if (!rootElement) throw new Error('Failed to find the root element');
+
+ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
-    <Router>
-      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
-        <App />
-      </ThemeProvider>
-    </Router>
-  </React.StrictMode>,
-)
+    <Providers>
+      <App />
+    </Providers>
+  </React.StrictMode>
+);

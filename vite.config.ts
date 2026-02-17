@@ -11,9 +11,9 @@ export default defineConfig({
       '@renderer': path.resolve(__dirname, './src/renderer'),
       '@main': path.resolve(__dirname, './src/main'),
       '@shared': path.resolve(__dirname, './src/shared'),
-      '@components': path.resolve(__dirname, './src/renderer/components'),
-      '@hooks': path.resolve(__dirname, './src/renderer/hooks'),
-      '@lib': path.resolve(__dirname, './src/renderer/lib'),
+      '@components': path.resolve(__dirname, './src/renderer/shared/components'),
+      '@hooks': path.resolve(__dirname, './src/renderer/shared/hooks'),
+      '@lib': path.resolve(__dirname, './src/renderer/shared/lib'),
       '@pages': path.resolve(__dirname, './src/renderer/pages')
     }
   },

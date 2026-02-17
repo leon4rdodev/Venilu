@@ -1,4 +1,4 @@
-import { OnboardingWizard } from '@components/onboarding/OnboardingWizard';
+import { OnboardingWizard } from '@renderer/features/onboarding';
 
 interface OnboardingPageProps {
     onComplete: () => void;

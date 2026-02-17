@@ -1,6 +1,12 @@
-import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { User } from '@shared/types/models';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
+
+// Features & Shared
+import { useUser } from '@renderer/features/auth';
+import { AnimatedPage } from '@renderer/features/layout';
+import { useOnboarding } from '@renderer/features/onboarding';
+
+// Layout & Pages
 import MainLayout from '@renderer/MainLayout';
 import LoginPage from '@pages/login/page';
 import DashboardPage from '@pages/dashboard/page';
@@ -9,113 +15,46 @@ import PosPage from '@pages/pos/page';
 import ReportsPage from '@pages/reports/page';
 import SettingsPage from '@pages/settings/page';
 import OnboardingPage from '@pages/onboarding/page';
-import { UserProvider, useUser } from '@hooks/use-user';
-import { ShiftProvider } from '@hooks/use-shift';
-import { AnimatePresence, motion } from 'framer-motion';
-import { AnimatedPage } from '@components/layout/animated-page';
-import { Toaster } from 'sonner';
-import { useTheme } from '@hooks/use-theme';
 
-function App() {
-  return (
-    <UserProvider>
-      <ShiftProvider>
-        <AppContent />
-        <ToasterWithTheme />
-      </ShiftProvider>
-    </UserProvider>
-  );
-}
-
-function ToasterWithTheme() {
-  const { theme } = useTheme();
-  return <Toaster position="top-center" richColors theme={theme === 'dark' ? 'dark' : 'light'} />;
-}
-
-function AppContent() {
+export default function App() {
   const { user, setUser } = useUser();
+  const { onboardingCompleted, completeOnboarding } = useOnboarding();
   const location = useLocation();
-  const navigate = useNavigate();
-  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
-
-  // Check onboarding status on initial app load
-  useEffect(() => {
-    const checkOnboarding = async () => {
-      try {
-        if (!window.ipcRenderer) {
-          console.error('ipcRenderer is not available');
-          setOnboardingCompleted(false);
-          return;
-        }
-
-        const result = await window.ipcRenderer.invoke('onboarding:check') as {
-          success: boolean;
-          completed: boolean
-        };
-
-        if (result.success) {
-          setOnboardingCompleted(result.completed);
-
-          if (!result.completed && location.pathname !== '/onboarding') {
-            setTimeout(() => {
-              navigate('/onboarding', { replace: true });
-            }, 1500);
-          }
-        }
-      } catch (error) {
-        console.error('Error checking onboarding:', error);
-        setOnboardingCompleted(false);
-      }
-    };
-
-    checkOnboarding();
-  }, []); // Only run once on mount
-
-  const handleOnboardingComplete = () => {
-    setOnboardingCompleted(true);
-    navigate('/login', { replace: true });
-  };
-
-  const handleLogin = (data: User) => {
-    setUser(data);
-  };
-
-  const ProtectedRoutes = () => (
-    user ? <MainLayout /> : <Navigate to="/login" />
-  );
 
   // Show loading while checking onboarding status
   if (onboardingCompleted === null) {
     return (
-      <motion.div
-        className="min-h-screen flex items-center justify-center"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
-      >
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Cargando...</p>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route path="/onboarding" element={<OnboardingPage onComplete={handleOnboardingComplete} />} />
+        {/* Public Routes */}
+        <Route 
+          path="/onboarding" 
+          element={<OnboardingPage onComplete={completeOnboarding} />} 
+        />
+        
         <Route
           path="/login"
           element={
             onboardingCompleted ? (
-              <LoginPage onLogin={handleLogin} />
+              <LoginPage onLogin={setUser} />
             ) : (
               <Navigate to="/onboarding" />
             )
           }
         />
-        <Route element={<ProtectedRoutes />}>
+
+        {/* Protected Routes */}
+        <Route element={user ? <MainLayout /> : <Navigate to="/login" />}>
           <Route path="dashboard" element={<AnimatedPage><DashboardPage /></AnimatedPage>} />
           <Route path="inventory" element={<AnimatedPage><InventoryPage /></AnimatedPage>} />
           <Route path="pos" element={<AnimatedPage><PosPage /></AnimatedPage>} />
@@ -123,15 +62,13 @@ function AppContent() {
           <Route path="settings" element={<AnimatedPage><SettingsPage /></AnimatedPage>} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Route>
+
+        {/* Redirects */}
         <Route
           path="*"
-          element={
-            <Navigate to={onboardingCompleted ? "/login" : "/onboarding"} />
-          }
+          element={<Navigate to={onboardingCompleted ? "/login" : "/onboarding"} />}
         />
       </Routes>
     </AnimatePresence>
   );
 }
-
-export default App;

@@ -1,4 +1,4 @@
-import { SettingsInterface } from "@components/settings/settings-interface"
+import { SettingsInterface } from "@renderer/features/settings"
 
 export default function SettingsPage() {
   return <SettingsInterface />

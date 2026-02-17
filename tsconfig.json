@@ -27,9 +27,9 @@
       "@renderer/*": ["src/renderer/*"],
       "@main/*": ["src/main/*"],
       "@shared/*": ["src/shared/*"],
-      "@components/*": ["./src/renderer/components/*"],
-      "@hooks/*": ["./src/renderer/hooks/*"],
-      "@lib/*": ["./src/renderer/lib/*"],
+      "@components/*": ["./src/renderer/shared/components/*"],
+      "@hooks/*": ["./src/renderer/shared/hooks/*"],
+      "@lib/*": ["./src/renderer/shared/lib/*"],
       "@pages/*": ["./src/renderer/pages/*"]
     }
   },

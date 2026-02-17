@@ -1,4 +1,4 @@
-import { POSInterface } from "@components/pos/pos-interface"
+import { POSInterface } from "@renderer/features/pos"
 
 export default function POSPage() {
   return <POSInterface />

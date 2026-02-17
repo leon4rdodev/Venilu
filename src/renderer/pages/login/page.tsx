@@ -7,7 +7,7 @@ import { Button } from "@components/ui/button"
 import { Smartphone, LogIn } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { ipc } from '@lib/ipc';
-import { AnimatedPage } from "@components/layout/animated-page";
+import { AnimatedPage } from "@renderer/features/layout";
 
 export default function LoginPage({ onLogin }: { onLogin: (data: User) => void }) {
   const navigate = useNavigate();

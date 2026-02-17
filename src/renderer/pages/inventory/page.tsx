@@ -1,4 +1,4 @@
-import { InventoryTable } from "@components/inventory/inventory-table"
+import { InventoryTable } from "@renderer/features/inventory"
 import { motion } from "framer-motion"
 
 export default function InventoryPage() {

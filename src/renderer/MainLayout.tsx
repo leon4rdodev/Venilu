@@ -1,20 +1,18 @@
-import { Sidebar } from "@components/layout/sidebar"
-import { Header } from "@components/layout/header"
-import { useSidebar } from "@hooks/use-sidebar"
-import { cn } from "@lib/utils"
-import { useUser } from "@hooks/use-user"
+import { Sidebar, Header, useSidebar } from "@renderer/features/layout"
+import { useUser } from "@renderer/features/auth"
+import { useShift, OpenShiftDialog } from "@renderer/features/pos"
+import { Spinner } from "@components/ui/spinner"
 import { Outlet, useLocation, Navigate } from "react-router-dom"
-import { useShift } from "./hooks/use-shift"
-import { OpenShiftDialog } from "./components/pos/open-shift-dialog"
-import { Spinner } from "./components/ui/spinner"
+import { cn } from "@lib/utils"
 
 export default function MainLayout() {
   const { collapsed } = useSidebar()
   const { user } = useUser();
-  const name = user?.name || null;
-  const role = user?.role || null;
   const { activeShift, isLoading: isShiftLoading } = useShift();
   const location = useLocation();
+
+  const role = user?.role || null;
+  const name = user?.name || null;
 
   if (isShiftLoading) {
     return (
@@ -24,11 +22,12 @@ export default function MainLayout() {
     );
   }
 
+  // Business logic: Ensure shift is open for non-admins
   if (!activeShift && role !== 'admin') {
     return <OpenShiftDialog isOpen={true} />;
   }
 
-  // Redirect vendedor to POS if they are not on the POS page
+  // Business logic: Employee restriction to POS
   if (role === 'employee' && location.pathname !== '/pos') {
     return <Navigate to="/pos" replace />;
   }
@@ -36,8 +35,13 @@ export default function MainLayout() {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar userRole={role} />
-      <div className={cn("flex-1 flex flex-col transition-all duration-200 ease-in-out", collapsed ? "ml-16" : "ml-64")}>
+      
+      <div className={cn(
+        "flex-1 flex flex-col transition-all duration-200 ease-in-out", 
+        collapsed ? "ml-16" : "ml-64"
+      )}>
         <Header userName={name} userRole={role} />
+        
         <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background p-6">
           <Outlet />
         </main>
