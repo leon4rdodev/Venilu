@@ -1,8 +1,7 @@
 import { AppDataSource } from "@main/config/data-source";
 import { Category as CategoryEntity } from "@main/modules/categories/entities/category.entity";
 import { Product as ProductEntity } from "@main/modules/products/entities/product.entity";
-import { Repository, Like, Not } from "typeorm";
-import { Category as SharedCategory } from "@shared/types/models";
+import { Repository } from "typeorm";
 
 export class CategoriesService {
     private categoryRepository: Repository<CategoryEntity>;
@@ -40,11 +39,7 @@ export class CategoriesService {
 
         // Case-insensitive check (SQLite is case-insensitive by default in LIKE but let's be explicit if needed or rely on collation)
         // In TypeORM with SQLite, simple findOne might be adventurous with case, but let's use a standard simplified approach first.
-        const existing = await this.categoryRepository.findOne({
-            where: { name: trimmedName } // strict equality matches the original 'LOWER(name) = LOWER(?)' intent roughly if we added a check, but for now exact match + maybe loop check?
-            // To do proper case insensitive check in TypeORM:
-            // where: { name: Raw(alias => `LOWER(${alias}) = LOWER(:value)`, { value: trimmedName }) }
-        });
+        // Case-insensitive duplicate check using LOWER() for SQLite
         
         // For now, let's stick to exact match or handle it via a manual check if needed, but the original used LOWER.
         // Let's implement the LOWER check properly.

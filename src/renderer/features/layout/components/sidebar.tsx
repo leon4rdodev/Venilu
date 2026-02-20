@@ -6,6 +6,7 @@ import {
   ShoppingCart,
   Package,
   BarChart,
+  Users,
   Settings,
   Smartphone,
 } from "lucide-react";
@@ -20,6 +21,7 @@ const navItems: NavItem[] = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Inicio" },
   { to: "/pos", icon: ShoppingCart, label: "Punto de Venta" },
   { to: "/inventory", icon: Package, label: "Inventario" },
+  { to: "/customers", icon: Users, label: "Clientes" },
   { to: "/reports", icon: BarChart, label: "Reportes" },
   { to: "/settings", icon: Settings, label: "Ajustes" },
 ];
@@ -31,7 +33,7 @@ export function Sidebar({ userRole }: SidebarProps) {
 
   const visibleNavItems = useMemo(() => {
     if (userRole === 'employee') {
-      return navItems.filter(item => item.to === '/pos');
+      return navItems.filter(item => ['/dashboard', '/pos', '/customers'].includes(item.to));
     }
     return navItems;
   }, [userRole]);

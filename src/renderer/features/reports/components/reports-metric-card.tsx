@@ -22,13 +22,13 @@ export function ReportsMetricCard({
 }: ReportsMetricCardProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
+      transition={{ duration: 0.3, delay: index * 0.05 }}
       className="h-full"
     >
-      <Card className="h-full overflow-hidden border border-border/50 shadow-sm hover:shadow-md transition-all duration-300 bg-card/50 backdrop-blur-sm group flex flex-col justify-between">
-        <CardContent className="p-6">
+      <Card className="h-full overflow-hidden border border-border bg-card shadow-sm hover:shadow-md transition-all duration-300 group flex flex-col justify-between">
+        <CardContent className="p-6 relative">
           <div className="flex items-center justify-between">
             <div className={cn(
               "p-2.5 rounded-xl transition-colors duration-300",

@@ -13,7 +13,14 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUserState] = useState<User | null>(() => {
     try {
       const item = window.localStorage.getItem('user');
-      return item ? JSON.parse(item) : null;
+      if (!item) return null;
+      const parsed = JSON.parse(item);
+      // Validate it's a real User object (not a wrapped IPC response)
+      if (!parsed || typeof parsed.id !== 'string' || parsed.id === '') {
+        window.localStorage.removeItem('user');
+        return null;
+      }
+      return parsed as User;
     } catch (error) {
       console.error("Error reading user from localStorage", error);
       return null;

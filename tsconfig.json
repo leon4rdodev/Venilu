@@ -33,6 +33,6 @@
       "@pages/*": ["./src/renderer/pages/*"]
     }
   },
-  "include": ["src/renderer", "src/main", "src/shared"],
+  "include": ["src/renderer", "src/shared"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

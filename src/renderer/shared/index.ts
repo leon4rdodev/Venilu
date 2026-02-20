@@ -1,1 +1,1 @@
-export * from './components/Providers';
+// Barrel export placeholder - add shared exports here as needed

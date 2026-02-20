@@ -9,6 +9,7 @@ import { Sale } from "@main/modules/sales/entities/sale.entity";
 import { SaleItem } from "@main/modules/sales/entities/sale-item.entity";
 import { Shift } from "@main/modules/shifts/entities/shift.entity";
 import { Setting } from "@main/modules/settings/entities/setting.entity";
+import { Customer } from "@main/modules/customers/entities/customer.entity";
 
 const isDev = process.env.NODE_ENV === 'development';
 const dbPath = path.join(app.getPath('userData'), 'database.sqlite');
@@ -25,7 +26,8 @@ export const AppDataSource = new DataSource({
         Sale,
         SaleItem,
         Shift,
-        Setting
+        Setting,
+        Customer
     ], 
     migrations: [],
     subscribers: [],

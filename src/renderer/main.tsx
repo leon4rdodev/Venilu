@@ -17,6 +17,7 @@ import DashboardPage from '@pages/dashboard/page';
 import InventoryPage from '@pages/inventory/page';
 import PosPage from '@pages/pos/page';
 import ReportsPage from '@pages/reports/page';
+import CustomersPage from '@pages/customers/page';
 import SettingsPage from '@pages/settings/page';
 import OnboardingPage from '@pages/onboarding/page';
 
@@ -75,6 +76,7 @@ function AppRoutes() {
           <Route path="inventory" element={<AnimatedPage><InventoryPage /></AnimatedPage>} />
           <Route path="pos" element={<AnimatedPage><PosPage /></AnimatedPage>} />
           <Route path="reports" element={<AnimatedPage><ReportsPage /></AnimatedPage>} />
+          <Route path="customers" element={<AnimatedPage><CustomersPage /></AnimatedPage>} />
           <Route path="settings" element={<AnimatedPage><SettingsPage /></AnimatedPage>} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Route>

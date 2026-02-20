@@ -1,15 +1,14 @@
 import { Sidebar, Header, useSidebar } from "@renderer/features/layout"
 import { useUser } from "@renderer/features/auth"
-import { useShift, OpenShiftDialog } from "@renderer/features/pos"
+import { useShift } from "@renderer/features/pos"
 import { Spinner } from "@components/ui/spinner"
-import { Outlet, useLocation, Navigate } from "react-router-dom"
+import { Outlet } from "react-router-dom"
 import { cn } from "@lib/utils"
 
 export function MainLayout() {
   const { collapsed } = useSidebar()
   const { user } = useUser();
-  const { activeShift, isLoading: isShiftLoading } = useShift();
-  const location = useLocation();
+  const { isLoading: isShiftLoading } = useShift();
 
   const role = user?.role || null;
   const name = user?.name || null;
@@ -20,16 +19,6 @@ export function MainLayout() {
         <Spinner size="large" />
       </div>
     );
-  }
-
-  // Business logic: Ensure shift is open for non-admins
-  if (!activeShift && role !== 'admin') {
-    return <OpenShiftDialog isOpen={true} />;
-  }
-
-  // Business logic: Employee restriction to POS
-  if (role === 'employee' && location.pathname !== '/pos') {
-    return <Navigate to="/pos" replace />;
   }
 
   return (

@@ -1,21 +1,35 @@
 import { ipcMain } from "electron";
 import { CategoriesService } from "@main/modules/categories/services/categories.service";
+import { requireRole, requireAuth } from "@main/shared/session";
 
 const categoriesService = new CategoriesService();
 
 export function registerCategoriesHandlers() {
+    // Any authenticated user can read categories
     ipcMain.handle('get-categories', async () => {
-        const categories = await categoriesService.findAll();
-        return { success: true, categories };
+        try {
+            requireAuth();
+            const categories = await categoriesService.findAll();
+            return { success: true, categories };
+        } catch (error: any) {
+            return { success: false, message: error.message };
+        }
     });
 
     ipcMain.handle('get-categories-with-count', async () => {
-        const categories = await categoriesService.findAllWithCount();
-        return { success: true, categories };
+        try {
+            requireAuth();
+            const categories = await categoriesService.findAllWithCount();
+            return { success: true, categories };
+        } catch (error: any) {
+            return { success: false, message: error.message };
+        }
     });
 
+    // Admin only
     ipcMain.handle('create-category', async (_event, name) => {
         try {
+            requireRole('admin');
             const category = await categoriesService.create(name);
             return { success: true, category };
         } catch (error: any) {
@@ -23,8 +37,10 @@ export function registerCategoriesHandlers() {
         }
     });
 
+    // Admin only
     ipcMain.handle('update-category', async (_event, { id, name }) => {
         try {
+            requireRole('admin');
             await categoriesService.update(id, name);
             return { success: true, message: 'Category updated successfully' };
         } catch (error: any) {
@@ -32,8 +48,10 @@ export function registerCategoriesHandlers() {
         }
     });
 
+    // Admin only
     ipcMain.handle('delete-category', async (_event, id) => {
         try {
+            requireRole('admin');
             await categoriesService.delete(id);
             return { success: true, message: 'Category deleted successfully' };
         } catch (error: any) {

@@ -1,8 +1,7 @@
 import { AppDataSource } from "@main/config/data-source";
 import { Product as ProductEntity } from "@main/modules/products/entities/product.entity";
 import { SaleItem as SaleItemEntity } from "@main/modules/sales/entities/sale-item.entity";
-import { Repository, Like, Brackets } from "typeorm";
-import { Product as SharedProduct } from "@shared/types/models";
+import { Repository } from "typeorm";
 
 interface ProductQueryOptions {
     page?: number;

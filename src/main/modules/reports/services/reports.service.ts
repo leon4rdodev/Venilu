@@ -55,12 +55,12 @@ export class ReportsService {
             .addSelect("SUM(item.quantity)", "totalItemsSold")
             .getRawOne();
 
-        const totalAmount = Number(result.totalAmount) || 0;
-        const totalCost = Number(result.totalCost) || 0;
+        const totalAmount = Number(result?.totalAmount || 0);
+        const totalCost = Number(result?.totalCost || 0);
         const netProfit = totalAmount - totalCost;
         const averageMargin = totalAmount > 0 ? (netProfit / totalAmount) * 100 : 0;
-        const totalSalesCount = Number(result.totalSalesCount) || 0;
-        const totalItemsSold = Number(result.totalItemsSold) || 0;
+        const totalSalesCount = Number(result?.totalSalesCount || 0);
+        const totalItemsSold = Number(result?.totalItemsSold || 0);
         const averageTicket = totalSalesCount > 0 ? totalAmount / totalSalesCount : 0;
 
         return {

@@ -106,12 +106,12 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
         user,
       })) as {
         success: boolean;
-        shifts?: Shift[];
+        data?: Shift[];
         message?: string;
       };
 
       if (result.success) {
-        setShifts(result.shifts || []);
+        setShifts(result.data || []);
       } else {
         const errorMsg =
           result.message || "Error al cargar el historial de turnos";

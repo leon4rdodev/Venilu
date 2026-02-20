@@ -10,20 +10,28 @@ import { registerSettingsHandlers } from '@main/modules/settings/settings.ipc';
 
 import { registerReportsHandlers } from '@main/modules/reports/reports.ipc';
 import { registerBackupsHandlers } from '@main/modules/backups/backups.ipc';
+import { registerCustomersHandlers } from '@main/modules/customers/customers.ipc';
 import { registerPrinterHandlers } from '@main/shared/ipc/printer.ipc';
+import { registerSessionHandlers } from '@main/shared/session';
 
 // Determine if we are in development mode
 const isDev = process.env.NODE_ENV === 'development';
 
 async function createWindow() {
+    // In dev mode, __dirname is src/main/ so we resolve from project root
+    // In production, __dirname is dist-electron/main/ so ../preload.js works
+    const preloadPath = isDev
+        ? path.join(__dirname, '../../dist-electron/preload.js')
+        : path.join(__dirname, '../preload.js');
+
     const mainWindow = new BrowserWindow({
-        width: 1200,
+        width: 1300,
         height: 800,
         autoHideMenuBar: true,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            preload: path.join(__dirname, '../preload.js'),
+            preload: preloadPath,
         },
     });
 
@@ -41,6 +49,7 @@ async function initialize() {
         console.log('Data Source has been initialized!');
 
         // Register IPC Handlers
+        registerSessionHandlers(); // must be first — sets up session/auth context
         registerUsersHandlers();
         registerProductsHandlers();
         registerCategoriesHandlers();
@@ -49,6 +58,7 @@ async function initialize() {
         registerSettingsHandlers();
         registerReportsHandlers();
         registerBackupsHandlers();
+        registerCustomersHandlers();
         registerPrinterHandlers();
 
         createWindow();
