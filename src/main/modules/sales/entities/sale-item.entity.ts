@@ -1,0 +1,35 @@
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from "typeorm";
+import { Sale } from "@main/modules/sales/entities/sale.entity";
+import { Product } from "@main/modules/products/entities/product.entity";
+
+@Entity("sale_items")
+export class SaleItem {
+    @PrimaryGeneratedColumn("uuid")
+    id!: string;
+
+    @Column()
+    sale_id!: string;
+
+    @ManyToOne(() => Sale, (sale) => sale.items, { onDelete: 'CASCADE' })
+    @JoinColumn({ name: "sale_id" })
+    sale!: Sale;
+
+    @Column()
+    product_id!: string;
+
+    @ManyToOne(() => Product)
+    @JoinColumn({ name: "product_id" })
+    product?: Product;
+
+    @Column({ nullable: true })
+    product_name?: string; // Snapshot of product name at time of sale
+
+    @Column("integer")
+    quantity!: number;
+
+    @Column("decimal", { precision: 10, scale: 2, nullable: true })
+    unit_price?: number; // Snapshot of price
+
+    @Column("decimal", { precision: 10, scale: 2, nullable: true })
+    total_price?: number;
+}

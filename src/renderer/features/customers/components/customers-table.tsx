@@ -1,0 +1,186 @@
+import { useState } from "react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@components/ui/table";
+import { Button } from "@components/ui/button";
+import { Input } from "@components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@components/ui/card";
+import { Plus, Search, Pencil, Trash2, Users, ChevronLeft, ChevronRight, Phone, Mail, MapPin } from "lucide-react";
+import { CustomerDialog } from "./customer-dialog";
+import { CustomersStats } from "./customers-stats";
+import { DeleteConfirmDialog } from "@renderer/shared/components/delete-confirm-dialog";
+import { TableSkeletonRows } from "@renderer/shared/components/table-skeleton";
+import { EmptyStateRow } from "@renderer/shared/components/empty-state";
+import { useCustomers } from "../hooks/use-customers";
+import { Customer } from "@shared/types/models";
+
+export function CustomersTable() {
+  const {
+    loading,
+    searchQuery,
+    setSearchQuery,
+    currentPage,
+    setCurrentPage,
+    filteredCustomers,
+    paginatedCustomers,
+    totalPages,
+    PAGE_SIZE,
+    handleSave,
+    handleDelete,
+  } = useCustomers();
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+
+  const handleAddNew = () => { setEditingCustomer(null); setDialogOpen(true); };
+  const handleEdit = (customer: Customer) => { setEditingCustomer(customer); setDialogOpen(true); };
+  const handleDeleteClick = (customer: Customer) => { setCustomerToDelete(customer); setDeleteDialogOpen(true); };
+
+  const handleSaveCustomer = async (data: Partial<Customer>) => {
+    const success = await handleSave(data, editingCustomer);
+    if (success) setDialogOpen(false);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!customerToDelete) return;
+    const success = await handleDelete(customerToDelete);
+    if (success) setDeleteDialogOpen(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      <CustomersStats />
+
+      <Card className="border-border/50">
+        <CardHeader>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                Lista de Clientes
+              </CardTitle>
+              <CardDescription>
+                {filteredCustomers.length} cliente{filteredCustomers.length !== 1 ? "s" : ""} encontrado
+                {filteredCustomers.length !== 1 ? "s" : ""}
+              </CardDescription>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3 pt-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar clientes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 w-64"
+              />
+            </div>
+            <Button onClick={handleAddNew} size="sm" className="gap-1.5">
+              <Plus className="h-4 w-4" />
+              Nuevo Cliente
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30">
+                  <TableHead className="font-semibold">Nombre</TableHead>
+                  <TableHead className="font-semibold">Teléfono</TableHead>
+                  <TableHead className="font-semibold">Email</TableHead>
+                  <TableHead className="font-semibold">Dirección</TableHead>
+                  <TableHead className="text-right font-semibold">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableSkeletonRows rows={5} cols={5} />
+                ) : paginatedCustomers.length === 0 ? (
+                  <EmptyStateRow
+                    icon={Users}
+                    title={searchQuery ? "No se encontraron clientes" : "No hay clientes registrados"}
+                    description={searchQuery ? "Intenta con otro término de búsqueda" : "Agrega tu primer cliente para comenzar"}
+                    colSpan={5}
+                  />
+                ) : (
+                  paginatedCustomers.map((customer) => (
+                    <TableRow key={customer.id} className="hover:bg-muted/20 transition-colors">
+                      <TableCell className="font-medium">{customer.name}</TableCell>
+                      <TableCell>
+                        {customer.phone ? (
+                          <span className="flex items-center gap-1.5 text-sm">
+                            <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                            {customer.phone}
+                          </span>
+                        ) : <span className="text-muted-foreground/50 text-sm">—</span>}
+                      </TableCell>
+                      <TableCell>
+                        {customer.email ? (
+                          <span className="flex items-center gap-1.5 text-sm">
+                            <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                            {customer.email}
+                          </span>
+                        ) : <span className="text-muted-foreground/50 text-sm">—</span>}
+                      </TableCell>
+                      <TableCell>
+                        {customer.address ? (
+                          <span className="flex items-center gap-1.5 text-sm max-w-[200px] truncate">
+                            <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            {customer.address}
+                          </span>
+                        ) : <span className="text-muted-foreground/50 text-sm">—</span>}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(customer)} title="Editar">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteClick(customer)} title="Eliminar">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-2 py-4">
+              <p className="text-sm text-muted-foreground">
+                Mostrando {((currentPage - 1) * PAGE_SIZE) + 1}–{Math.min(currentPage * PAGE_SIZE, filteredCustomers.length)} de {filteredCustomers.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => p - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm font-medium">{currentPage} / {totalPages}</span>
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => p + 1)}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <CustomerDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        customer={editingCustomer}
+        onSave={handleSaveCustomer}
+      />
+
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Eliminar Cliente"
+        description={<>¿Estás seguro que deseas eliminar a <strong>{customerToDelete?.name}</strong>? Esta acción no se puede deshacer.</>}
+        onConfirm={handleDeleteConfirm}
+      />
+    </div>
+  );
+}

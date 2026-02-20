@@ -1,0 +1,75 @@
+import { Card, CardContent } from "@components/ui/card";
+import { cn } from "@lib/utils";
+import { LucideIcon, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { motion } from "framer-motion";
+
+interface MetricCardProps {
+  title: string;
+  value: string | number;
+  icon: LucideIcon;
+  trend?: "up" | "down" | "neutral";
+  change?: string;
+  description?: string;
+  index?: number;
+}
+
+export function MetricCard({
+  title,
+  value,
+  icon: Icon,
+  trend,
+  change,
+  description,
+  index = 0,
+}: MetricCardProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: index * 0.05 }}
+    >
+      <Card className="overflow-hidden border border-border bg-card shadow-sm hover:shadow-md transition-all duration-300 group">
+        <CardContent className="p-6 relative">
+          <div className="flex items-center justify-between">
+            <div className={cn(
+              "p-2.5 rounded-xl transition-colors duration-300",
+              "bg-primary/5 text-primary group-hover:bg-primary/10"
+            )}>
+              <Icon className="h-5 w-5" />
+            </div>
+            {change && (
+              <div className={cn(
+                "flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full border",
+                trend === "up" 
+                  ? "bg-green-500/10 text-green-600 border-green-200/50 dark:border-green-900/50" 
+                  : trend === "down"
+                  ? "bg-red-500/10 text-red-600 border-red-200/50 dark:border-red-900/50"
+                  : "bg-muted text-muted-foreground border-border/50"
+              )}>
+                {trend === "up" && <TrendingUp className="h-3 w-3" />}
+                {trend === "down" && <TrendingDown className="h-3 w-3" />}
+                {trend === "neutral" && <Minus className="h-3 w-3" />}
+                <span>{change}</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="mt-4">
+            <h3 className="text-3xl font-bold tracking-tight text-foreground truncate" title={String(value)}>{value}</h3>
+            <div className="flex items-center justify-between mt-1">
+              <p className="text-sm font-medium text-muted-foreground truncate" title={title}>{title}</p>
+              {description && (
+                <span className="text-xs text-muted-foreground/80">{description}</span>
+              )}
+            </div>
+          </div>
+          
+          {/* Subtle background decoration */}
+          <div className="absolute -right-4 -bottom-4 opacity-[0.03] pointer-events-none">
+            <Icon className="h-24 w-24" />
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}

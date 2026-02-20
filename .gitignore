@@ -13,6 +13,7 @@
 /dist
 /release
 /build
+/dist-electron
 
 # local development & temporary files
 .env
