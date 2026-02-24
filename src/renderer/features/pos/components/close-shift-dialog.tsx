@@ -142,17 +142,17 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
                 <TrendingUp className="h-3 w-3" />
                 Resumen de Ventas
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center p-3 rounded-md bg-background/50 border">
-                  <p className="text-2xl font-bold">{totalTransactions}</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="text-center p-2.5 rounded-md bg-background/50 border min-w-0">
+                  <p className="text-2xl font-bold tabular-nums">{totalTransactions}</p>
                   <p className="text-[11px] text-muted-foreground mt-1">Transacciones</p>
                 </div>
-                <div className="text-center p-3 rounded-md bg-background/50 border">
-                  <p className="text-xl font-bold">{formatCurrency(totalSales)}</p>
+                <div className="text-center p-2.5 rounded-md bg-background/50 border min-w-0">
+                  <p className="text-sm font-bold tabular-nums truncate" title={formatCurrency(totalSales)}>{formatCurrency(totalSales)}</p>
                   <p className="text-[11px] text-muted-foreground mt-1">Ventas Totales</p>
                 </div>
-                <div className="text-center p-3 rounded-md bg-background/50 border">
-                  <p className="text-xl font-bold">{formatCurrency(totalTransactions > 0 ? totalSales / totalTransactions : 0)}</p>
+                <div className="text-center p-2.5 rounded-md bg-background/50 border min-w-0">
+                  <p className="text-sm font-bold tabular-nums truncate" title={formatCurrency(totalTransactions > 0 ? totalSales / totalTransactions : 0)}>{formatCurrency(totalTransactions > 0 ? totalSales / totalTransactions : 0)}</p>
                   <p className="text-[11px] text-muted-foreground mt-1">Ticket Promedio</p>
                 </div>
               </div>
@@ -160,19 +160,19 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
 
             {/* Payment Breakdown */}
             <div className="p-4 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-sm shrink-0">
                   <Banknote className="h-4 w-4 text-green-600 dark:text-green-400" />
                   <span>Efectivo</span>
                 </div>
-                <span className="text-sm font-semibold">{formatCurrency(cashSalesTotal)}</span>
+                <span className="text-sm font-semibold tabular-nums truncate" title={formatCurrency(cashSalesTotal)}>{formatCurrency(cashSalesTotal)}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-sm shrink-0">
                   <CreditCard className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   <span>Tarjeta / Otros</span>
                 </div>
-                <span className="text-sm font-semibold">{formatCurrency(otherSalesTotal)}</span>
+                <span className="text-sm font-semibold tabular-nums truncate" title={formatCurrency(otherSalesTotal)}>{formatCurrency(otherSalesTotal)}</span>
               </div>
             </div>
           </div>
@@ -186,17 +186,17 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
           </div>
 
           <div className="rounded-lg border divide-y text-sm">
-            <div className="flex items-center justify-between px-3.5 py-2.5">
-              <span className="text-sm text-muted-foreground">Fondo inicial</span>
-              <span className="text-sm font-medium">{formatCurrency(initialCash)}</span>
+            <div className="flex items-center justify-between gap-2 px-3.5 py-2.5">
+              <span className="text-sm text-muted-foreground shrink-0">Fondo inicial</span>
+              <span className="text-sm font-medium tabular-nums truncate">{formatCurrency(initialCash)}</span>
             </div>
-            <div className="flex items-center justify-between px-3.5 py-2.5">
-              <span className="text-sm text-muted-foreground">+ Ventas en efectivo</span>
-              <span className="text-sm font-medium text-green-700 dark:text-green-400">+{formatCurrency(cashSalesTotal)}</span>
+            <div className="flex items-center justify-between gap-2 px-3.5 py-2.5">
+              <span className="text-sm text-muted-foreground shrink-0">+ Ventas en efectivo</span>
+              <span className="text-sm font-medium tabular-nums truncate text-green-700 dark:text-green-400">+{formatCurrency(cashSalesTotal)}</span>
             </div>
-            <div className="flex items-center justify-between px-3.5 py-2.5 bg-muted/40">
-              <span className="text-sm font-semibold">Efectivo esperado</span>
-              <span className="text-base font-bold">{formatCurrency(expectedCash)}</span>
+            <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 bg-muted/40">
+              <span className="text-sm font-semibold shrink-0">Efectivo esperado</span>
+              <span className="text-sm font-bold tabular-nums truncate">{formatCurrency(expectedCash)}</span>
             </div>
           </div>
         </div>
@@ -266,7 +266,7 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
                 </div>
               </div>
               <span className={cn(
-                "text-lg font-bold",
+                "text-sm font-bold tabular-nums shrink-0",
                 difference === 0 ? "text-green-700 dark:text-green-400"
                   : difference < 0 ? "text-red-700 dark:text-red-400"
                     : "text-amber-700 dark:text-amber-400"
