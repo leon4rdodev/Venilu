@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { toast } from "sonner";
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
@@ -9,7 +9,7 @@ export function useLogoUpload(initialFileName: string | null = null) {
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const loadLogo = async (fileName: string) => {
+  const loadLogo = useCallback(async (fileName: string) => {
     try {
       if (!window.ipcRenderer) return;
       const result = (await window.ipcRenderer.invoke("get-logo", { fileName })) as {
@@ -22,9 +22,9 @@ export function useLogoUpload(initialFileName: string | null = null) {
     } catch (error) {
       console.error("Error loading logo:", error);
     }
-  };
+  }, []);
 
-  const handleLogoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -64,9 +64,9 @@ export function useLogoUpload(initialFileName: string | null = null) {
     } finally {
       setIsUploadingLogo(false);
     }
-  };
+  }, []);
 
-  const handleRemoveLogo = async () => {
+  const handleRemoveLogo = useCallback(async () => {
     if (!logoFile) return;
     try {
       if (!window.ipcRenderer) return;
@@ -78,7 +78,7 @@ export function useLogoUpload(initialFileName: string | null = null) {
       console.error("Error removing logo:", error);
       toast.error("Error al eliminar logo");
     }
-  };
+  }, [logoFile]);
 
   return {
     logoPreview,
