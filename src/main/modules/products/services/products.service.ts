@@ -105,6 +105,12 @@ export class ProductsService {
     async create(productData: Partial<ProductEntity>): Promise<ProductEntity> {
         // Ensure we don't save with an empty or provided ID so DB generates a UUID
         const { id, category, ...data } = productData as any;
+        
+        // Convert empty string category_id to null to satisfy foreign key constraint
+        if (data.category_id === "") {
+            data.category_id = null;
+        }
+
         const product = this.productRepository.create(data as Partial<ProductEntity>);
         return this.productRepository.save(product);
     }
@@ -123,6 +129,11 @@ export class ProductsService {
         
         // Remove properties that shouldn't be in a partial update
         const { category, id: _id, created_at, updated_at, ...dataToUpdate } = productData as any;
+        
+        // Convert empty string category_id to null to satisfy foreign key constraint
+        if (dataToUpdate.category_id === "") {
+            dataToUpdate.category_id = null;
+        }
         
         // Use object criteria { id } to allow even empty strings as IDs in SQLite
         await this.productRepository.update({ id: id }, dataToUpdate);

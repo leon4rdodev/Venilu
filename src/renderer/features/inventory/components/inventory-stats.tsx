@@ -24,11 +24,11 @@ export function InventoryStats() {
     try {
       const result = await ipc.invoke('get-inventory-stats') as {
         success: boolean
-        stats?: InventoryStatsData
+        data?: InventoryStatsData
         message?: string
       }
-      if (result.success && result.stats) {
-        setStatsData(result.stats)
+      if (result.success && result.data) {
+        setStatsData(result.data)
       }
     } catch (error) {
       console.error('Error fetching inventory stats:', error)

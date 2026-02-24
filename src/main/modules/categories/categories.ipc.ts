@@ -10,7 +10,7 @@ export function registerCategoriesHandlers() {
         try {
             requireAuth();
             const categories = await categoriesService.findAll();
-            return { success: true, categories };
+            return { success: true, data: categories };
         } catch (error: any) {
             return { success: false, message: error.message };
         }
@@ -20,7 +20,7 @@ export function registerCategoriesHandlers() {
         try {
             requireAuth();
             const categories = await categoriesService.findAllWithCount();
-            return { success: true, categories };
+            return { success: true, data: categories };
         } catch (error: any) {
             return { success: false, message: error.message };
         }
@@ -31,7 +31,7 @@ export function registerCategoriesHandlers() {
         try {
             requireRole('admin');
             const category = await categoriesService.create(name);
-            return { success: true, category };
+            return { success: true, data: category };
         } catch (error: any) {
             return { success: false, message: error.message };
         }

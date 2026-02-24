@@ -17,7 +17,7 @@ export function registerSalesHandlers() {
     ipcMain.handle('get-sales', async () => {
         try {
             const sales = await salesService.getSales();
-            return { success: true, sales };
+            return { success: true, data: sales };
         } catch (error: any) {
             return { success: false, message: error.message };
         }
@@ -26,7 +26,7 @@ export function registerSalesHandlers() {
     ipcMain.handle('get-recent-sales', async (_event, limit) => {
         try {
             const sales = await salesService.getRecentSales(limit);
-            return { success: true, sales };
+            return { success: true, data: sales };
         } catch (error: any) {
             return { success: false, message: error.message };
         }
@@ -35,7 +35,7 @@ export function registerSalesHandlers() {
     ipcMain.handle('get-sale-items', async (_event, saleId) => {
         try {
             const items = await salesService.getSaleItems(saleId);
-            return { success: true, items };
+            return { success: true, data: items };
         } catch (error: any) {
             return { success: false, message: error.message };
         }

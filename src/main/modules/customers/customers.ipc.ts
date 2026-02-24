@@ -10,7 +10,7 @@ export function registerCustomersHandlers() {
         try {
             requireAuth();
             const customers = await customersService.findAll();
-            return { success: true, customers };
+            return { success: true, data: customers };
         } catch (error: any) {
             return { success: false, message: error.message };
         }
@@ -20,7 +20,7 @@ export function registerCustomersHandlers() {
         try {
             requireAuth();
             const customers = await customersService.search(query);
-            return { success: true, customers };
+            return { success: true, data: customers };
         } catch (error: any) {
             return { success: false, message: error.message };
         }
@@ -31,7 +31,7 @@ export function registerCustomersHandlers() {
         try {
             requireAuth();
             const customer = await customersService.create(customerData);
-            return { success: true, customer };
+            return { success: true, data: customer };
         } catch (error: any) {
             return { success: false, message: error.message };
         }
@@ -62,7 +62,7 @@ export function registerCustomersHandlers() {
         try {
             requireAuth();
             const stats = await customersService.getStats();
-            return { success: true, stats };
+            return { success: true, data: stats };
         } catch (error: any) {
             return { success: false, message: error.message };
         }

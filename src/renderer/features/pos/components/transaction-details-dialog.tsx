@@ -63,12 +63,12 @@ export function TransactionDetailsDialog({
 
       const result = await window.ipcRenderer.invoke('get-sale-items', transaction.id) as {
         success: boolean;
-        items?: SaleItem[];
+        data?: SaleItem[];
         message?: string;
       };
 
       if (result.success) {
-        setSaleItems(result.items || []);
+        setSaleItems(result.data || []);
       } else {
         setSaleItems([]);
       }

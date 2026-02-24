@@ -14,7 +14,7 @@ import { User } from '@shared/types/models';
 
 interface UsersResponse {
   success: boolean;
-  users: User[];
+  data?: User[];
 }
 
 export function UserSettings() {
@@ -27,8 +27,8 @@ export function UserSettings() {
 
   const fetchUsers = useCallback(async () => {
     const result = await ipc.invoke('get-users') as UsersResponse;
-    if (result.success) {
-      const mappedUsers = result.users.map((u: any) => ({
+    if (result.success && result.data) {
+      const mappedUsers = result.data.map((u: any) => ({
         ...u,
         created_at: u.created_at || new Date(),
         updated_at: u.updated_at || new Date()

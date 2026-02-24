@@ -22,11 +22,11 @@ export function CustomersStats() {
     try {
       const result = await ipc.invoke('get-customer-stats') as {
         success: boolean
-        stats?: CustomerStatsData
+        data?: CustomerStatsData
         message?: string
       }
-      if (result.success && result.stats) {
-        setStatsData(result.stats)
+      if (result.success && result.data) {
+        setStatsData(result.data)
       }
     } catch (error) {
       console.error('Error fetching customer stats:', error)

@@ -57,14 +57,13 @@ export function useProducts() {
           sortOrder: "ASC",
         })) as {
           success: boolean;
-          products?: Product[];
-          pagination?: PaginationData;
+          data?: { products: Product[]; pagination: PaginationData };
           message?: string;
         };
 
-        if (result.success && result.products && result.pagination) {
-          setProducts(result.products);
-          setPagination(result.pagination);
+        if (result.success && result.data) {
+          setProducts(result.data.products);
+          setPagination(result.data.pagination);
         } else {
           setError(result.message || "Error al cargar productos");
           toast.error("Error al cargar productos", { description: result.message });
