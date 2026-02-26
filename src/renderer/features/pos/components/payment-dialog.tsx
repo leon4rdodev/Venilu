@@ -11,11 +11,13 @@ import { PaymentMethod } from "@shared/types/models"
 type PaymentDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
+  subtotal: number
+  discountAmount: number
   total: number
   onComplete: (paymentMethod: PaymentMethod, amountPaid: number, changeGiven: number) => Promise<{ success: boolean, saleId?: string, message?: string }>
 }
 
-export function PaymentDialog({ open, onOpenChange, total, onComplete }: PaymentDialogProps) {
+export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, total, onComplete }: PaymentDialogProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash")
   const [amountReceived, setAmountReceived] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
@@ -140,8 +142,20 @@ export function PaymentDialog({ open, onOpenChange, total, onComplete }: Payment
               </p>
             </div>
 
-            {/* Total */}
-            <div className="px-5 pt-4 pb-3">
+            {/* Total Section */}
+            <div className="px-5 pt-4 pb-3 space-y-2">
+              {discountAmount > 0 && (
+                <>
+                  <div className="flex items-baseline justify-between px-3.5 py-1.5 rounded-lg bg-muted/20 border-transparent">
+                    <span className="text-sm text-muted-foreground">Subtotal</span>
+                    <span className="text-sm font-medium tabular-nums">{formatCurrency(subtotal)}</span>
+                  </div>
+                  <div className="flex items-baseline justify-between px-3.5 py-1.5 rounded-lg bg-red-500/5 border border-red-500/10">
+                    <span className="text-sm text-red-600 dark:text-red-400">Descuento</span>
+                    <span className="text-sm font-medium text-red-600 dark:text-red-400 tabular-nums">-{formatCurrency(discountAmount)}</span>
+                  </div>
+                </>
+              )}
               <div className="flex items-baseline justify-between px-3.5 py-2.5 rounded-lg bg-muted/40 border">
                 <span className="text-sm text-muted-foreground">Total a cobrar</span>
                 <span className="text-2xl font-bold tracking-tight tabular-nums">{formatCurrency(total)}</span>
@@ -287,6 +301,22 @@ export function PaymentDialog({ open, onOpenChange, total, onComplete }: Payment
                       <span className="text-muted-foreground">Venta #</span>
                       <span className="font-bold tabular-nums">{saleId}</span>
                     </div>
+                  )}
+                  {discountAmount > 0 && (
+                     <>
+                        <div className="flex items-center justify-between px-3.5 py-2.5">
+                          <span className="text-muted-foreground">Subtotal</span>
+                          <span className="font-medium tabular-nums">
+                            {formatCurrency(subtotal)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between px-3.5 py-2.5 bg-red-500/5">
+                          <span className="text-red-600 dark:text-red-400">Descuento</span>
+                          <span className="font-medium text-red-600 dark:text-red-400 tabular-nums">
+                            -{formatCurrency(discountAmount)}
+                          </span>
+                        </div>
+                     </>
                   )}
                   <div className="flex items-center justify-between px-3.5 py-2.5">
                     <span className="text-muted-foreground">Total</span>

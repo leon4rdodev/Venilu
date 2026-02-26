@@ -13,6 +13,8 @@ interface Sale {
   total_amount: number;
   payment_method: string;
   sale_date: string;
+  subtotal?: number;
+  discount_amount?: number;
   amount_paid?: number;
   change_given?: number;
 }
@@ -129,8 +131,20 @@ export function TransactionDetailsDialog({
           {/* Payment Summary */}
           <div className="px-5 pt-4 pb-3">
             <div className="rounded-lg border divide-y text-sm">
-              <div className="flex items-center justify-between px-3.5 py-2.5">
-                <span className="text-muted-foreground">Total</span>
+              {(transaction.discount_amount ?? 0) > 0 && (
+                 <>
+                    <div className="flex items-center justify-between px-3.5 py-2.5">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className="font-medium tabular-nums">{formatCurrency(transaction.subtotal || transaction.total_amount)}</span>
+                    </div>
+                    <div className="flex items-center justify-between px-3.5 py-2.5 bg-red-500/5">
+                      <span className="text-red-600 dark:text-red-400">Descuento</span>
+                      <span className="font-medium text-red-600 dark:text-red-400 tabular-nums">-{formatCurrency(transaction.discount_amount || 0)}</span>
+                    </div>
+                 </>
+              )}
+              <div className="flex items-center justify-between px-3.5 py-2.5 bg-muted/20">
+                <span className="text-muted-foreground font-medium">Total</span>
                 <span className="text-lg font-bold tabular-nums">{formatCurrency(transaction.total_amount)}</span>
               </div>
               <div className="flex items-center justify-between px-3.5 py-2.5">

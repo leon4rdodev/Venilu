@@ -31,6 +31,8 @@ interface Sale {
   total_amount: number;
   payment_method: string;
   sale_date: string;
+  subtotal?: number;
+  discount_amount?: number;
   amount_paid?: number;
   change_given?: number;
 }

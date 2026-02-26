@@ -60,6 +60,8 @@ export class PrinterService {
             saleId,
             saleDate,
             items,
+            subtotal,
+            discountAmount,
             total,
             paymentMethod,
             amountPaid,
@@ -262,6 +264,16 @@ export class PrinterService {
     </table>
 
     <div class="totals-section">
+        ${discountAmount > 0 ? `
+        <div class="total-row">
+            <span>Subtotal</span>
+            <span>${formatCurrency(subtotal)}</span>
+        </div>
+        <div class="total-row" style="color: #666;">
+            <span>Descuento</span>
+            <span>-${formatCurrency(discountAmount)}</span>
+        </div>
+        ` : ''}
         <div class="total-row final">
             <span>TOTAL</span>
             <span>${formatCurrency(total)}</span>
@@ -312,7 +324,8 @@ export class PrinterService {
             saleId: sale.id,
             saleDate: sale.created_at,
             items: items,
-            subtotal: sale.total_amount,
+            subtotal: sale.subtotal || sale.total_amount,
+            discountAmount: sale.discount_amount || 0,
             total: sale.total_amount,
             paymentMethod: sale.payment_method,
             amountPaid: sale.amount_paid,

@@ -6,6 +6,7 @@ import { useShift } from "./use-shift";
 
 export function useCart() {
   const [cart, setCart] = useState<CartItemType[]>([]);
+  const [discountAmount, setDiscountAmount] = useState<number>(0);
   const { toast } = useToast();
   const { activeShift, addSaleToShift } = useShift();
 
@@ -84,6 +85,7 @@ export function useCart() {
 
   const clearCart = useCallback(() => {
     setCart([]);
+    setDiscountAmount(0);
   }, []);
 
   const handleProcessSale = useCallback(
@@ -102,7 +104,9 @@ export function useCart() {
         return { success: false, message: "No active shift." };
       }
 
-      const totalAmount = cart.reduce((sum, item) => sum + item.sale_price * item.quantity, 0);
+      const subtotal = cart.reduce((sum, item) => sum + item.sale_price * item.quantity, 0);
+      const totalAmount = Math.max(0, subtotal - discountAmount);
+      
       const saleItems = cart.map((item) => ({
         product_id: item.id,
         quantity: item.quantity,
@@ -112,6 +116,8 @@ export function useCart() {
       const saleData = {
         user_id: activeShift.user_id,
         shift_id: activeShift.id,
+        subtotal: subtotal,
+        discount_amount: discountAmount,
         total_amount: totalAmount,
         payment_method: paymentMethod,
         amount_paid: amountPaid,
@@ -142,7 +148,7 @@ export function useCart() {
         return { success: false, message: error.message || "Ocurrió un error inesperado." };
       }
     },
-    [activeShift, cart, toast, addSaleToShift, clearCart]
+    [activeShift, cart, discountAmount, toast, addSaleToShift, clearCart]
   );
 
   return {
@@ -152,5 +158,7 @@ export function useCart() {
     removeFromCart,
     clearCart,
     handleProcessSale,
+    discountAmount,
+    setDiscountAmount,
   };
 }
