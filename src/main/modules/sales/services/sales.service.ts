@@ -10,6 +10,8 @@ interface ProcessSaleData {
     user_id: string;
     shift_id: string;
     payment_method: 'cash' | 'card' | 'transfer';
+    subtotal?: number;
+    discount_amount?: number;
     total_amount?: number; // Optional as we can calculate it
 }
 
@@ -51,7 +53,7 @@ export class SalesService {
         }
 
         return await this.dataSource.transaction(async (transactionalEntityManager) => {
-            let totalAmount = 0;
+            let calculatedSubtotal = 0;
             const saleItems: SaleItemEntity[] = [];
 
             for (const item of items) {
@@ -77,8 +79,18 @@ export class SalesService {
                 saleItem.total_price = saleItem.quantity * saleItem.unit_price;
 
                 saleItems.push(saleItem);
-                totalAmount += saleItem.total_price;
+                calculatedSubtotal += saleItem.total_price;
             }
+
+            const discountAmount = saleData.discount_amount || 0;
+            if (discountAmount < 0) {
+                throw new Error("Discount amount cannot be negative");
+            }
+            if (discountAmount > calculatedSubtotal) {
+                throw new Error("Discount cannot be greater than the subtotal");
+            }
+
+            const finalTotal = calculatedSubtotal - discountAmount;
 
             // Generate unique short ID
             let saleId = '';
@@ -104,7 +116,9 @@ export class SalesService {
             sale.user_id = saleData.user_id;
             sale.shift_id = saleData.shift_id;
             sale.payment_method = saleData.payment_method;
-            sale.total_amount = totalAmount;
+            sale.subtotal = calculatedSubtotal;
+            sale.discount_amount = discountAmount;
+            sale.total_amount = finalTotal;
             sale.items = saleItems;
 
             const savedSale = await transactionalEntityManager.save(SaleEntity, sale);

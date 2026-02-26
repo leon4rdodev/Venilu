@@ -22,6 +22,12 @@ export class Sale {
     @JoinColumn({ name: "shift_id" })
     shift?: Shift;
 
+    @Column("decimal", { precision: 10, scale: 2, default: 0 })
+    subtotal!: number;
+
+    @Column("decimal", { precision: 10, scale: 2, default: 0 })
+    discount_amount!: number;
+
     @Column("decimal", { precision: 10, scale: 2 })
     total_amount!: number;
 

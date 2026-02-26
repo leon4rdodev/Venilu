@@ -53,6 +53,8 @@ export interface Sale {
     user?: User;
     shift_id: string;
     sale_date: string | Date;
+    subtotal?: number;
+    discount_amount?: number;
     total_amount: number;
     amount_paid?: number;
     change_given?: number;
