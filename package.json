@@ -16,6 +16,7 @@
     "build:react": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "seed": "node -e \"require('tsconfig-paths/register'); require('ts-node').register({ project: 'tsconfig.electron.json', transpileOnly: true }); require('./src/main/seed.ts');\"",
     "electron:dev": "concurrently \"vite\" \"cross-env NODE_ENV=development electron src/main/main-dev.js\"",
     "electron:build": "vite build && tsc -p tsconfig.electron.json && tsc-alias -p tsconfig.electron.json && electron-builder",
     "build:win": "npm run electron:build -- --win",
