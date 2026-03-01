@@ -2,7 +2,7 @@ import { Avatar, AvatarFallback } from "@components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@components/ui/card";
 import { formatCurrency } from "@lib/currency";
 import { formatTime } from "@lib/formatters";
-import { Clock, ShoppingBag } from "lucide-react";
+import { Clock, ShoppingBag, User2 } from "lucide-react";
 import { Sale } from "@shared/types/models";
 
 interface RecentSalesWidgetProps {
@@ -53,11 +53,21 @@ export function RecentSalesWidget({ sales, loading }: RecentSalesWidgetProps) {
                     </AvatarFallback>
                   </Avatar>
                   <div className="space-y-1 min-w-0 flex-1">
-                    <p className="text-sm font-medium leading-none group-hover:text-primary transition-colors truncate" title={`Venta #${sale.id}`}>
-                      Venta #{sale.id}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {formatTime(sale.sale_date)}
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-medium leading-none group-hover:text-primary transition-colors truncate" title={`Venta #${sale.id}`}>
+                        Venta #{sale.id}
+                      </p>
+                      {sale.status === 'credit' && (
+                        <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 uppercase tracking-wider shrink-0">
+                          Fiado
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                      <User2 className="h-3 w-3 shrink-0" />
+                      {sale.customer_name || 'Cliente genérico'}
+                      <span className="mx-0.5">·</span>
+                      {formatTime(sale.sale_date || sale.created_at)}
                     </p>
                   </div>
                 </div>

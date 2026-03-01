@@ -13,6 +13,8 @@ import {
   Receipt,
   TrendingUp,
   Wallet,
+  HandCoins,
+  User2,
 } from "lucide-react";
 import { formatCurrency } from "@lib/currency";
 import { Spinner } from "@components/ui/spinner";
@@ -35,6 +37,8 @@ interface Sale {
   discount_amount?: number;
   amount_paid?: number;
   change_given?: number;
+  customer_name?: string;
+  status?: string;
 }
 
 interface Shift {
@@ -68,6 +72,11 @@ const paymentMethodConfig: Record<
     label: "Transferencia",
     icon: ArrowRightLeft,
     color: "text-purple-600 dark:text-purple-400",
+  },
+  credit: {
+    label: "Fiado",
+    icon: HandCoins,
+    color: "text-amber-600 dark:text-amber-400",
   },
 };
 
@@ -269,6 +278,9 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
             const transferSales = shift.sales
               .filter((s) => s.payment_method === "transfer")
               .reduce((sum, s) => sum + s.total_amount, 0);
+            const creditSales = shift.sales
+              .filter((s) => s.payment_method === "credit")
+              .reduce((sum, s) => sum + s.total_amount, 0);
             const isExpanded = expandedShift === shift.id;
             const isOpen = shift.status === "open";
 
@@ -364,10 +376,21 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                                         <span className="text-sm font-medium">
                                           #{sale.id}
                                         </span>
+                                        {sale.status === 'credit' && (
+                                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                                            Fiado
+                                          </span>
+                                        )}
                                         <span className="text-xs text-muted-foreground truncate">
                                           {formatTime(sale.sale_date)}
                                         </span>
                                       </div>
+                                      {sale.customer_name && (
+                                        <div className="flex items-center gap-1 mt-0.5">
+                                          <User2 className="h-3 w-3 text-muted-foreground" />
+                                          <span className="text-[10px] text-muted-foreground truncate">{sale.customer_name}</span>
+                                        </div>
+                                      )}
                                     </div>
                                     <span className="text-sm font-semibold tabular-nums whitespace-nowrap shrink-0">
                                       {formatCurrency(sale.total_amount)}
@@ -438,6 +461,19 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                                   </div>
                                   <span className="text-sm font-semibold tabular-nums">
                                     {formatCurrency(transferSales)}
+                                  </span>
+                                </div>
+                              )}
+                              {creditSales > 0 && (
+                                <div className="flex items-center justify-between px-3.5 py-2.5">
+                                  <div className="flex items-center gap-2">
+                                    <HandCoins className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                    <span className="text-sm">
+                                      Fiado
+                                    </span>
+                                  </div>
+                                  <span className="text-sm font-semibold tabular-nums">
+                                    {formatCurrency(creditSales)}
                                   </span>
                                 </div>
                               )}

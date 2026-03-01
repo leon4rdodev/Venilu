@@ -1,5 +1,6 @@
 import { ipcMain } from "electron";
 import { SalesService } from "@main/modules/sales/services/sales.service";
+import { requireAuth } from "@main/shared/session";
 
 const salesService = new SalesService();
 
@@ -41,4 +42,25 @@ export function registerSalesHandlers() {
         }
     });
 
+    ipcMain.handle('pay-customer-debt', async (_event, { customerId, amount }) => {
+        try {
+            requireAuth();
+            const result = await salesService.payDebt(customerId, amount);
+            return { success: true, data: result };
+        } catch (error: any) {
+            console.error('Pay Debt Error:', error);
+            return { success: false, message: error.message };
+        }
+    });
+
+    ipcMain.handle('get-customer-sales', async (_event, customerId) => {
+        try {
+            requireAuth();
+            const sales = await salesService.getCustomerSales(customerId);
+            return { success: true, data: sales };
+        } catch (error: any) {
+            return { success: false, message: error.message };
+        }
+    });
 }
+

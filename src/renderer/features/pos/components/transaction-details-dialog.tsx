@@ -3,7 +3,7 @@ import { Dialog, DialogContent } from '@components/ui/dialog';
 import { Button } from '@components/ui/button';
 import { formatCurrency } from '@lib/currency';
 import { formatDateTime } from '@lib/formatters';
-import { Receipt, Banknote, CreditCard, ArrowRightLeft, Printer, ShoppingBag } from 'lucide-react';
+import { Receipt, Banknote, CreditCard, ArrowRightLeft, Printer, ShoppingBag, HandCoins, User2 } from 'lucide-react';
 import { Spinner } from "@components/ui/spinner";
 import { cn } from '@lib/utils';
 import { toast } from 'sonner';
@@ -17,6 +17,8 @@ interface Sale {
   discount_amount?: number;
   amount_paid?: number;
   change_given?: number;
+  customer_name?: string;
+  status?: string;
 }
 
 interface SaleItem {
@@ -35,6 +37,7 @@ const methodConfig: Record<string, { label: string; icon: typeof Banknote; color
   cash: { label: 'Efectivo', icon: Banknote, color: 'text-green-600 dark:text-green-400' },
   card: { label: 'Tarjeta', icon: CreditCard, color: 'text-blue-600 dark:text-blue-400' },
   transfer: { label: 'Transferencia', icon: ArrowRightLeft, color: 'text-purple-600 dark:text-purple-400' },
+  credit: { label: 'Fiado', icon: HandCoins, color: 'text-amber-600 dark:text-amber-400' },
 }
 
 const getConfig = (method: string) => methodConfig[method.toLowerCase()] || { label: method, icon: Receipt, color: 'text-muted-foreground' }
@@ -124,6 +127,11 @@ export function TransactionDetailsDialog({
           <p className="text-sm text-muted-foreground">
             {formatDateTime(transaction.sale_date)}
           </p>
+          {transaction.status === 'credit' && (
+            <span className="inline-flex items-center mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+              Fiado — Pendiente
+            </span>
+          )}
         </div>
 
         {/* Content */}
@@ -171,6 +179,14 @@ export function TransactionDetailsDialog({
                 </>
               )}
             </div>
+            {/* Customer info */}
+            {transaction.customer_name && (
+              <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-muted/20 border mt-2">
+                <User2 className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Cliente:</span>
+                <span className="text-sm font-medium">{transaction.customer_name}</span>
+              </div>
+            )}
           </div>
 
           {/* Products */}

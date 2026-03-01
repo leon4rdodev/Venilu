@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from "typeorm";
+import { Sale } from "@main/modules/sales/entities/sale.entity";
 
 @Entity("customers")
 export class Customer {
@@ -19,6 +20,12 @@ export class Customer {
 
     @Column({ nullable: true })
     notes?: string;
+
+    @Column("decimal", { precision: 10, scale: 2, default: 0 })
+    balance!: number;
+
+    @OneToMany(() => Sale, (sale) => sale.customer)
+    sales?: Sale[];
 
     @CreateDateColumn()
     created_at!: Date;

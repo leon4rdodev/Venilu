@@ -2,6 +2,7 @@ import { Entity, PrimaryColumn, Column, CreateDateColumn, ManyToOne, JoinColumn,
 import { User } from "@main/modules/users/entities/user.entity";
 import { Shift } from "@main/modules/shifts/entities/shift.entity";
 import { SaleItem } from "@main/modules/sales/entities/sale-item.entity";
+import { Customer } from "@main/modules/customers/entities/customer.entity";
 
 @Entity("sales")
 export class Sale {
@@ -22,6 +23,16 @@ export class Sale {
     @JoinColumn({ name: "shift_id" })
     shift?: Shift;
 
+    @Column({ nullable: true })
+    customer_id?: string;
+
+    @ManyToOne(() => Customer, (customer) => customer.sales)
+    @JoinColumn({ name: "customer_id" })
+    customer?: Customer;
+
+    @Column({ nullable: true })
+    customer_name?: string;
+
     @Column("decimal", { precision: 10, scale: 2, default: 0 })
     subtotal!: number;
 
@@ -38,7 +49,10 @@ export class Sale {
     change_given?: number;
 
     @Column()
-    payment_method!: 'cash' | 'card' | 'transfer';
+    payment_method!: 'cash' | 'card' | 'transfer' | 'credit';
+
+    @Column({ default: 'paid' })
+    status!: 'paid' | 'credit' | 'partial';
 
     @CreateDateColumn()
     created_at!: Date;
@@ -46,3 +60,4 @@ export class Sale {
     @OneToMany(() => SaleItem, (item) => item.sale, { cascade: true })
     items!: SaleItem[];
 }
+

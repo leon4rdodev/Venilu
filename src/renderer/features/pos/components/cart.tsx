@@ -6,7 +6,7 @@ import { PaymentDialog } from "./payment-dialog";
 import { formatCurrency } from "@lib/currency";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
-import { PaymentMethod } from "@shared/types/models";
+import { PaymentMethod, Customer } from "@shared/types/models";
 
 interface CartProps {
   cart: CartItemType[];
@@ -15,6 +15,8 @@ interface CartProps {
   onClearCart: () => void;
   discountAmount: number;
   setDiscountAmount: (val: number) => void;
+  selectedCustomer: Customer | null;
+  onSelectCustomer: (customer: Customer | null) => void;
   onProcessSale: (paymentMethod: PaymentMethod, amountPaid: number, changeGiven: number) => Promise<{ success: boolean, saleId?: string, message?: string }>;
 }
 
@@ -25,6 +27,8 @@ export default function Cart({
   onClearCart,
   discountAmount,
   setDiscountAmount,
+  selectedCustomer,
+  onSelectCustomer,
   onProcessSale,
 }: CartProps) {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -99,7 +103,7 @@ export default function Cart({
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground mr-2">Descuento</span>
               <div className="flex items-center gap-1 w-24">
-                <span className="text-muted-foreground text-xs\">RD$</span>
+                <span className="text-muted-foreground text-xs">RD$</span>
                 <Input
                   type="number"
                   min="0"
@@ -151,6 +155,8 @@ export default function Cart({
         subtotal={subtotal}
         discountAmount={discountAmount}
         total={total}
+        selectedCustomer={selectedCustomer}
+        onSelectCustomer={onSelectCustomer}
         onComplete={async (paymentMethod, amountPaid, changeGiven) => {
           const result = await onProcessSale(paymentMethod as PaymentMethod, amountPaid, changeGiven);
           return result;

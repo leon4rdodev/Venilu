@@ -3,33 +3,36 @@ import { Sale as SaleEntity } from "@main/modules/sales/entities/sale.entity";
 import { SaleItem as SaleItemEntity } from "@main/modules/sales/entities/sale-item.entity";
 import { Product as ProductEntity } from "@main/modules/products/entities/product.entity";
 import { Shift as ShiftEntity } from "@main/modules/shifts/entities/shift.entity";
+import { Customer as CustomerEntity } from "@main/modules/customers/entities/customer.entity";
 import { Repository, DataSource } from "typeorm";
-// import { Sale as SharedSale } from "@shared/types/models";
 
 interface ProcessSaleData {
     user_id: string;
     shift_id: string;
-    payment_method: 'cash' | 'card' | 'transfer';
+    payment_method: 'cash' | 'card' | 'transfer' | 'credit';
+    customer_id?: string;
     subtotal?: number;
     discount_amount?: number;
-    total_amount?: number; // Optional as we can calculate it
+    total_amount?: number;
 }
 
 interface SaleItemInput {
     product_id: string;
     quantity: number;
-    unit_price?: number; // Optional, can fetch from DB
+    unit_price?: number;
 }
 
 export class SalesService {
     private saleRepository: Repository<SaleEntity>;
     private shiftRepository: Repository<ShiftEntity>;
+    private customerRepository: Repository<CustomerEntity>;
     private dataSource: DataSource;
 
     constructor() {
         this.dataSource = AppDataSource;
         this.saleRepository = AppDataSource.getRepository(SaleEntity);
         this.shiftRepository = AppDataSource.getRepository(ShiftEntity);
+        this.customerRepository = AppDataSource.getRepository(CustomerEntity);
     }
 
     private generateShortId(length: number = 8): string {
@@ -50,6 +53,20 @@ export class SalesService {
         const shift = await this.shiftRepository.findOneBy({ id: saleData.shift_id });
         if (!shift || shift.status !== 'open') {
             throw new Error("Shift is not open or invalid");
+        }
+
+        // Credit sales require a customer
+        if (saleData.payment_method === 'credit' && !saleData.customer_id) {
+            throw new Error("Las ventas a crédito requieren un cliente seleccionado");
+        }
+
+        // Validate customer if provided
+        let customer: CustomerEntity | null = null;
+        if (saleData.customer_id) {
+            customer = await this.customerRepository.findOneBy({ id: saleData.customer_id });
+            if (!customer) {
+                throw new Error("Cliente no encontrado");
+            }
         }
 
         return await this.dataSource.transaction(async (transactionalEntityManager) => {
@@ -75,7 +92,7 @@ export class SalesService {
                 saleItem.product_id = product.id;
                 saleItem.product_name = product.name;
                 saleItem.quantity = item.quantity;
-                saleItem.unit_price = Number(item.unit_price) || Number(product.sale_price); // Use provided price or current price
+                saleItem.unit_price = Number(item.unit_price) || Number(product.sale_price);
                 saleItem.total_price = saleItem.quantity * saleItem.unit_price;
 
                 saleItems.push(saleItem);
@@ -110,6 +127,10 @@ export class SalesService {
                 throw new Error("Failed to generate a unique sale ID after multiple attempts");
             }
 
+            // Determine sale status
+            const isCredit = saleData.payment_method === 'credit';
+            const status = isCredit ? 'credit' : 'paid';
+
             // Create Sale
             const sale = new SaleEntity();
             sale.id = saleId;
@@ -119,11 +140,67 @@ export class SalesService {
             sale.subtotal = calculatedSubtotal;
             sale.discount_amount = discountAmount;
             sale.total_amount = finalTotal;
+            sale.status = status;
             sale.items = saleItems;
 
+            // Associate customer
+            if (customer) {
+                sale.customer_id = customer.id;
+                sale.customer_name = customer.name;
+            }
+
             const savedSale = await transactionalEntityManager.save(SaleEntity, sale);
+
+            // Update customer balance for credit sales
+            if (isCredit && customer) {
+                customer.balance = Number(customer.balance) + finalTotal;
+                await transactionalEntityManager.save(CustomerEntity, customer);
+            }
             
             return { success: true, saleId: savedSale.id };
+        });
+    }
+
+    async payDebt(customerId: string, amount: number): Promise<{ success: true; newBalance: number }> {
+        if (amount <= 0) {
+            throw new Error("El monto debe ser mayor a 0");
+        }
+
+        const customer = await this.customerRepository.findOneBy({ id: customerId });
+        if (!customer) {
+            throw new Error("Cliente no encontrado");
+        }
+
+        const currentBalance = Number(customer.balance);
+        if (currentBalance <= 0) {
+            throw new Error("Este cliente no tiene deuda pendiente");
+        }
+
+        if (amount > currentBalance) {
+            throw new Error(`El monto excede la deuda pendiente de RD$${currentBalance.toFixed(2)}`);
+        }
+
+        customer.balance = currentBalance - amount;
+        await this.customerRepository.save(customer);
+
+        // If balance reaches 0, mark all credit sales as paid
+        if (customer.balance <= 0) {
+            await this.saleRepository
+                .createQueryBuilder()
+                .update(SaleEntity)
+                .set({ status: 'paid' })
+                .where("customer_id = :customerId AND status = :status", { customerId, status: 'credit' })
+                .execute();
+        }
+
+        return { success: true, newBalance: customer.balance };
+    }
+
+    async getCustomerSales(customerId: string): Promise<SaleEntity[]> {
+        return this.saleRepository.find({
+            where: { customer_id: customerId },
+            order: { created_at: 'DESC' },
+            relations: ['items'],
         });
     }
 
@@ -131,7 +208,7 @@ export class SalesService {
         return this.saleRepository.find({
             order: { created_at: 'DESC' },
             take: limit,
-            relations: ['user', 'items']
+            relations: ['user', 'items', 'customer']
         });
     }
 
@@ -154,7 +231,7 @@ export class SalesService {
     async findOne(id: string): Promise<SaleEntity | null> {
         return this.saleRepository.findOne({
             where: { id },
-            relations: ['items', 'user']
+            relations: ['items', 'user', 'customer']
         });
     }
 
@@ -175,7 +252,7 @@ export class SalesService {
 
         return sale.items.map(item => ({
             ...item,
-            price_at_sale: Number(item.unit_price) || 0 // Map unit_price to price_at_sale for frontend
+            price_at_sale: Number(item.unit_price) || 0
         }));
     }
 }

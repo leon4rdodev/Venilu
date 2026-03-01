@@ -127,5 +127,6 @@ export function useCustomers() {
     PAGE_SIZE,
     handleSave,
     handleDelete,
+    fetchCustomers,
   };
 }
