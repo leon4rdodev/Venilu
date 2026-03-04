@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react"
 import { Package, DollarSign, AlertTriangle, XCircle } from "lucide-react"
 import { formatCurrency } from "@lib/currency"
@@ -13,6 +12,7 @@ interface InventoryStatsData {
 }
 
 export function InventoryStats() {
+  const [isLoading, setIsLoading] = useState(true)
   const [statsData, setStatsData] = useState<InventoryStatsData>({
     totalProducts: 0,
     totalStockValue: 0,
@@ -21,6 +21,7 @@ export function InventoryStats() {
   })
 
   const fetchStats = useCallback(async () => {
+    setIsLoading(true)
     try {
       const result = await ipc.invoke('get-inventory-stats') as {
         success: boolean
@@ -32,6 +33,8 @@ export function InventoryStats() {
       }
     } catch (error) {
       console.error('Error fetching inventory stats:', error)
+    } finally {
+      setIsLoading(false)
     }
   }, [])
 
@@ -74,7 +77,6 @@ export function InventoryStats() {
       title: "Agotados",
       value: statsData.outOfStockProducts,
       icon: XCircle,
-
       trend: statsData.outOfStockProducts > 0 ? "down" : "neutral" as "down" | "neutral" | "up",
       change: statsData.outOfStockProducts > 0 ? "Crítico" : "Óptimo"
     }
@@ -86,6 +88,7 @@ export function InventoryStats() {
         <InventoryMetricCard
           key={index}
           index={index}
+          isLoading={isLoading}
           {...stat}
         />
       ))}

@@ -19,7 +19,7 @@ export function InventoryPagination({
   totalItems,
   onPageChange,
   onPageSizeChange,
-  pageSizeOptions = [25, 50, 100]
+  pageSizeOptions = [10, 25, 50, 100]
 }: InventoryPaginationProps) {
   const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1
   const endItem = Math.min(currentPage * pageSize, totalItems)
@@ -87,24 +87,6 @@ export function InventoryPagination({
         <p className="text-sm text-muted-foreground">
           Mostrando {startItem} - {endItem} de {totalItems} producto{totalItems !== 1 ? 's' : ''}
         </p>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">|</span>
-          <Select
-            value={pageSize.toString()}
-            onValueChange={(value) => onPageSizeChange(parseInt(value))}
-          >
-            <SelectTrigger className="h-8 w-[100px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {pageSizeOptions.map((size) => (
-                <SelectItem key={size} value={size.toString()}>
-                  {size} / página
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
       </div>
 
       <div className="flex items-center gap-1">

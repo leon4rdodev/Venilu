@@ -2,6 +2,7 @@ import { Card, CardContent } from "@components/ui/card";
 import { cn } from "@lib/utils";
 import { LucideIcon, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { motion } from "framer-motion";
+import { Skeleton } from "@renderer/shared/components/ui/skeleton";
 
 interface InventoryMetricCardProps {
   title: string;
@@ -10,6 +11,7 @@ interface InventoryMetricCardProps {
   trend?: "up" | "down" | "neutral";
   change?: string;
   index?: number;
+  isLoading?: boolean;
 }
 
 export function InventoryMetricCard({
@@ -19,6 +21,7 @@ export function InventoryMetricCard({
   trend,
   change,
   index = 0,
+  isLoading,
 }: InventoryMetricCardProps) {
   return (
     <motion.div
@@ -36,7 +39,7 @@ export function InventoryMetricCard({
             )}>
               <Icon className="h-5 w-5" />
             </div>
-            {change && (
+            {change && !isLoading && (
               <div className={cn(
                 "flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full border",
                 trend === "up" 
@@ -51,13 +54,17 @@ export function InventoryMetricCard({
                 <span>{change}</span>
               </div>
             )}
+            {isLoading && <Skeleton className="h-6 w-16 rounded-full" />}
           </div>
           
           <div className="mt-4">
-            <h3 className="text-3xl font-bold tracking-tight text-foreground truncate" title={String(value)}>{value}</h3>
+            {isLoading ? (
+              <Skeleton className="h-9 w-24 mb-1" />
+            ) : (
+              <h3 className="text-3xl font-bold tracking-tight text-foreground truncate" title={String(value)}>{value}</h3>
+            )}
             <div className="flex items-center justify-between mt-1">
               <p className="text-sm font-medium text-muted-foreground truncate" title={title}>{title}</p>
-
             </div>
           </div>
           

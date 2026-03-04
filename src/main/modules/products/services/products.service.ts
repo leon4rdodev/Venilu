@@ -24,7 +24,7 @@ export class ProductsService {
     async findAll(options: ProductQueryOptions = {}) {
         const {
             page = 1,
-            pageSize = 50,
+            pageSize = 10,
             search = '',
             category = 'all',
             sortBy = 'name',
@@ -168,26 +168,18 @@ export class ProductsService {
     }
 
     async getInventoryStats() {
-        const { totalProducts } = await this.productRepository.createQueryBuilder("p")
+        const stats = await this.productRepository.createQueryBuilder("p")
             .select("COUNT(p.id)", "totalProducts")
+            .addSelect("SUM(p.cost_price * p.stock)", "totalStockValue")
+            .addSelect("COUNT(CASE WHEN p.stock = 0 THEN 1 END)", "outOfStockProducts")
+            .addSelect("COUNT(CASE WHEN p.stock <= p.min_stock AND p.stock > 0 THEN 1 END)", "lowStockProducts")
             .getRawOne();
-            
-        const { totalStockValue } = await this.productRepository.createQueryBuilder("p")
-             .select("SUM(p.cost_price * p.stock)", "totalStockValue")
-             .getRawOne();
-
-        const outOfStockProducts = await this.productRepository.count({ where: { stock: 0 } });
-        
-        const lowStockProducts = await this.productRepository.createQueryBuilder("p")
-            .where("p.stock <= p.min_stock")
-            .andWhere("p.stock > 0")
-            .getCount();
         
         return {
-            totalProducts: Number(totalProducts) || 0,
-            totalStockValue: Number(totalStockValue) || 0,
-            outOfStockProducts,
-            lowStockProducts
+            totalProducts: Number(stats.totalProducts) || 0,
+            totalStockValue: Number(stats.totalStockValue) || 0,
+            outOfStockProducts: Number(stats.outOfStockProducts) || 0,
+            lowStockProducts: Number(stats.lowStockProducts) || 0
         };
     }
 }

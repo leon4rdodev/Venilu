@@ -22,7 +22,7 @@ export function useProducts() {
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState<PaginationData>({
     currentPage: 1,
-    pageSize: 50,
+    pageSize: 10,
     totalItems: 0,
     totalPages: 0,
     hasNextPage: false,
@@ -45,7 +45,8 @@ export function useProducts() {
       search: string = debouncedSearch,
       category: string = selectedCategory
     ) => {
-      setIsLoading(true);
+      // Only show full loading state if we have no products yet
+      if (products.length === 0) setIsLoading(true);
       setError(null);
       try {
         const result = (await ipc.invoke("get-products", {
@@ -76,7 +77,7 @@ export function useProducts() {
         setIsLoading(false);
       }
     },
-    [pagination.currentPage, pagination.pageSize, debouncedSearch, selectedCategory]
+    [pagination.currentPage, pagination.pageSize, debouncedSearch, selectedCategory, products.length]
   );
 
   // Reset to page 1 when filters change
