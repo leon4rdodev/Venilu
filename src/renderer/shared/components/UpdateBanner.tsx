@@ -1,4 +1,4 @@
-import { Download, RefreshCw, X } from 'lucide-react';
+import { Download, RefreshCw, Rocket, X, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { useUpdater } from '@renderer/shared/hooks/use-updater';
 
@@ -15,67 +15,117 @@ export function UpdateBanner() {
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-50 flex items-start gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-lg shadow-black/10 backdrop-blur-sm"
-      style={{ minWidth: 300, maxWidth: 380 }}
+      className="fixed bottom-5 right-5 z-50 overflow-hidden rounded-2xl shadow-2xl shadow-black/20"
+      style={{ width: 360 }}
     >
-      {/* Icon */}
-      <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${isReady ? 'bg-emerald-500/15 text-emerald-500' : 'bg-primary/10 text-primary'}`}>
-        {isDownloading ? (
-          <Download className="h-4 w-4 animate-bounce" />
-        ) : (
-          <RefreshCw className={`h-4 w-4 ${isReady ? '' : 'animate-spin'}`} style={isReady ? {} : { animationDuration: '3s' }} />
-        )}
-      </div>
+      {/* Gradient top bar using primary color */}
+      <div className="h-1 w-full bg-primary" />
 
-      {/* Content */}
-      <div className="flex-1 text-sm">
-        {isAvailable && (
-          <>
-            <p className="font-semibold text-foreground">Nueva versión disponible</p>
-            <p className="text-muted-foreground">
-              v{updateInfo?.version} — Descargando en segundo plano…
-            </p>
-          </>
-        )}
-
-        {isDownloading && (
-          <>
-            <p className="font-semibold text-foreground">Descargando actualización…</p>
-            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-primary transition-all duration-300"
-                style={{ width: `${progress?.percent ?? 0}%` }}
-              />
+      <div className="bg-card border border-border/60 rounded-b-2xl px-5 py-4">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            {/* Icon bubble — always primary */}
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary">
+              {isDownloading ? (
+                <Download className="h-5 w-5 text-primary-foreground animate-bounce" />
+              ) : isReady ? (
+                <Rocket className="h-5 w-5 text-primary-foreground" />
+              ) : (
+                <Sparkles className="h-5 w-5 text-primary-foreground" />
+              )}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">{progress?.percent ?? 0}%</p>
-          </>
-        )}
 
-        {isReady && (
-          <>
-            <p className="font-semibold text-foreground">
-              v{updateInfo?.version} lista para instalar
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-bold text-foreground leading-tight">
+                  {isAvailable && 'Nueva versión disponible'}
+                  {isDownloading && 'Descargando actualización'}
+                  {isReady && '¡Lista para instalar!'}
+                </p>
+                {isReady && (
+                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary uppercase tracking-wide">
+                    Nueva
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Venilu POS{' '}
+                <span className="font-semibold text-foreground/70">
+                  v{updateInfo?.version}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          {!isDownloading && (
+            <button
+              onClick={() => setDismissed(true)}
+              className="mt-0.5 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground shrink-0"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Body */}
+        <div className="mt-3">
+          {(isAvailable || isReady) && (
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {isAvailable
+                ? 'Descargando en segundo plano. Te avisaremos cuando esté lista.'
+                : 'La actualización ya está descargada. Reinicia la app para aplicarla.'}
             </p>
-            <p className="text-muted-foreground">Instala ahora o al cerrar la app.</p>
+          )}
+
+          {isDownloading && (
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Descargando…</span>
+                <span className="font-semibold text-foreground">
+                  {(progress as any)?.percent ?? 0}%
+                </span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-300"
+                  style={{ width: `${(progress as any)?.percent ?? 0}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer actions */}
+        {isReady && (
+          <div className="mt-4 flex gap-2">
             <button
               onClick={installNow}
-              className="mt-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+              className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 active:scale-95"
             >
               Reiniciar e instalar
             </button>
-          </>
+            <button
+              onClick={() => setDismissed(true)}
+              className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
+            >
+              Más tarde
+            </button>
+          </div>
+        )}
+
+        {isAvailable && (
+          <div className="mt-3 flex items-center gap-2">
+            <RefreshCw
+              className="h-3.5 w-3.5 text-muted-foreground animate-spin"
+              style={{ animationDuration: '3s' }}
+            />
+            <span className="text-xs text-muted-foreground">
+              Descargando en segundo plano…
+            </span>
+          </div>
         )}
       </div>
-
-      {/* Dismiss */}
-      {!isDownloading && (
-        <button
-          onClick={() => setDismissed(true)}
-          className="mt-0.5 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      )}
     </div>
   );
 }
