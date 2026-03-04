@@ -15,7 +15,7 @@ export class SettingsService {
             // Create default if not exists
             settings = this.settingsRepository.create({
                 id: 1,
-                business_name: 'Mi Negocio',
+                business_name: 'Venilu',
                 paper_size: '80mm'
             });
             await this.settingsRepository.save(settings);
