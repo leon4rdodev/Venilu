@@ -7,19 +7,17 @@ import { registerCategoriesHandlers } from '@main/modules/categories/categories.
 import { registerSalesHandlers } from '@main/modules/sales/sales.ipc';
 import { registerShiftsHandlers } from '@main/modules/shifts/shifts.ipc';
 import { registerSettingsHandlers } from '@main/modules/settings/settings.ipc';
-
 import { registerReportsHandlers } from '@main/modules/reports/reports.ipc';
 import { registerBackupsHandlers } from '@main/modules/backups/backups.ipc';
 import { registerCustomersHandlers } from '@main/modules/customers/customers.ipc';
 import { registerPrinterHandlers } from '@main/shared/ipc/printer.ipc';
 import { registerSessionHandlers } from '@main/shared/session';
+import { setupAutoUpdater } from '@main/shared/ipc/updater.ipc';
 
 // Determine if we are in development mode
 const isDev = process.env.NODE_ENV === 'development';
 
 async function createWindow() {
-    // In dev mode, __dirname is src/main/ so we resolve from project root
-    // In production, __dirname is dist-electron/main/ so ../preload.js works
     const preloadPath = isDev
         ? path.join(__dirname, '../../dist-electron/preload.js')
         : path.join(__dirname, '../preload.js');
@@ -37,10 +35,14 @@ async function createWindow() {
 
     if (isDev) {
         mainWindow.loadURL('http://localhost:5173');
-        // mainWindow.webContents.openDevTools();
     } else {
         mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
     }
+
+    // Setup auto-updater (only runs checks in production)
+    setupAutoUpdater(mainWindow);
+
+    return mainWindow;
 }
 
 async function initialize() {
