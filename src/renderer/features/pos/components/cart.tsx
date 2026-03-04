@@ -3,7 +3,7 @@ import { useState } from "react";
 import { CreditCard, ShoppingBag, Trash2 } from "lucide-react";
 import { CartItem, CartItemType } from "./cart-item";
 import { PaymentDialog } from "./payment-dialog";
-import { formatCurrency } from "@lib/currency";
+import { formatCurrency, getCurrencySymbol } from "@lib/currency";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import { PaymentMethod, Customer } from "@shared/types/models";
@@ -103,7 +103,7 @@ export default function Cart({
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground mr-2">Descuento</span>
               <div className="flex items-center gap-1 w-24">
-                <span className="text-muted-foreground text-xs">RD$</span>
+                <span className="text-muted-foreground text-xs">{getCurrencySymbol()}</span>
                 <Input
                   type="number"
                   min="0"

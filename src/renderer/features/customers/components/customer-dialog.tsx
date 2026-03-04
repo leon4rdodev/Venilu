@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@components/ui/dialog"
+import { Dialog, DialogContent } from "@components/ui/dialog"
 import { Button } from "@components/ui/button"
 import { Input } from "@components/ui/input"
 import { Label } from "@components/ui/label"
 import { Textarea } from "@components/ui/textarea"
+import { UserPlus, Save } from "lucide-react"
 import { Customer } from "@shared/types/models"
 
 interface CustomerDialogProps {
@@ -60,19 +61,23 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>{isEditing ? "Editar Cliente" : "Nuevo Cliente"}</DialogTitle>
-            <DialogDescription>
+      <DialogContent className="sm:max-w-[480px] p-0 gap-0 overflow-hidden">
+        <form onSubmit={handleSubmit} className="flex flex-col">
+          {/* Header */}
+          <div className="p-6 pb-4 border-b space-y-1">
+            <h2 className="text-xl font-semibold tracking-tight">
+              {isEditing ? "Editar Cliente" : "Nuevo Cliente"}
+            </h2>
+            <p className="text-sm text-muted-foreground">
               {isEditing
                 ? "Modifica los datos del cliente."
                 : "Ingresa los datos del nuevo cliente."}
-            </DialogDescription>
-          </DialogHeader>
+            </p>
+          </div>
 
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
+          {/* Body */}
+          <div className="p-6 space-y-4">
+            <div className="space-y-2">
               <Label htmlFor="customer-name">Nombre *</Label>
               <Input
                 id="customer-name"
@@ -84,7 +89,7 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
+              <div className="space-y-2">
                 <Label htmlFor="customer-phone">Teléfono</Label>
                 <Input
                   id="customer-phone"
@@ -93,7 +98,7 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
                   placeholder="809-000-0000"
                 />
               </div>
-              <div className="grid gap-2">
+              <div className="space-y-2">
                 <Label htmlFor="customer-email">Email</Label>
                 <Input
                   id="customer-email"
@@ -105,7 +110,7 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
               </div>
             </div>
 
-            <div className="grid gap-2">
+            <div className="space-y-2">
               <Label htmlFor="customer-address">Dirección</Label>
               <Input
                 id="customer-address"
@@ -115,7 +120,7 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
               />
             </div>
 
-            <div className="grid gap-2">
+            <div className="space-y-2">
               <Label htmlFor="customer-notes">Notas</Label>
               <Textarea
                 id="customer-notes"
@@ -127,14 +132,28 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
             </div>
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          {/* Footer */}
+          <div className="p-6 pt-4 border-t flex gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="flex-1 h-11"
+            >
               Cancelar
             </Button>
-            <Button type="submit" disabled={!name.trim() || saving}>
-              {saving ? "Guardando..." : isEditing ? "Guardar Cambios" : "Crear Cliente"}
+            <Button
+              type="submit"
+              disabled={!name.trim() || saving}
+              className="flex-1 h-11 gap-2"
+            >
+              {saving ? "Guardando..." : isEditing ? (
+                <><Save className="h-4 w-4" />Guardar Cambios</>
+              ) : (
+                <><UserPlus className="h-4 w-4" />Crear Cliente</>
+              )}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

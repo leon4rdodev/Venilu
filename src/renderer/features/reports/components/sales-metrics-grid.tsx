@@ -2,6 +2,7 @@
 import React from 'react';
 import { TrendingUp, DollarSign, Wallet, Percent, LucideIcon } from "lucide-react"
 import { ReportsMetricCard } from './reports-metric-card';
+import { formatCurrency } from '@lib/currency';
 
 interface SalesMetric {
   label: string;
@@ -45,7 +46,7 @@ export const SalesMetricsGrid = React.memo(({ salesMetrics, loading }: SalesMetr
           const isPercentage = metric.label === "Margen Promedio";
           const formattedValue = isPercentage 
             ? `${metric.value.toFixed(2)}%` 
-            : new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(metric.value);
+            : formatCurrency(metric.value);
 
           return (
             <ReportsMetricCard

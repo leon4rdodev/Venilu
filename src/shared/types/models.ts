@@ -104,4 +104,6 @@ export interface Setting {
   logo_filename: string | null;
   printer_name: string | null;
   paper_size: string;
+  currency: string;
 }
+

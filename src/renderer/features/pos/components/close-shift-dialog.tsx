@@ -7,9 +7,9 @@ import {
 import { Button } from '@components/ui/button';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
+import { formatCurrency, getCurrencySymbol } from '@lib/currency';
 import { useShift } from '../hooks/use-shift';
 import { toast } from 'sonner';
-import { formatCurrency } from '@lib/currency';
 import {
   Wallet,
   Banknote,
@@ -19,6 +19,7 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   Clock,
+  LockKeyhole,
 } from 'lucide-react';
 import { cn } from '@lib/utils';
 
@@ -113,7 +114,7 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden max-h-[85vh] flex flex-col">
+      <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="p-5 pb-3 space-y-1 shrink-0 border-b">
           <h2 className="text-xl font-semibold tracking-tight">Cerrar Caja</h2>
@@ -126,7 +127,7 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
         <div className="flex-1 overflow-y-auto min-h-0">
 
         {/* Shift Duration Badge */}
-        <div className="px-5 pb-3">
+        <div className="px-5 pt-4 pb-3">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/60 text-xs font-medium text-muted-foreground">
             <Clock className="h-3 w-3" />
             Turno activo: {shiftDuration}
@@ -208,7 +209,7 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
           </Label>
           <div className="relative">
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-muted-foreground pointer-events-none">
-              RD$
+              {getCurrencySymbol()}
             </div>
             <Input
               id="final-cash"
@@ -301,7 +302,7 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
                 Cerrando...
               </>
             ) : (
-              'Cerrar Turno'
+              <><LockKeyhole className="h-4 w-4" />Cerrar Turno</>
             )}
           </Button>
         </div>

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@components/ui/dialog';
+import { Dialog, DialogContent } from '@components/ui/dialog';
 import { Button } from '@components/ui/button';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/ui/select';
+import { UserCheck, UserPlus } from 'lucide-react';
 import { capitalizeWords } from '@lib/utils';
 import { toast } from 'sonner';
 import { useUser } from '@renderer/features/auth';
@@ -26,7 +27,7 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
     role: 'employee' as UserRole,
   });
   const [isSaving, setIsSaving] = useState(false);
-  const { user: loggedInUser, setUser: setLoggedInUser } = useUser(); // Get logged-in user context
+  const { user: loggedInUser, setUser: setLoggedInUser } = useUser();
 
   useEffect(() => {
     if (user) {
@@ -44,7 +45,7 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
         role: 'employee' as UserRole,
       });
     }
-  }, [user, isOpen]); // Added isOpen to reset form when dialog opens
+  }, [user, isOpen]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -79,25 +80,19 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsSaving(true);
     try {
       let result;
       if (user) {
-        // Update user
-        console.log('Updating user:', user.id, formData);
         result = await window.ipcRenderer.invoke('update-user', {
           userId: user.id,
-          userData: formData
+          userData: formData,
         }) as { success: boolean; message?: string };
 
         if (result.success) {
           toast.success('Usuario actualizado exitosamente');
-
-          // If the updated user is the logged-in user, update the context
           if (loggedInUser && loggedInUser.id === user.id) {
             setLoggedInUser({
               ...loggedInUser,
@@ -105,19 +100,15 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
               username: formData.username,
               role: formData.role,
             });
-            console.log('Updated logged-in user context');
           }
-
           onSave();
           onClose();
         } else {
           toast.error('Error al actualizar usuario', {
-            description: result.message || 'Ocurrió un error inesperado'
+            description: result.message || 'Ocurrió un error inesperado',
           });
         }
       } else {
-        // Create user
-        console.log('Creating user:', formData);
         result = await window.ipcRenderer.invoke('create-user', formData) as { success: boolean; message?: string };
 
         if (result.success) {
@@ -126,15 +117,13 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
           onClose();
         } else {
           toast.error('Error al crear usuario', {
-            description: result.message || 'Ocurrió un error inesperado'
+            description: result.message || 'Ocurrió un error inesperado',
           });
         }
       }
     } catch (error) {
       console.error('Error saving user:', error);
-      toast.error('Error de conexión', {
-        description: 'No se pudo guardar el usuario'
-      });
+      toast.error('Error de conexión', { description: 'No se pudo guardar el usuario' });
     } finally {
       setIsSaving(false);
     }
@@ -144,14 +133,19 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{user ? 'Editar Usuario' : 'Agregar Usuario'}</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
+        {/* Header */}
+        <div className="p-6 pb-4 border-b space-y-1">
+          <h2 className="text-xl font-semibold tracking-tight">
+            {user ? 'Editar Usuario' : 'Agregar Usuario'}
+          </h2>
+          <p className="text-sm text-muted-foreground">
             {user ? 'Modifica los detalles del usuario' : 'Completa la información del nuevo usuario'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
+          </p>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Nombre *</Label>
             <Input
@@ -199,12 +193,20 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
             </Select>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={!canSave || isSaving}>
-            {isSaving ? 'Guardando...' : 'Guardar'}
+
+        {/* Footer */}
+        <div className="p-6 pt-4 border-t flex gap-3">
+          <Button variant="outline" onClick={onClose} disabled={isSaving} className="flex-1 h-11">
+            Cancelar
           </Button>
-        </DialogFooter>
+          <Button onClick={handleSubmit} disabled={!canSave || isSaving} className="flex-1 h-11 gap-2">
+            {isSaving ? 'Guardando...' : user ? (
+              <><UserCheck className="h-4 w-4" />Guardar</>
+            ) : (
+              <><UserPlus className="h-4 w-4" />Agregar Usuario</>
+            )}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

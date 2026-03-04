@@ -3,7 +3,7 @@ import { Dialog, DialogContent } from "@components/ui/dialog"
 import { Button } from "@components/ui/button"
 import { Input } from "@components/ui/input"
 import { CreditCard, Banknote, ArrowRightLeft, Printer, CheckCircle2, HandCoins, User2, Search, X, AlertCircle } from "lucide-react"
-import { formatCurrency } from "@lib/currency"
+import { formatCurrency, getCurrencySymbol } from "@lib/currency"
 import { cn } from "@lib/utils"
 import { toast } from "sonner"
 import { PaymentMethod, Customer } from "@shared/types/models"
@@ -371,7 +371,7 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                   </div>
                   <div className="relative">
                     <div className="absolute left-5 top-1/2 -translate-y-1/2 text-xl font-bold text-muted-foreground pointer-events-none">
-                      RD$
+                      {getCurrencySymbol()}
                     </div>
                     <Input
                       id="amount"
@@ -448,7 +448,7 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                     Confirmar Fiado
                   </>
                 ) : (
-                  'Confirmar Pago'
+                  <><CheckCircle2 className="h-5 w-5" />Confirmar Pago</>
                 )}
               </Button>
             </div>

@@ -3,7 +3,7 @@ import { Dialog, DialogContent } from "@components/ui/dialog";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import { HandCoins, CheckCircle2 } from "lucide-react";
-import { formatCurrency } from "@lib/currency";
+import { formatCurrency, getCurrencySymbol } from "@lib/currency";
 import { Customer } from "@shared/types/models";
 import { ipc } from "@lib/ipc";
 import { toast } from "sonner";
@@ -111,7 +111,7 @@ export function PayDebtDialog({ open, onOpenChange, customer, onSuccess }: PayDe
               </div>
               <div className="relative">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-muted-foreground pointer-events-none">
-                  RD$
+                  {getCurrencySymbol()}
                 </div>
                 <Input
                   type="text"
@@ -177,7 +177,7 @@ export function PayDebtDialog({ open, onOpenChange, customer, onSuccess }: PayDe
                     Procesando...
                   </>
                 ) : (
-                  "Registrar Abono"
+                  <><HandCoins className="h-4 w-4" />Registrar Abono</>
                 )}
               </Button>
             </div>
