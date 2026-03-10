@@ -40,26 +40,27 @@ export function useUpdater() {
     if (!ipc) return;
 
     const offChecking = ipc.on('updater:checking', () => {
-      setState(s => ({ ...s, status: 'checking' }));
+      setState(s => ({ ...s, status: 'checking', error: null }));
     });
 
     const offAvailable = ipc.on('updater:update-available', (info: UpdateInfo) => {
-      setState(s => ({ ...s, status: 'available', updateInfo: info }));
+      setState(s => ({ ...s, status: 'available', updateInfo: info, error: null }));
     });
 
     const offUpToDate = ipc.on('updater:up-to-date', () => {
-      setState(s => ({ ...s, status: 'up-to-date' }));
+      setState(s => ({ ...s, status: 'up-to-date', error: null }));
     });
 
     const offProgress = ipc.on('updater:download-progress', (progress: DownloadProgress) => {
-      setState(s => ({ ...s, status: 'downloading', progress }));
+      setState(s => ({ ...s, status: 'downloading', progress, error: null }));
     });
 
     const offDownloaded = ipc.on('updater:update-downloaded', (info: UpdateInfo) => {
-      setState(s => ({ ...s, status: 'downloaded', updateInfo: info, progress: null }));
+      setState(s => ({ ...s, status: 'downloaded', updateInfo: info, progress: null, error: null }));
     });
 
     const offError = ipc.on('updater:error', (message: string) => {
+      console.error('[updater] Error received:', message);
       setState(s => ({ ...s, status: 'error', error: message }));
     });
 

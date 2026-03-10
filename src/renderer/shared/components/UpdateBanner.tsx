@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useUpdater } from '@renderer/shared/hooks/use-updater';
 
 export function UpdateBanner() {
-  const { status, updateInfo, progress, installNow } = useUpdater();
+  const { status, updateInfo, progress, installNow, error } = useUpdater();
   const [dismissed, setDismissed] = useState(false);
 
   if (dismissed) return null;
@@ -12,6 +12,7 @@ export function UpdateBanner() {
   const isDownloading = status === 'downloading';
   const isReady = status === 'downloaded';
   const isAvailable = status === 'available';
+  const isError = status === 'error';
 
   return (
     <div
@@ -19,29 +20,32 @@ export function UpdateBanner() {
       style={{ width: 360 }}
     >
       {/* Gradient top bar using primary color */}
-      <div className="h-1 w-full bg-primary" />
+      <div className={`h-1 w-full ${isError ? 'bg-destructive' : 'bg-primary'}`} />
 
       <div className="bg-card border border-border/60 rounded-b-2xl px-5 py-4">
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            {/* Icon bubble — always primary */}
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary">
+            {/* Icon bubble */}
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isError ? 'bg-destructive/10' : 'bg-primary'}`}>
               {isDownloading ? (
                 <Download className="h-5 w-5 text-primary-foreground animate-bounce" />
               ) : isReady ? (
                 <Rocket className="h-5 w-5 text-primary-foreground" />
+              ) : isError ? (
+                <X className="h-5 w-5 text-destructive" />
               ) : (
                 <Sparkles className="h-5 w-5 text-primary-foreground" />
               )}
             </div>
 
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <p className="text-sm font-bold text-foreground leading-tight">
+                <p className={`text-sm font-bold leading-tight ${isError ? 'text-destructive' : 'text-foreground'}`}>
                   {isAvailable && 'Nueva versión disponible'}
                   {isDownloading && 'Descargando actualización'}
                   {isReady && '¡Lista para instalar!'}
+                  {isError && 'Error en la actualización'}
                 </p>
                 {isReady && (
                   <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary uppercase tracking-wide">
@@ -49,11 +53,13 @@ export function UpdateBanner() {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">
                 Venilu POS{' '}
-                <span className="font-semibold text-foreground/70">
-                  v{updateInfo?.version}
-                </span>
+                {updateInfo?.version && (
+                  <span className="font-semibold text-foreground/70">
+                    v{updateInfo.version}
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -70,11 +76,11 @@ export function UpdateBanner() {
 
         {/* Body */}
         <div className="mt-3">
-          {(isAvailable || isReady) && (
+          {(isAvailable || isReady || isError) && (
             <p className="text-xs text-muted-foreground leading-relaxed">
-              {isAvailable
-                ? 'Descargando en segundo plano. Te avisaremos cuando esté lista.'
-                : 'La actualización ya está descargada. Reinicia la app para aplicarla.'}
+              {isAvailable && 'Descargando en segundo plano. Te avisaremos cuando esté lista.'}
+              {isReady && 'La actualización ya está descargada. Reinicia la app para aplicarla.'}
+              {isError && (error || 'Ocurrió un error al procesar la actualización.')}
             </p>
           )}
 
@@ -97,20 +103,31 @@ export function UpdateBanner() {
         </div>
 
         {/* Footer actions */}
-        {isReady && (
+        {(isReady || isError) && (
           <div className="mt-4 flex gap-2">
-            <button
-              onClick={installNow}
-              className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 active:scale-95"
-            >
-              Reiniciar e instalar
-            </button>
-            <button
-              onClick={() => setDismissed(true)}
-              className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
-            >
-              Más tarde
-            </button>
+            {isReady ? (
+              <>
+                <button
+                  onClick={installNow}
+                  className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 active:scale-95"
+                >
+                  Reiniciar e instalar
+                </button>
+                <button
+                  onClick={() => setDismissed(true)}
+                  className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
+                >
+                  Más tarde
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setDismissed(true)}
+                className="flex-1 rounded-xl border border-border py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
+              >
+                Cerrar
+              </button>
+            )}
           </div>
         )}
 
