@@ -4,7 +4,7 @@ import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import { HandCoins, CheckCircle2, Banknote, ArrowLeftRight } from "lucide-react";
 import { formatCurrency, getCurrencySymbol } from "@lib/currency";
-import { Customer } from "@shared/types/models";
+import { Customer, DebtPayment } from "@shared/types/models";
 import { ipc } from "@lib/ipc";
 import { toast } from "sonner";
 import { cn } from "@lib/utils";
@@ -14,7 +14,7 @@ interface PayDebtDialogProps {
   onOpenChange: (open: boolean) => void;
   customer: Customer | null;
   shiftId?: string;
-  onSuccess: () => void;
+  onSuccess: (payment?: DebtPayment) => void;
 }
 
 export function PayDebtDialog({ open, onOpenChange, customer, shiftId, onSuccess }: PayDebtDialogProps) {
@@ -59,7 +59,7 @@ export function PayDebtDialog({ open, onOpenChange, customer, shiftId, onSuccess
         amount: parsedAmount,
         shiftId,
         paymentMethod,
-      })) as { success: boolean; data?: { newBalance: number }; message?: string };
+      })) as { success: boolean; data?: { newBalance: number; payment: DebtPayment }; message?: string };
 
       if (result.success) {
         setNewBalance(result.data?.newBalance || 0);
@@ -67,7 +67,7 @@ export function PayDebtDialog({ open, onOpenChange, customer, shiftId, onSuccess
         toast.success("Abono registrado", {
           description: `Se abonaron ${formatCurrency(parsedAmount)} a la deuda de ${customer.name}`,
         });
-        onSuccess();
+        onSuccess(result.data?.payment);
       } else {
         setError(result.message || "Error al registrar el abono");
       }

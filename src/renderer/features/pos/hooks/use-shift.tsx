@@ -16,6 +16,7 @@ interface ShiftContextType {
   openShift: (initialCash: number) => Promise<IPCResponse<Shift>>;
   closeShift: (finalCash: number) => Promise<IPCResponse<Shift>>;
   addSaleToShift: (sale: ShiftSale) => void;
+  addDebtPaymentToShift: (payment: DebtPayment) => void;
   fetchActiveShift: () => Promise<void>;
 }
 
@@ -106,8 +107,12 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
     setShiftSales(prevSales => [...prevSales, sale]);
   };
 
+  const addDebtPaymentToShift = (payment: DebtPayment) => {
+    setShiftDebtPayments(prevPayments => [payment, ...prevPayments]);
+  };
+
   return (
-    <ShiftContext.Provider value={{ activeShift, shiftSales, shiftDebtPayments, isLoading, openShift, closeShift, addSaleToShift, fetchActiveShift }}>
+    <ShiftContext.Provider value={{ activeShift, shiftSales, shiftDebtPayments, isLoading, openShift, closeShift, addSaleToShift, addDebtPaymentToShift, fetchActiveShift }}>
       {children}
     </ShiftContext.Provider>
   );

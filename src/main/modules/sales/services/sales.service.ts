@@ -156,7 +156,8 @@ export class SalesService {
             sale.subtotal = calculatedSubtotal;
             sale.discount_amount = discountAmount;
             sale.total_amount = finalTotal;
-            sale.amount_paid = saleData.amount_paid || finalTotal;
+            // For credit, default amount_paid is 0 if not provided
+            sale.amount_paid = saleData.amount_paid ?? (isCredit ? 0 : finalTotal);
             sale.change_given = saleData.change_given || 0;
             sale.status = status;
             sale.items = saleItems;
@@ -184,48 +185,76 @@ export class SalesService {
         amount: number,
         shiftId?: string,
         paymentMethod: 'cash' | 'transfer' = 'cash'
-    ): Promise<{ success: true; newBalance: number }> {
+    ): Promise<{ success: true; newBalance: number; payment: DebtPaymentEntity }> {
         if (amount <= 0) {
             throw new Error("El monto debe ser mayor a 0");
         }
 
-        const customer = await this.customerRepository.findOneBy({ id: customerId });
-        if (!customer) {
-            throw new Error("Cliente no encontrado");
-        }
+        return await this.dataSource.transaction(async (transactionalEntityManager) => {
+            const customer = await transactionalEntityManager.findOneBy(CustomerEntity, { id: customerId });
+            if (!customer) {
+                throw new Error("Cliente no encontrado");
+            }
 
-        const currentBalance = Number(customer.balance);
-        if (currentBalance <= 0) {
-            throw new Error("Este cliente no tiene deuda pendiente");
-        }
+            const currentBalance = Number(customer.balance);
+            if (currentBalance <= 0) {
+                throw new Error("Este cliente no tiene deuda pendiente");
+            }
 
-        if (amount > currentBalance) {
-            throw new Error(`El monto excede la deuda pendiente de RD$${currentBalance.toFixed(2)}`);
-        }
+            if (amount > currentBalance) {
+                throw new Error(`El monto excede la deuda pendiente de RD$${currentBalance.toFixed(2)}`);
+            }
 
-        customer.balance = currentBalance - amount;
-        await this.customerRepository.save(customer);
+            // Update global customer balance
+            customer.balance = currentBalance - amount;
+            await transactionalEntityManager.save(CustomerEntity, customer);
 
-        // Record the debt payment linked to the current shift
-        const debtPayment = this.debtPaymentRepository.create({
-            customer_id: customerId,
-            shift_id: shiftId || undefined,
-            amount,
-            payment_method: paymentMethod,
+            // Record the debt payment linked to the current shift
+            const debtPayment = this.debtPaymentRepository.create({
+                customer_id: customerId,
+                shift_id: shiftId || undefined,
+                amount,
+                payment_method: paymentMethod,
+            });
+            await transactionalEntityManager.save(DebtPaymentEntity, debtPayment);
+
+            // Fetch pending credit sales (oldest first)
+            const pendingSales = await transactionalEntityManager.find(SaleEntity, {
+                where: [
+                    { customer_id: customerId, status: 'credit' },
+                    { customer_id: customerId, status: 'partial' }
+                ],
+                order: { created_at: 'ASC' }
+            });
+
+            let remainingAmount = amount;
+
+            for (const sale of pendingSales) {
+                if (remainingAmount <= 0) break;
+
+                const totalOwedForSale = Number(sale.total_amount);
+                const alreadyPaid = Number(sale.amount_paid || 0);
+                const pendingForSale = totalOwedForSale - alreadyPaid;
+
+                if (pendingForSale <= 0) continue;
+
+                if (remainingAmount >= pendingForSale) {
+                    // Sale fully paid
+                    sale.amount_paid = totalOwedForSale;
+                    sale.status = 'paid';
+                    remainingAmount -= pendingForSale;
+                } else {
+                    // Sale partially paid
+                    sale.amount_paid = alreadyPaid + remainingAmount;
+                    sale.status = 'partial';
+                    remainingAmount = 0;
+                }
+
+                await transactionalEntityManager.save(SaleEntity, sale);
+            }
+
+            return { success: true as const, newBalance: customer.balance, payment: debtPayment };
         });
-        await this.debtPaymentRepository.save(debtPayment);
-
-        // If balance reaches 0, mark all credit sales as paid
-        if (customer.balance <= 0) {
-            await this.saleRepository
-                .createQueryBuilder()
-                .update(SaleEntity)
-                .set({ status: 'paid' })
-                .where("customer_id = :customerId AND status = :status", { customerId, status: 'credit' })
-                .execute();
-        }
-
-        return { success: true, newBalance: customer.balance };
     }
 
     async getCustomerSales(customerId: string): Promise<SaleEntity[]> {

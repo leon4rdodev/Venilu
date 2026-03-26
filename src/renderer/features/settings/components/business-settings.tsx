@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { useSettings } from "../hooks/use-settings";
 import { useLogoUpload } from "../hooks/use-logo-upload";
 import { Spinner } from "@components/ui/spinner";
-import { formatPhoneNumber, formatRNC } from "@lib/format-utils";
+import { formatPhoneNumber, formatRNC } from "@lib/formatters";
 import { SUPPORTED_CURRENCIES } from "@lib/currency";
 
 export function BusinessSettings() {

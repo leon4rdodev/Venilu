@@ -41,7 +41,7 @@ export function CustomersTable() {
   const [debtCustomer, setDebtCustomer] = useState<Customer | null>(null);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [profileCustomer, setProfileCustomer] = useState<Customer | null>(null);
-  const { activeShift } = useShift();
+  const { activeShift, addDebtPaymentToShift } = useShift();
 
   const handleAddNew = () => { setEditingCustomer(null); setDialogOpen(true); };
   const handleEdit = (customer: Customer) => { setEditingCustomer(customer); setDialogOpen(true); };
@@ -238,7 +238,13 @@ export function CustomersTable() {
         onOpenChange={setDebtDialogOpen}
         customer={debtCustomer}
         shiftId={activeShift?.id}
-        onSuccess={() => fetchCustomers()}
+        onSuccess={(payment) => {
+          fetchCustomers();
+          window.dispatchEvent(new Event("customers-updated"));
+          if (payment) {
+            addDebtPaymentToShift(payment);
+          }
+        }}
       />
 
       <CustomerProfileDialog

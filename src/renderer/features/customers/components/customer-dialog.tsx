@@ -6,6 +6,7 @@ import { Label } from "@components/ui/label"
 import { Textarea } from "@components/ui/textarea"
 import { UserPlus, Save } from "lucide-react"
 import { Customer } from "@shared/types/models"
+import { formatPhoneNumber, getDigitsOnly } from "@lib/formatters"
 
 interface CustomerDialogProps {
   open: boolean
@@ -28,7 +29,7 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
   useEffect(() => {
     if (customer) {
       setName(customer.name || "")
-      setPhone(customer.phone || "")
+      setPhone(formatPhoneNumber(customer.phone || ""))
       setEmail(customer.email || "")
       setAddress(customer.address || "")
       setNotes(customer.notes || "")
@@ -51,7 +52,7 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
     try {
       await onSave({
         name: name.trim(),
-        phone: phone.trim() || undefined,
+        phone: getDigitsOnly(phone) || undefined,
         email: email.trim() || undefined,
         address: address.trim() || undefined,
         notes: notes.trim() || undefined,
@@ -86,7 +87,10 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
               <Input
                 id="customer-name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  const words = e.target.value
+                  setName(words.replace(/\b\w/g, (c) => c.toUpperCase()))
+                }}
                 placeholder="Nombre completo"
                 required
               />
@@ -98,7 +102,7 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
                 <Input
                   id="customer-phone"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
                   placeholder="809-000-0000"
                 />
               </div>

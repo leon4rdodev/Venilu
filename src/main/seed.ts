@@ -1,7 +1,7 @@
 /**
  * SCRIPT DE DESARROLLO — Poblar Base de Datos
  * ============================================
- * Inserta 10 categorías y 100 productos típicos de una tienda de celulares y accesorios.
+ * Inserta 10 categorías y 100 productos típicos de un colmado dominicano.
  *
  * Uso:
  *   node -e "
@@ -23,11 +23,8 @@ import { Category } from '@main/modules/categories/entities/category.entity';
 import { Product } from '@main/modules/products/entities/product.entity';
 
 // ─── Ruta a la DB de desarrollo ────────────────────────────────────────────
-// En Linux Electron usa: ~/.config/<appName>/database.sqlite
-// En Windows: C:\Users\<user>\AppData\Roaming\<appName>\database.sqlite
-// En macOS:  ~/Library/Application Support/<appName>/database.sqlite
 function getDevDbPath(): string {
-  const appName = 'Electron'; // debe coincidir con el productName en package.json
+  const appName = 'Electron';
   const platform = process.platform;
 
   if (platform === 'win32') {
@@ -50,16 +47,16 @@ const SeedDataSource = new DataSource({
 
 // ─── Datos de Categorías ───────────────────────────────────────────────────
 const categoryData: string[] = [
-  'Smartphones',
-  'Fundas y Protectores',
-  'Cargadores y Cables',
-  'Audífonos y Bocinas',
-  'Baterías y Power Banks',
-  'Accesorios iPad / Tablet',
-  'Smartwatches y Wearables',
-  'Lentes de Cámara y Fotografía',
-  'Memoria y Almacenamiento',
-  'Repuestos y Reparación',
+  'Víveres y Granos',
+  'Lácteos y Huevos',
+  'Carnes y Embutidos',
+  'Bebidas y Refrescos',
+  'Snacks y Dulces',
+  'Productos de Limpieza',
+  'Cuidado Personal',
+  'Cigarrillos y Tabaco',
+  'Panadería y Repostería',
+  'Condimentos y Salsas',
 ];
 
 // ─── Datos de Productos ────────────────────────────────────────────────────
@@ -71,129 +68,129 @@ interface ProductSeed {
   stock: number;
   min_stock: number;
   sku: string;
-  categoryIndex: number; // 0-based index into categoryData
+  categoryIndex: number;
 }
 
 const productData: ProductSeed[] = [
-  // ── Smartphones (0) ───────────────────────────────────────────────────────
-  { name: 'iPhone 15 128GB Negro', description: 'Apple iPhone 15, pantalla Super Retina XDR 6.1", chip A16', sale_price: 899.99, cost_price: 750.00, stock: 8, min_stock: 2, sku: 'APL-IP15-128-BK', categoryIndex: 0 },
-  { name: 'iPhone 15 Pro 256GB Titanio', description: 'Apple iPhone 15 Pro, chip A17 Pro, cámara 48MP', sale_price: 1199.99, cost_price: 980.00, stock: 5, min_stock: 2, sku: 'APL-IP15P-256-TI', categoryIndex: 0 },
-  { name: 'Samsung Galaxy S24 256GB', description: 'Samsung Galaxy S24, pantalla 6.2" Dynamic AMOLED 2X, Snapdragon 8 Gen 3', sale_price: 799.99, cost_price: 650.00, stock: 10, min_stock: 3, sku: 'SAM-S24-256', categoryIndex: 0 },
-  { name: 'Samsung Galaxy A54 128GB Negro', description: 'Samsung Galaxy A54 5G, pantalla 6.4" Super AMOLED, cámara 50MP', sale_price: 399.99, cost_price: 310.00, stock: 15, min_stock: 5, sku: 'SAM-A54-128-BK', categoryIndex: 0 },
-  { name: 'Xiaomi Redmi Note 13 128GB', description: 'Xiaomi Redmi Note 13, pantalla AMOLED 120Hz, cámara 108MP', sale_price: 249.99, cost_price: 180.00, stock: 20, min_stock: 5, sku: 'XMI-RN13-128', categoryIndex: 0 },
-  { name: 'Motorola Moto G84 256GB', description: 'Motorola Moto G84 5G, pantalla pOLED 6.55", 50MP', sale_price: 299.99, cost_price: 220.00, stock: 12, min_stock: 4, sku: 'MOT-G84-256', categoryIndex: 0 },
-  { name: 'Realme 12 Pro+ 256GB', description: 'Realme 12 Pro+, diseño tipo telescopio periscópico, Snapdragon 7s Gen 2', sale_price: 349.99, cost_price: 265.00, stock: 8, min_stock: 3, sku: 'RLM-12PP-256', categoryIndex: 0 },
-  { name: 'Huawei Nova 11 128GB', description: 'Huawei Nova 11, pantalla OLED 6.7", cámara frontal 60MP', sale_price: 329.99, cost_price: 250.00, stock: 6, min_stock: 2, sku: 'HUW-NOV11-128', categoryIndex: 0 },
-  { name: 'OnePlus 12 256GB Verde', description: 'OnePlus 12, Snapdragon 8 Gen 3, carga rápida 100W', sale_price: 799.99, cost_price: 640.00, stock: 4, min_stock: 2, sku: 'OPL-12-256-GR', categoryIndex: 0 },
-  { name: 'iPhone 14 128GB Medianoche', description: 'Apple iPhone 14, chip A15 Bionic, pantalla 6.1"', sale_price: 749.99, cost_price: 600.00, stock: 7, min_stock: 2, sku: 'APL-IP14-128-MD', categoryIndex: 0 },
+  // ── Víveres y Granos (0) ──────────────────────────────────────────────────
+  { name: 'Arroz Molina 5lb', description: 'Arroz blanco de grano largo Molina, bolsa de 5 libras', sale_price: 130.00, cost_price: 100.00, stock: 40, min_stock: 10, sku: 'VIV-ARR-MOL-5', categoryIndex: 0 },
+  { name: 'Arroz Molina 25lb', description: 'Arroz blanco de grano largo Molina, saco de 25 libras', sale_price: 580.00, cost_price: 460.00, stock: 15, min_stock: 5, sku: 'VIV-ARR-MOL-25', categoryIndex: 0 },
+  { name: 'Habichuelas Rojas Iberia 1lb', description: 'Habichuelas rojas secas marca Iberia, bolsa de 1 libra', sale_price: 60.00, cost_price: 45.00, stock: 35, min_stock: 10, sku: 'VIV-HAB-IBE-1', categoryIndex: 0 },
+  { name: 'Espagueti Don Victorio 400g', description: 'Pasta espagueti Don Victorio, paquete de 400 gramos', sale_price: 45.00, cost_price: 32.00, stock: 30, min_stock: 8, sku: 'VIV-ESP-DV-400', categoryIndex: 0 },
+  { name: 'Avena Quaker 400g', description: 'Avena en hojuelas Quaker, lata de 400 gramos', sale_price: 85.00, cost_price: 62.00, stock: 20, min_stock: 6, sku: 'VIV-AVE-QKR-400', categoryIndex: 0 },
+  { name: 'Maíz Molido Amarillo 5lb', description: 'Maíz molido amarillo para mangú y polenta, bolsa de 5 libras', sale_price: 90.00, cost_price: 68.00, stock: 20, min_stock: 5, sku: 'VIV-MAZ-5', categoryIndex: 0 },
+  { name: 'Aceite Mazola 1 Litro', description: 'Aceite vegetal de maíz Mazola, botella de 1 litro', sale_price: 175.00, cost_price: 140.00, stock: 24, min_stock: 8, sku: 'VIV-ACE-MAZ-1L', categoryIndex: 0 },
+  { name: 'Aceite Iberia 500ml', description: 'Aceite vegetal Iberia, botella de 500ml', sale_price: 95.00, cost_price: 72.00, stock: 30, min_stock: 8, sku: 'VIV-ACE-IBE-500', categoryIndex: 0 },
+  { name: 'Azúcar Azucarera Romana 2lb', description: 'Azúcar blanca refinada Azucarera Romana, bolsa de 2 libras', sale_price: 70.00, cost_price: 52.00, stock: 30, min_stock: 10, sku: 'VIV-AZU-AR-2', categoryIndex: 0 },
+  { name: 'Sal Yodada La Famosa 500g', description: 'Sal de mesa yodada La Famosa, paquete de 500 gramos', sale_price: 25.00, cost_price: 15.00, stock: 40, min_stock: 10, sku: 'VIV-SAL-LF-500', categoryIndex: 0 },
 
-  // ── Fundas y Protectores (1) ───────────────────────────────────────────────
-  { name: 'Funda Silicona iPhone 15 Azul', description: 'Funda de silicona oficial compatible con iPhone 15, interior de microfibra', sale_price: 19.99, cost_price: 8.00, stock: 30, min_stock: 10, sku: 'FND-SIL-IP15-AZ', categoryIndex: 1 },
-  { name: 'Funda Cuero Samsung S24 Negro', description: 'Funda tipo billetera en cuero vegano para Samsung Galaxy S24', sale_price: 24.99, cost_price: 10.00, stock: 25, min_stock: 8, sku: 'FND-CUE-S24-BK', categoryIndex: 1 },
-  { name: 'Vidrio Templado iPhone 15 Pro', description: 'Protector de pantalla vidrio templado 9H ultra delgado para iPhone 15 Pro', sale_price: 12.99, cost_price: 3.50, stock: 50, min_stock: 15, sku: 'VID-IP15P', categoryIndex: 1 },
-  { name: 'Funda MagSafe iPhone 14/15 Transparente', description: 'Funda transparente con soporte MagSafe para iPhone 14 y 15', sale_price: 22.99, cost_price: 9.00, stock: 35, min_stock: 10, sku: 'FND-MSF-IP1415-TR', categoryIndex: 1 },
-  { name: 'Funda Antigolpes Xiaomi Redmi Note 13', description: 'Funda robusta con esquinas reforzadas para Redmi Note 13', sale_price: 14.99, cost_price: 5.00, stock: 40, min_stock: 10, sku: 'FND-AG-RN13', categoryIndex: 1 },
-  { name: 'Vidrio Privacidad Samsung A54', description: 'Protector de pantalla anti-espías para Samsung Galaxy A54', sale_price: 15.99, cost_price: 5.50, stock: 45, min_stock: 12, sku: 'VID-PRV-A54', categoryIndex: 1 },
-  { name: 'Funda Ring Holder Universal', description: 'Funda con anillo giratorio 360°, compatible con la mayoría de smartphones', sale_price: 11.99, cost_price: 4.00, stock: 60, min_stock: 15, sku: 'FND-RNG-UNV', categoryIndex: 1 },
-  { name: 'Funda Cartera Motorola G84', description: 'Funda tipo cartera con 3 ranuras para tarjetas, Motorola G84', sale_price: 18.99, cost_price: 7.00, stock: 20, min_stock: 6, sku: 'FND-CAR-MOT-G84', categoryIndex: 1 },
-  { name: 'Hidrogel de Privacidad iPhone 15', description: 'Lamina de hidrogel con filtro de privacidad, auto-reparable', sale_price: 9.99, cost_price: 3.00, stock: 55, min_stock: 15, sku: 'HID-PRV-IP15', categoryIndex: 1 },
-  { name: 'Funda Cuero Universal 6.7"', description: 'Funda horizontal multifuncional para smartphones hasta 6.7"', sale_price: 13.99, cost_price: 5.00, stock: 30, min_stock: 8, sku: 'FND-CUE-67-UNV', categoryIndex: 1 },
+  // ── Lácteos y Huevos (1) ──────────────────────────────────────────────────
+  { name: 'Leche Entera Parmalat 1L', description: 'Leche entera UHT Parmalat, caja de 1 litro', sale_price: 95.00, cost_price: 72.00, stock: 30, min_stock: 10, sku: 'LAC-LEC-PAR-1L', categoryIndex: 1 },
+  { name: 'Leche en Polvo Nido 400g', description: 'Leche en polvo Nestlé Nido, lata de 400 gramos', sale_price: 320.00, cost_price: 255.00, stock: 15, min_stock: 4, sku: 'LAC-NID-400', categoryIndex: 1 },
+  { name: 'Leche Condensada La Lechera 397g', description: 'Leche condensada azucarada La Lechera, lata de 397g', sale_price: 130.00, cost_price: 98.00, stock: 20, min_stock: 6, sku: 'LAC-CON-LL-397', categoryIndex: 1 },
+  { name: 'Queso Amarillo en Barra (por libra)', description: 'Queso amarillo americano para cortar, precio por libra', sale_price: 200.00, cost_price: 155.00, stock: 10, min_stock: 3, sku: 'LAC-QUE-AMA-LB', categoryIndex: 1 },
+  { name: 'Queso de Mano Blanco (por libra)', description: 'Queso blanco dominicano fresco, precio por libra', sale_price: 180.00, cost_price: 140.00, stock: 8, min_stock: 3, sku: 'LAC-QUE-BLA-LB', categoryIndex: 1 },
+  { name: 'Mantequilla President 200g', description: 'Mantequilla sin sal President, paquete de 200 gramos', sale_price: 185.00, cost_price: 145.00, stock: 15, min_stock: 4, sku: 'LAC-MAN-PRE-200', categoryIndex: 1 },
+  { name: 'Yogur Yoplait Fresa 150g', description: 'Yogur de fresa Yoplait, vasito de 150 gramos', sale_price: 55.00, cost_price: 38.00, stock: 24, min_stock: 8, sku: 'LAC-YOG-YOP-150', categoryIndex: 1 },
+  { name: 'Huevos Criollos (cartón x12)', description: 'Huevos criollos frescos, cartón de 12 unidades', sale_price: 150.00, cost_price: 115.00, stock: 20, min_stock: 5, sku: 'LAC-HUE-12', categoryIndex: 1 },
+  { name: 'Huevos Blancos (cartón x30)', description: 'Huevos blancos de granja, cartón de 30 unidades', sale_price: 340.00, cost_price: 270.00, stock: 10, min_stock: 3, sku: 'LAC-HUE-30', categoryIndex: 1 },
+  { name: 'Crema de Leche Nestlé 250ml', description: 'Crema de leche para cocinar Nestlé, caja de 250ml', sale_price: 85.00, cost_price: 63.00, stock: 18, min_stock: 5, sku: 'LAC-CRE-NES-250', categoryIndex: 1 },
 
-  // ── Cargadores y Cables (2) ────────────────────────────────────────────────
-  { name: 'Cargador Apple 20W USB-C', description: 'Cargador de pared original Apple, 20W carga rápida', sale_price: 29.99, cost_price: 15.00, stock: 25, min_stock: 8, sku: 'CAR-APL-20W-UC', categoryIndex: 2 },
-  { name: 'Cable USB-C a Lightning 1m', description: 'Cable trenzado USB-C a Lightning, carga rápida certificado MFi', sale_price: 18.99, cost_price: 7.00, stock: 40, min_stock: 12, sku: 'CAB-UCL-1M', categoryIndex: 2 },
-  { name: 'Cargador Inalámbrico Qi 15W', description: 'Cargador inalámbrico Qi, compatible con iPhone y Android, 15W máx', sale_price: 24.99, cost_price: 10.00, stock: 20, min_stock: 6, sku: 'CAR-QI-15W', categoryIndex: 2 },
-  { name: 'Cable USB-C a USB-C 2m', description: 'Cable USB-C trenzado nylon 2 metros, hasta 60W, datos 480 Mbps', sale_price: 14.99, cost_price: 5.00, stock: 50, min_stock: 15, sku: 'CAB-UCC-2M', categoryIndex: 2 },
-  { name: 'Cargador Samsung 25W Super Fast', description: 'Adaptador de carga rápida Samsung 25W, compatible con Galaxy S/A series', sale_price: 27.99, cost_price: 13.00, stock: 18, min_stock: 5, sku: 'CAR-SAM-25W', categoryIndex: 2 },
-  { name: 'Cable Lightning 1m Original Apple', description: 'Cable Lightning a USB-A de 1m, certificado Apple', sale_price: 22.99, cost_price: 10.00, stock: 30, min_stock: 10, sku: 'CAB-LTN-1M-APL', categoryIndex: 2 },
-  { name: 'Cargador de Auto 36W Dual QC3.0', description: 'Cargador para auto con 2 puertos USB-A QC3.0, 36W total', sale_price: 19.99, cost_price: 7.50, stock: 25, min_stock: 8, sku: 'CAR-AUTO-36W', categoryIndex: 2 },
-  { name: 'Cargador MagSafe iPhone 15W', description: 'Cargador magnético MagSafe para iPhone 12 o superior, 15W', sale_price: 39.99, cost_price: 20.00, stock: 15, min_stock: 5, sku: 'CAR-MSF-15W', categoryIndex: 2 },
-  { name: 'Cable Micro-USB a USB-A 1m', description: 'Cable Micro-USB trenzado nylon 1m, carga y datos', sale_price: 8.99, cost_price: 2.50, stock: 60, min_stock: 20, sku: 'CAB-MUS-1M', categoryIndex: 2 },
-  { name: 'Cargador GaN 65W 3 puertos', description: 'Cargador GaN compacto 65W, 2× USB-C PD + 1× USB-A QC3.0', sale_price: 44.99, cost_price: 22.00, stock: 10, min_stock: 4, sku: 'CAR-GAN-65W', categoryIndex: 2 },
+  // ── Carnes y Embutidos (2) ────────────────────────────────────────────────
+  { name: 'Salami El Toro (por libra)', description: 'Salami El Toro dominicano, cortado al momento, precio por libra', sale_price: 160.00, cost_price: 120.00, stock: 5, min_stock: 2, sku: 'CAR-SAL-ET-LB', categoryIndex: 2 },
+  { name: 'Salchichón Buen Provecho (por libra)', description: 'Salchichón cocido Buen Provecho, precio por libra', sale_price: 140.00, cost_price: 105.00, stock: 5, min_stock: 2, sku: 'CAR-SLC-BP-LB', categoryIndex: 2 },
+  { name: 'Mortadela Rica (por libra)', description: 'Mortadela Rica en tajadas, precio por libra', sale_price: 130.00, cost_price: 98.00, stock: 5, min_stock: 2, sku: 'CAR-MOR-RIC-LB', categoryIndex: 2 },
+  { name: 'Salchichas Buen Provecho 400g', description: 'Salchichas en lata Buen Provecho, 400 gramos', sale_price: 110.00, cost_price: 82.00, stock: 20, min_stock: 6, sku: 'CAR-SLC-BP-400', categoryIndex: 2 },
+  { name: 'Sardinas en Tomate Iberia 155g', description: 'Sardinas en salsa de tomate Iberia, lata de 155g', sale_price: 75.00, cost_price: 55.00, stock: 25, min_stock: 8, sku: 'CAR-SAR-IBE-155', categoryIndex: 2 },
+  { name: 'Atún en Aceite Rico 170g', description: 'Atún en aceite vegetal Rico, lata de 170 gramos', sale_price: 80.00, cost_price: 58.00, stock: 25, min_stock: 8, sku: 'CAR-ATU-RIC-170', categoryIndex: 2 },
+  { name: 'Corned Beef Exeter 340g', description: 'Carne enlatada Corned Beef Exeter, lata de 340g', sale_price: 145.00, cost_price: 110.00, stock: 15, min_stock: 5, sku: 'CAR-CB-EXE-340', categoryIndex: 2 },
+  { name: 'Spam Classic 340g', description: 'Carne de cerdo enlatada Spam, 340 gramos', sale_price: 155.00, cost_price: 118.00, stock: 12, min_stock: 4, sku: 'CAR-SPAM-340', categoryIndex: 2 },
+  { name: 'Pollo Entero Congelado (por libra)', description: 'Pollo entero congelado fresco, precio por libra', sale_price: 65.00, cost_price: 48.00, stock: 20, min_stock: 5, sku: 'CAR-POL-LB', categoryIndex: 2 },
+  { name: 'Longaniza Dominicana (por libra)', description: 'Longaniza criolla dominicana fresca, precio por libra', sale_price: 150.00, cost_price: 112.00, stock: 8, min_stock: 3, sku: 'CAR-LON-LB', categoryIndex: 2 },
 
-  // ── Audífonos y Bocinas (3) ────────────────────────────────────────────────
-  { name: 'AirPods Pro 2da Generación', description: 'Apple AirPods Pro con cancelación activa de ruido, chip H2', sale_price: 249.99, cost_price: 190.00, stock: 8, min_stock: 2, sku: 'APL-AIRP-PRO2', categoryIndex: 3 },
-  { name: 'Samsung Galaxy Buds2 Pro', description: 'Auriculares true wireless con ANC, sonido 360°, Android y iOS', sale_price: 189.99, cost_price: 140.00, stock: 10, min_stock: 3, sku: 'SAM-GBP2', categoryIndex: 3 },
-  { name: 'Bocina JBL GO 4 Bluetooth', description: 'Bocina portátil JBL GO 4, resistente al agua IP67, 7h batería', sale_price: 59.99, cost_price: 35.00, stock: 15, min_stock: 5, sku: 'JBL-GO4', categoryIndex: 3 },
-  { name: 'Audífonos Sony WH-1000XM5', description: 'Auriculares over-ear Sony con la mejor cancelación de ruido del mercado', sale_price: 349.99, cost_price: 270.00, stock: 5, min_stock: 2, sku: 'SNY-WH1XM5', categoryIndex: 3 },
-  { name: 'Bocina Bluetooth Anker Soundcore 3', description: 'Anker Soundcore 3 con ecualizador BassUp, 24h batería, IP67', sale_price: 49.99, cost_price: 28.00, stock: 12, min_stock: 4, sku: 'ANK-SC3', categoryIndex: 3 },
-  { name: 'Audífonos In-Ear Xiaomi Basic', description: 'Audífonos alámbricos USB-C Xiaomi, micrófono integrado, plug and play', sale_price: 12.99, cost_price: 4.50, stock: 40, min_stock: 10, sku: 'XMI-INE-UC', categoryIndex: 3 },
-  { name: 'AirPods 3ra Generación', description: 'Apple AirPods 3, audio espacial, resistente al sudor y agua', sale_price: 179.99, cost_price: 130.00, stock: 8, min_stock: 2, sku: 'APL-AIRP3', categoryIndex: 3 },
-  { name: 'Audífonos Bluetooth Motorola Moto Buds', description: 'Audífonos TWS Motorola con carga rápida y 32h de batería total', sale_price: 49.99, cost_price: 25.00, stock: 15, min_stock: 5, sku: 'MOT-MTBDS', categoryIndex: 3 },
-  { name: 'Bocina JBL Charge 5 Bluetooth', description: 'JBL Charge 5, potente bass, IP67, cargador integrado para dispositivos', sale_price: 179.99, cost_price: 120.00, stock: 7, min_stock: 2, sku: 'JBL-CHG5', categoryIndex: 3 },
-  { name: 'Audífonos Alámbricos 3.5mm Baseus', description: 'Baseus in-ear con micrófono, alta fidelidad, control de volumen', sale_price: 9.99, cost_price: 3.00, stock: 50, min_stock: 15, sku: 'BAS-INE-3.5', categoryIndex: 3 },
+  // ── Bebidas y Refrescos (3) ───────────────────────────────────────────────
+  { name: 'Agua Bonaqua 500ml', description: 'Agua purificada Bonaqua, botella de 500ml', sale_price: 35.00, cost_price: 22.00, stock: 48, min_stock: 15, sku: 'BEB-H2O-BON-500', categoryIndex: 3 },
+  { name: 'Agua Bonaqua 1.5L', description: 'Agua purificada Bonaqua, botella de 1.5 litros', sale_price: 55.00, cost_price: 38.00, stock: 30, min_stock: 10, sku: 'BEB-H2O-BON-1500', categoryIndex: 3 },
+  { name: 'Coca-Cola 355ml (lata)', description: 'Refresco Coca-Cola, lata de 355ml', sale_price: 80.00, cost_price: 58.00, stock: 48, min_stock: 12, sku: 'BEB-CC-355-L', categoryIndex: 3 },
+  { name: 'Coca-Cola 2L', description: 'Refresco Coca-Cola, botella de 2 litros', sale_price: 140.00, cost_price: 105.00, stock: 24, min_stock: 8, sku: 'BEB-CC-2L', categoryIndex: 3 },
+  { name: 'Presidente 650ml (cerveza)', description: 'Cerveza Presidente, botella de 650ml', sale_price: 120.00, cost_price: 88.00, stock: 24, min_stock: 6, sku: 'BEB-PRE-650', categoryIndex: 3 },
+  { name: 'Brugal Ron Añejo 375ml', description: 'Ron Brugal Añejo, media botella 375ml', sale_price: 380.00, cost_price: 295.00, stock: 8, min_stock: 2, sku: 'BEB-BRU-375', categoryIndex: 3 },
+  { name: 'Jugo Tampico 250ml', description: 'Jugo de frutas Tampico, funda de 250ml', sale_price: 30.00, cost_price: 20.00, stock: 40, min_stock: 12, sku: 'BEB-TAM-250', categoryIndex: 3 },
+  { name: 'Café Santo Domingo Molido 200g', description: 'Café molido Santo Domingo, paquete de 200 gramos', sale_price: 130.00, cost_price: 98.00, stock: 20, min_stock: 6, sku: 'BEB-CAF-SD-200', categoryIndex: 3 },
+  { name: 'Jugo Tropical 1L', description: 'Jugo de frutas tropicales, caja de 1 litro', sale_price: 90.00, cost_price: 66.00, stock: 20, min_stock: 6, sku: 'BEB-JUG-TRO-1L', categoryIndex: 3 },
+  { name: 'Pepsi 2L', description: 'Refresco Pepsi-Cola, botella de 2 litros', sale_price: 135.00, cost_price: 100.00, stock: 20, min_stock: 6, sku: 'BEB-PEP-2L', categoryIndex: 3 },
 
-  // ── Baterías y Power Banks (4) ─────────────────────────────────────────────
-  { name: 'Batería Portátil Anker 20000mAh', description: 'Anker PowerCore III 20000, carga rápida 18W, 2× USB-A + USB-C', sale_price: 59.99, cost_price: 35.00, stock: 15, min_stock: 5, sku: 'ANK-PB20K', categoryIndex: 4 },
-  { name: 'Power Bank 10000mAh USB-C PD', description: 'Batería portátil 10000mAh con USB-C PD 22.5W, pantalla LED', sale_price: 34.99, cost_price: 16.00, stock: 20, min_stock: 6, sku: 'PB-10K-PD', categoryIndex: 4 },
-  { name: 'Power Bank MagSafe 5000mAh', description: 'Batería magnética MagSafe 5000mAh para iPhone 12/13/14/15, ultra delgada', sale_price: 49.99, cost_price: 25.00, stock: 12, min_stock: 4, sku: 'PB-MSF-5K', categoryIndex: 4 },
-  { name: 'Power Bank Solar 20000mAh', description: 'Batería portátil con panel solar, linterna LED, resistente a polvo y agua', sale_price: 44.99, cost_price: 22.00, stock: 10, min_stock: 3, sku: 'PB-SOL-20K', categoryIndex: 4 },
-  { name: 'Batería de Repuesto iPhone 15', description: 'Batería compatible con iPhone 15, 3877 mAh, herramientas incluidas', sale_price: 29.99, cost_price: 12.00, stock: 8, min_stock: 3, sku: 'BAT-IP15-REP', categoryIndex: 4 },
-  { name: 'Batería de Repuesto Samsung S24', description: 'Batería compatible con Samsung Galaxy S24, certificado CE', sale_price: 24.99, cost_price: 9.00, stock: 10, min_stock: 3, sku: 'BAT-S24-REP', categoryIndex: 4 },
-  { name: 'Power Bank Xiaomi 33W 10000mAh', description: 'Xiaomi Redmi Power Bank 33W, carga bidireccional, pantalla digital', sale_price: 29.99, cost_price: 14.00, stock: 18, min_stock: 5, sku: 'XMI-PB33-10K', categoryIndex: 4 },
-  { name: 'Power Bank 30000mAh 4 Puertos', description: 'Batería de gran capacidad con 2× USB-A + 2× USB-C, indicador de batería', sale_price: 54.99, cost_price: 28.00, stock: 8, min_stock: 3, sku: 'PB-30K-4P', categoryIndex: 4 },
-  { name: 'Batería de Repuesto Redmi Note 13', description: 'Batería de reemplazo para Xiaomi Redmi Note 13, 5000mAh', sale_price: 19.99, cost_price: 7.00, stock: 12, min_stock: 4, sku: 'BAT-RN13-REP', categoryIndex: 4 },
-  { name: 'Mini Power Bank 5000mAh Llavero', description: 'Batería portátil tipo llavero con cable integrado USB-C + Lightning', sale_price: 19.99, cost_price: 7.50, stock: 25, min_stock: 8, sku: 'PB-5K-MINI', categoryIndex: 4 },
+  // ── Snacks y Dulces (4) ───────────────────────────────────────────────────
+  { name: 'Galletas Hatuey Soda x12', description: 'Galletas de soda Hatuey, paquete de 12 unidades', sale_price: 50.00, cost_price: 36.00, stock: 30, min_stock: 10, sku: 'SNA-GAL-HAT-12', categoryIndex: 4 },
+  { name: 'Papitas Lays Classic 45g', description: 'Papas fritas Lay\'s sabor original, bolsa de 45g', sale_price: 55.00, cost_price: 38.00, stock: 35, min_stock: 10, sku: 'SNA-LAY-45', categoryIndex: 4 },
+  { name: 'Cheetos Torciditos 50g', description: 'Frituras de maíz Cheetos Torciditos, bolsa de 50g', sale_price: 50.00, cost_price: 35.00, stock: 35, min_stock: 10, sku: 'SNA-CHE-50', categoryIndex: 4 },
+  { name: 'Caramelos Halls Mentol x9', description: 'Caramelos Halls sabor menta, bolsa de 9 unidades', sale_price: 40.00, cost_price: 28.00, stock: 40, min_stock: 12, sku: 'SNA-HAL-MEN-9', categoryIndex: 4 },
+  { name: 'Chiclets Adams x10', description: 'Chicles Adams de menta, paquete de 10 unidades', sale_price: 25.00, cost_price: 15.00, stock: 50, min_stock: 15, sku: 'SNA-CHI-ADA-10', categoryIndex: 4 },
+  { name: 'Chocolate Snickers 52g', description: 'Barra de chocolate Snickers, 52 gramos', sale_price: 85.00, cost_price: 60.00, stock: 20, min_stock: 6, sku: 'SNA-SNI-52', categoryIndex: 4 },
+  { name: 'Galletas Oreo x6', description: 'Galletas de chocolate Oreo, paquete de 6 unidades', sale_price: 45.00, cost_price: 32.00, stock: 30, min_stock: 10, sku: 'SNA-ORE-6', categoryIndex: 4 },
+  { name: 'Yaniqueque (unidad)', description: 'Yaniqueque criollo casero, precio por unidad', sale_price: 25.00, cost_price: 12.00, stock: 20, min_stock: 5, sku: 'SNA-YAN-1', categoryIndex: 4 },
+  { name: 'Paletas Payaso x5', description: 'Paletas de dulce con chicle Payaso, bolsa de 5 unidades', sale_price: 30.00, cost_price: 18.00, stock: 40, min_stock: 12, sku: 'SNA-PAL-5', categoryIndex: 4 },
+  { name: 'Rosquillas La Fe 200g', description: 'Rosquillas de anís La Fe, bolsa de 200 gramos', sale_price: 65.00, cost_price: 46.00, stock: 20, min_stock: 6, sku: 'SNA-ROS-LF-200', categoryIndex: 4 },
 
-  // ── Accesorios iPad / Tablet (5) ──────────────────────────────────────────
-  { name: 'Teclado Bluetooth iPad Universal', description: 'Teclado inalámbrico BT 5.0, compatible con iPad, iPad Air y Pro', sale_price: 49.99, cost_price: 22.00, stock: 10, min_stock: 3, sku: 'TBL-KBD-BT', categoryIndex: 5 },
-  { name: 'Funda iPad 10ma Gen con Teclado', description: 'Funda tipo libro con teclado integrado para iPad 10.9" (10ª gen)', sale_price: 64.99, cost_price: 30.00, stock: 8, min_stock: 2, sku: 'FND-IPAD10-KBD', categoryIndex: 5 },
-  { name: 'Apple Pencil 2da Gen Compatible', description: 'Lápiz capacitivo compatible con Apple Pencil 2, carga magnética', sale_price: 39.99, cost_price: 16.00, stock: 12, min_stock: 4, sku: 'PEN-IPAD-2G', categoryIndex: 5 },
-  { name: 'Soporte Tablet Escritorio Ajustable', description: 'Soporte de aluminio para tablets 7"-13", ángulo e inclinación ajustables', sale_price: 27.99, cost_price: 11.00, stock: 15, min_stock: 5, sku: 'SOP-TBL-DESK', categoryIndex: 5 },
-  { name: 'Vidrio Templado iPad Air M2 11"', description: 'Protector de pantalla vidrio templado 9H anti-huella para iPad Air M2 11"', sale_price: 17.99, cost_price: 6.00, stock: 20, min_stock: 6, sku: 'VID-IPAD-AIR-M2', categoryIndex: 5 },
-  { name: 'Hub USB-C para iPad Pro 7 en 1', description: 'Hub multiport 7-en-1: HDMI 4K, USB-A×3, SD, microSD, USB-C PD', sale_price: 54.99, cost_price: 25.00, stock: 8, min_stock: 3, sku: 'HUB-UC-7P1', categoryIndex: 5 },
-  { name: 'Funda iPad Mini 6 Silicona', description: 'Funda de silicona líquida para iPad Mini 6, cierre magnético Smart Cover', sale_price: 19.99, cost_price: 8.00, stock: 18, min_stock: 5, sku: 'FND-IPADMN6-SIL', categoryIndex: 5 },
-  { name: 'Teclado Folio iPad Pro 12.9"', description: 'Teclado folio plegable con retroiluminación para iPad Pro 12.9"', sale_price: 89.99, cost_price: 45.00, stock: 5, min_stock: 2, sku: 'TBL-FOL-PRO129', categoryIndex: 5 },
-  { name: 'Adaptador Lightning a 3.5mm', description: 'Adaptador oficial para conectar audífonos 3.5mm al iPhone/iPad', sale_price: 9.99, cost_price: 4.00, stock: 40, min_stock: 12, sku: 'ADP-LTN-3.5', categoryIndex: 5 },
-  { name: 'Cable USB-C a HDMI 2m 4K', description: 'Cable USB-C a HDMI, resolución 4K@60Hz, para iPad Pro, MacBook, etc.', sale_price: 22.99, cost_price: 9.00, stock: 15, min_stock: 5, sku: 'CAB-UC-HDMI-2M', categoryIndex: 5 },
+  // ── Productos de Limpieza (5) ─────────────────────────────────────────────
+  { name: 'Cloro Clorox 900ml', description: 'Blanqueador líquido Clorox original, 900ml', sale_price: 95.00, cost_price: 70.00, stock: 20, min_stock: 6, sku: 'LIM-CLO-900', categoryIndex: 5 },
+  { name: 'Jabón en Polvo Mama Limón 500g', description: 'Detergente en polvo Mamá Limón, bolsa de 500 gramos', sale_price: 75.00, cost_price: 55.00, stock: 25, min_stock: 8, sku: 'LIM-JAB-ML-500', categoryIndex: 5 },
+  { name: 'Jabón de Lavar Campeón x3', description: 'Jabón en barra para ropa Campeón, paquete de 3 barras', sale_price: 80.00, cost_price: 58.00, stock: 20, min_stock: 6, sku: 'LIM-CAM-3', categoryIndex: 5 },
+  { name: 'Jabón de Platos Axion 450g', description: 'Crema lavaplatos Axion lima-limón, tarro de 450g', sale_price: 80.00, cost_price: 58.00, stock: 20, min_stock: 6, sku: 'LIM-AXI-450', categoryIndex: 5 },
+  { name: 'Desinfectante Fabuloso 1L', description: 'Limpiador multiusos Fabuloso lavanda, 1 litro', sale_price: 120.00, cost_price: 88.00, stock: 15, min_stock: 5, sku: 'LIM-FAB-1L', categoryIndex: 5 },
+  { name: 'Papel Higiénico Scott x4', description: 'Papel higiénico Scott doble hoja, paquete de 4 rollos', sale_price: 130.00, cost_price: 98.00, stock: 20, min_stock: 6, sku: 'LIM-SCO-4', categoryIndex: 5 },
+  { name: 'Suavitel Concentrado 500ml', description: 'Suavizante de ropa Suavitel campo de flores, 500ml', sale_price: 90.00, cost_price: 66.00, stock: 18, min_stock: 5, sku: 'LIM-SUA-500', categoryIndex: 5 },
+  { name: 'Insecticida Raid Volador 270ml', description: 'Aerosol insecticida Raid para insectos voladores, 270ml', sale_price: 145.00, cost_price: 108.00, stock: 12, min_stock: 4, sku: 'LIM-RAI-270', categoryIndex: 5 },
+  { name: 'Bolsas de Basura Grandes x10', description: 'Bolsas plásticas negras de basura 55 galones, paquete x10', sale_price: 60.00, cost_price: 42.00, stock: 25, min_stock: 8, sku: 'LIM-BOL-BAS-10', categoryIndex: 5 },
+  { name: 'Esponja Scotch-Brite Doble Uso', description: 'Esponja con estropajo Scotch-Brite para lavar platos', sale_price: 45.00, cost_price: 30.00, stock: 30, min_stock: 10, sku: 'LIM-ESP-SCO', categoryIndex: 5 },
 
-  // ── Smartwatches y Wearables (6) ──────────────────────────────────────────
-  { name: 'Apple Watch Series 9 41mm GPS', description: 'Apple Watch S9, chip S9 SiP, pantalla Always-On 2000 nits, 41mm', sale_price: 399.99, cost_price: 310.00, stock: 6, min_stock: 2, sku: 'APL-WS9-41', categoryIndex: 6 },
-  { name: 'Samsung Galaxy Watch6 44mm LTE', description: 'Samsung Galaxy Watch 6, monitor avanzado de salud, LTE, 44mm', sale_price: 299.99, cost_price: 220.00, stock: 5, min_stock: 2, sku: 'SAM-GW6-44', categoryIndex: 6 },
-  { name: 'Xiaomi Smart Band 8', description: 'Xiaomi Smart Band 8, AMOLED 1.62", 150+ modos deporte, 16 días batería', sale_price: 49.99, cost_price: 25.00, stock: 20, min_stock: 6, sku: 'XMI-SB8', categoryIndex: 6 },
-  { name: 'Amazfit GTR 4 Smartwatch', description: 'Amazfit GTR 4, GPS dual-band, 150 modos deporte, llamadas Bluetooth', sale_price: 149.99, cost_price: 95.00, stock: 8, min_stock: 3, sku: 'AMZ-GTR4', categoryIndex: 6 },
-  { name: 'Correa Deportiva Apple Watch 42-45mm', description: 'Correa de fluoroelastómero para Apple Watch 42/44/45/49mm, varios colores', sale_price: 19.99, cost_price: 7.00, stock: 30, min_stock: 10, sku: 'CRR-AW-DEP-454', categoryIndex: 6 },
-  { name: 'Fitbit Inspire 3', description: 'Fitbit Inspire 3, rastreador de actividad 24/7, SpO2, hasta 10 días', sale_price: 99.99, cost_price: 65.00, stock: 10, min_stock: 3, sku: 'FTB-INS3', categoryIndex: 6 },
-  { name: 'Smartwatch HW12 Series 7 Clone', description: 'Smartwatch económico compatible con iOS/Android, llamadas, notificaciones', sale_price: 24.99, cost_price: 9.00, stock: 25, min_stock: 8, sku: 'SW-HW12-S7', categoryIndex: 6 },
-  { name: 'Cargador Magnético Apple Watch', description: 'Cable de carga magnético USB-C para Apple Watch Series 1-9 y Ultra', sale_price: 29.99, cost_price: 12.00, stock: 15, min_stock: 5, sku: 'CAR-AW-MAGN', categoryIndex: 6 },
-  { name: 'Correa Milanese Samsung Galaxy Watch 46mm', description: 'Correa acero milanesa magnética para Samsung Galaxy Watch 46mm', sale_price: 22.99, cost_price: 8.00, stock: 18, min_stock: 6, sku: 'CRR-SAM-MIL-46', categoryIndex: 6 },
-  { name: 'Garmin Vívoactive 5 GPS', description: 'Garmin Vívoactive 5, GPS, AMOLED, más de 30 apps de deporte', sale_price: 249.99, cost_price: 185.00, stock: 4, min_stock: 2, sku: 'GRM-VA5', categoryIndex: 6 },
+  // ── Cuidado Personal (6) ──────────────────────────────────────────────────
+  { name: 'Jabón Palmolive Antibacterial x3', description: 'Jabón de tocador Palmolive antibacterial, paquete de 3 barras', sale_price: 130.00, cost_price: 96.00, stock: 20, min_stock: 6, sku: 'CUI-PAL-3', categoryIndex: 6 },
+  { name: 'Shampoo Head & Shoulders 375ml', description: 'Shampoo anticaspa Head & Shoulders, botella de 375ml', sale_price: 260.00, cost_price: 200.00, stock: 15, min_stock: 4, sku: 'CUI-H&S-375', categoryIndex: 6 },
+  { name: 'Pasta de Dientes Colgate Triple 75ml', description: 'Pasta dental Colgate Triple Acción, tubo de 75ml', sale_price: 90.00, cost_price: 65.00, stock: 25, min_stock: 8, sku: 'CUI-COL-75', categoryIndex: 6 },
+  { name: 'Desodorante Rexona Roll-On 50ml', description: 'Desodorante Roll-On Rexona hombre/mujer, 50ml', sale_price: 145.00, cost_price: 108.00, stock: 18, min_stock: 5, sku: 'CUI-REX-50', categoryIndex: 6 },
+  { name: 'Papel Toalla Scott x2', description: 'Toallas absorbentes de cocina Scott, paquete de 2 rollos', sale_price: 85.00, cost_price: 62.00, stock: 20, min_stock: 6, sku: 'CUI-SCO-PT-2', categoryIndex: 6 },
+  { name: 'Preservativos Trojan x3', description: 'Condones Trojan Ultra Thin, caja de 3 unidades', sale_price: 120.00, cost_price: 88.00, stock: 15, min_stock: 5, sku: 'CUI-TRO-3', categoryIndex: 6 },
+  { name: 'Algodón absorbente 50g', description: 'Algodón absorbente higiénico en bola, bolsa de 50 gramos', sale_price: 40.00, cost_price: 25.00, stock: 20, min_stock: 6, sku: 'CUI-ALG-50', categoryIndex: 6 },
+  { name: 'Servilletas Kleenex x50', description: 'Servilletas de papel Kleenex, paquete de 50 unidades', sale_price: 55.00, cost_price: 38.00, stock: 25, min_stock: 8, sku: 'CUI-KLE-50', categoryIndex: 6 },
+  { name: 'Toallas Sanitarias Siemprefresh x8', description: 'Toallas sanitarias con alas Siemprefresh, paquete de 8', sale_price: 95.00, cost_price: 70.00, stock: 15, min_stock: 5, sku: 'CUI-SFR-8', categoryIndex: 6 },
+  { name: 'Vaselina Intensiva 50ml', description: 'Crema hidratante Vaselina Intensive Care, 50ml', sale_price: 70.00, cost_price: 50.00, stock: 18, min_stock: 5, sku: 'CUI-VAS-50', categoryIndex: 6 },
 
-  // ── Lentes de Cámara y Fotografía (7) ─────────────────────────────────────
-  { name: 'Kit Lentes Clip Celular 3en1', description: 'Kit de lentes clip: ojo de pez, gran angular, macro — compatible universalmente', sale_price: 19.99, cost_price: 7.00, stock: 25, min_stock: 8, sku: 'LNS-KIT3-CLIP', categoryIndex: 7 },
-  { name: 'Lente Teleobjetivo 2X Clip', description: 'Lente teleobjetivo clip 2X para smartphones, vidrio óptico multicapa', sale_price: 24.99, cost_price: 9.00, stock: 20, min_stock: 6, sku: 'LNS-TELE2X', categoryIndex: 7 },
-  { name: 'Tripié 50cm para Celular', description: 'Tripié compacto de aluminio con cabeza giratoria 360° y clip universal', sale_price: 14.99, cost_price: 5.00, stock: 30, min_stock: 10, sku: 'TRP-50CM', categoryIndex: 7 },
-  { name: 'Selfie Ring Light 26cm USB', description: 'Aro de luz LED 26cm, 3 tonos, intensidad ajustable, soporte para celular', sale_price: 29.99, cost_price: 12.00, stock: 15, min_stock: 5, sku: 'RNG-26CM-USB', categoryIndex: 7 },
-  { name: 'Gimbal Estabilizador DJI Osmo Mobile SE', description: 'DJI Osmo Mobile SE, estabilización de 3 ejes, seguimiento de sujeto', sale_price: 119.99, cost_price: 80.00, stock: 5, min_stock: 2, sku: 'DJI-OM-SE', categoryIndex: 7 },
-  { name: 'Lente Macro 15X Clip Celular', description: 'Lente macro 15X con LED integrado para fotografía de detalle', sale_price: 16.99, cost_price: 5.50, stock: 22, min_stock: 7, sku: 'LNS-MAC15X', categoryIndex: 7 },
-  { name: 'Control Bluetooth para Selfie y Presentaciones', description: 'Control remoto BT para disparar fotos y controlar presentaciones', sale_price: 12.99, cost_price: 4.00, stock: 35, min_stock: 10, sku: 'BTN-SLFI-BT', categoryIndex: 7 },
-  { name: 'Micrófono Lavalier para Celular', description: 'Micrófono de solapa con cable 1.5m y jack 3.5mm/USB-C, para vlogging', sale_price: 22.99, cost_price: 8.00, stock: 18, min_stock: 5, sku: 'MIC-LAV-3.5', categoryIndex: 7 },
-  { name: 'Micrófono de Condensador USB-C Portátil', description: 'Micrófono cardioide USB-C para smartphones, calidad estudio', sale_price: 39.99, cost_price: 17.00, stock: 8, min_stock: 3, sku: 'MIC-COND-UC', categoryIndex: 7 },
-  { name: 'Mini Trípode Flexible Gorilla Pod', description: 'Trípode flexible octopus de 20cm, cabeza con clip universal', sale_price: 11.99, cost_price: 4.00, stock: 30, min_stock: 10, sku: 'TRP-FLEX-20', categoryIndex: 7 },
+  // ── Cigarrillos y Tabaco (7) ──────────────────────────────────────────────
+  { name: 'Marlboro Rojo (cajetilla)', description: 'Cigarrillos Marlboro Red, cajetilla de 20 unidades', sale_price: 230.00, cost_price: 180.00, stock: 20, min_stock: 5, sku: 'TAB-MAR-20', categoryIndex: 7 },
+  { name: 'Lucky Strike (cajetilla)', description: 'Cigarrillos Lucky Strike Original, cajetilla de 20 unidades', sale_price: 210.00, cost_price: 162.00, stock: 15, min_stock: 5, sku: 'TAB-LUC-20', categoryIndex: 7 },
+  { name: 'Viceroy (cajetilla)', description: 'Cigarrillos Viceroy, cajetilla de 20 unidades', sale_price: 190.00, cost_price: 145.00, stock: 15, min_stock: 5, sku: 'TAB-VIC-20', categoryIndex: 7 },
+  { name: 'Cigarrillo suelto', description: 'Cigarrillo vendido por unidad (marca variable)', sale_price: 15.00, cost_price: 9.00, stock: 100, min_stock: 20, sku: 'TAB-SUE-1', categoryIndex: 7 },
+  { name: 'Tabaco Cibaense (unidad)', description: 'Tabaco artesanal Cibaense, precio por unidad', sale_price: 80.00, cost_price: 55.00, stock: 20, min_stock: 5, sku: 'TAB-CIB-1', categoryIndex: 7 },
+  { name: 'Encendedor Bic (unidad)', description: 'Encendedor desechable BIC, colores surtidos', sale_price: 40.00, cost_price: 25.00, stock: 30, min_stock: 10, sku: 'TAB-BIC-1', categoryIndex: 7 },
+  { name: 'Fósforos La Chispa x10', description: 'Caja de fósforos La Chispa, paquete de 10 cajas pequeñas', sale_price: 30.00, cost_price: 18.00, stock: 25, min_stock: 8, sku: 'TAB-FOS-10', categoryIndex: 7 },
+  { name: 'Mentolado Kool (cajetilla)', description: 'Cigarrillos mentolados Kool, cajetilla de 20 unidades', sale_price: 215.00, cost_price: 165.00, stock: 10, min_stock: 3, sku: 'TAB-KOO-20', categoryIndex: 7 },
+  { name: 'Winston (cajetilla)', description: 'Cigarrillos Winston Rojo, cajetilla de 20 unidades', sale_price: 200.00, cost_price: 153.00, stock: 12, min_stock: 4, sku: 'TAB-WIN-20', categoryIndex: 7 },
+  { name: 'Pipa de tabaco suelto (10g)', description: 'Tabaco de pipa a granel, precio por 10 gramos', sale_price: 60.00, cost_price: 38.00, stock: 15, min_stock: 4, sku: 'TAB-PIP-10G', categoryIndex: 7 },
 
-  // ── Memoria y Almacenamiento (8) ───────────────────────────────────────────
-  { name: 'MicroSD SanDisk 128GB Extreme A2', description: 'Tarjeta microSD Clase 10 A2, lectura hasta 190MB/s — incluye adaptador SD', sale_price: 24.99, cost_price: 11.00, stock: 30, min_stock: 10, sku: 'MSD-SND-128', categoryIndex: 8 },
-  { name: 'MicroSD Samsung 256GB PRO Plus', description: 'Tarjeta microSD 256GB Samsung PRO Plus, UHS-I U3, 180MB/s lectura', sale_price: 44.99, cost_price: 22.00, stock: 20, min_stock: 6, sku: 'MSD-SAM-256', categoryIndex: 8 },
-  { name: 'MicroSD Lexar 64GB U1 A1', description: 'Tarjeta microSD 64GB Lexar, Clase 10 A1, para cámaras y Android', sale_price: 12.99, cost_price: 5.00, stock: 40, min_stock: 12, sku: 'MSD-LEX-64', categoryIndex: 8 },
-  { name: 'OTG USB-C a USB-A Adapter', description: 'Adaptador OTG USB-C macho a USB-A hembra, para conectar USB al celular', sale_price: 7.99, cost_price: 2.50, stock: 60, min_stock: 20, sku: 'ADP-OTG-UCA', categoryIndex: 8 },
-  { name: 'OTG Lightning a USB-A Adapter', description: 'Adaptador OTG Lightning a USB-A para iPhone/iPad, transferencia y carga', sale_price: 9.99, cost_price: 3.50, stock: 45, min_stock: 15, sku: 'ADP-OTG-LTN', categoryIndex: 8 },
-  { name: 'Pendrive USB-C + USB-A 128GB Kingston', description: 'Flash drive doble conector Kingston DataTraveler Duo 128GB', sale_price: 22.99, cost_price: 10.00, stock: 20, min_stock: 6, sku: 'USB-KNG-DUO-128', categoryIndex: 8 },
-  { name: 'Lector de Tarjetas SD/MicroSD USB-C', description: 'Lector compacto de tarjetas SD y microSD con conector USB-C', sale_price: 12.99, cost_price: 4.50, stock: 25, min_stock: 8, sku: 'LEC-SD-UC', categoryIndex: 8 },
-  { name: 'SSD Externo 500GB USB-C Samsung T7', description: 'Samsung T7 SSD portátil 500GB, 1050 MB/s, compacto y resistente a golpes', sale_price: 69.99, cost_price: 45.00, stock: 8, min_stock: 3, sku: 'SSD-SAM-T7-500', categoryIndex: 8 },
-  { name: 'MicroSD SanDisk Ultra 512GB', description: 'MicroSD 512GB SanDisk Ultra, lectura hasta 150MB/s, A1 Clase 10', sale_price: 59.99, cost_price: 32.00, stock: 10, min_stock: 3, sku: 'MSD-SND-512', categoryIndex: 8 },
-  { name: 'Pendrive 64GB USB 3.0 Kingston', description: 'Unidad flash Kingston DataTraveler 64GB USB 3.0, pequeño y rápido', sale_price: 10.99, cost_price: 4.00, stock: 35, min_stock: 10, sku: 'USB-KNG-64', categoryIndex: 8 },
+  // ── Panadería y Repostería (8) ────────────────────────────────────────────
+  { name: 'Pan de Agua (unidad)', description: 'Pan de agua criollo horneado, precio por unidad', sale_price: 10.00, cost_price: 5.00, stock: 50, min_stock: 10, sku: 'PAN-AGU-1', categoryIndex: 8 },
+  { name: 'Pan Sobao (unidad)', description: 'Pan sobao esponjoso, precio por unidad', sale_price: 15.00, cost_price: 8.00, stock: 40, min_stock: 10, sku: 'PAN-SOB-1', categoryIndex: 8 },
+  { name: 'Pan Molde Wonder 400g', description: 'Pan de molde blando Wonder, bolsa de 400 gramos', sale_price: 120.00, cost_price: 88.00, stock: 15, min_stock: 5, sku: 'PAN-WON-400', categoryIndex: 8 },
+  { name: 'Galletas de Anís El Artesano 200g', description: 'Galletas de anís El Artesano, paquete de 200 gramos', sale_price: 60.00, cost_price: 42.00, stock: 20, min_stock: 6, sku: 'PAN-ART-200', categoryIndex: 8 },
+  { name: 'Bizcocho de Libra (trozo)', description: 'Bizcocho blanco dominicano con merengue, precio por trozo', sale_price: 80.00, cost_price: 45.00, stock: 10, min_stock: 3, sku: 'PAN-BIZ-TRO', categoryIndex: 8 },
+  { name: 'Harina de Trigo Brugal 2lb', description: 'Harina de trigo todo uso Brugal, bolsa de 2 libras', sale_price: 70.00, cost_price: 50.00, stock: 20, min_stock: 6, sku: 'PAN-HAR-BR-2', categoryIndex: 8 },
+  { name: 'Levadura Fleischmann 7g', description: 'Levadura instantánea Fleischmann, sobre de 7 gramos', sale_price: 25.00, cost_price: 15.00, stock: 30, min_stock: 10, sku: 'PAN-LEV-7', categoryIndex: 8 },
+  { name: 'Manteca Ifa 500g', description: 'Manteca vegetal Ifa para fritura y repostería, 500g', sale_price: 95.00, cost_price: 70.00, stock: 15, min_stock: 5, sku: 'PAN-MAN-IFA-500', categoryIndex: 8 },
+  { name: 'Coco rallado seco 100g', description: 'Coco rallado deshidratado para repostería, bolsa de 100g', sale_price: 40.00, cost_price: 26.00, stock: 20, min_stock: 6, sku: 'PAN-COC-100', categoryIndex: 8 },
+  { name: 'Canela en Polvo 50g', description: 'Canela molida para postres y bebidas, bolsa de 50 gramos', sale_price: 35.00, cost_price: 22.00, stock: 20, min_stock: 6, sku: 'PAN-CAN-50', categoryIndex: 8 },
 
-  // ── Repuestos y Reparación (9) ─────────────────────────────────────────────
-  { name: 'Pantalla iPhone 12 OLED (Original Quality)', description: 'Módulo pantalla OLED de alta calidad para iPhone 12, touch y glass incluidos', sale_price: 79.99, cost_price: 40.00, stock: 5, min_stock: 2, sku: 'PAN-IP12-OLED', categoryIndex: 9 },
-  { name: 'Pantalla Samsung A54 AMOLED', description: 'Display AMOLED de reemplazo para Samsung Galaxy A54, incluye marcos', sale_price: 64.99, cost_price: 32.00, stock: 5, min_stock: 2, sku: 'PAN-A54-AMOL', categoryIndex: 9 },
-  { name: 'Kit Herramientas Reparación 30 piezas', description: 'Set completo: destornilladores Pentalobe, torx, spudger, pincetas, pinzas', sale_price: 19.99, cost_price: 7.00, stock: 15, min_stock: 5, sku: 'KIT-REP-30', categoryIndex: 9 },
-  { name: 'Conector de Carga iPhone 15 (USB-C)', description: 'Puerto de carga de repuesto USB-C para iPhone 15 / 15 Plus / 15 Pro', sale_price: 14.99, cost_price: 5.00, stock: 8, min_stock: 3, sku: 'CON-IP15-UC', categoryIndex: 9 },
-  { name: 'Conector de Carga Samsung A54', description: 'Puerto USB-C de reemplazo para Samsung Galaxy A54, con flex', sale_price: 9.99, cost_price: 3.50, stock: 10, min_stock: 3, sku: 'CON-A54-UC', categoryIndex: 9 },
-  { name: 'Cámara Trasera iPhone 13 Pro', description: 'Módulo cámara principal de reemplazo para iPhone 13 Pro (12MP+12MP+12MP)', sale_price: 59.99, cost_price: 28.00, stock: 4, min_stock: 2, sku: 'CAM-IP13P-TRS', categoryIndex: 9 },
-  { name: 'Pasta Térmica Procesador CPU', description: 'Pasta térmica conductora de alta calidad para CPU de smartphones y laptops', sale_price: 8.99, cost_price: 2.50, stock: 20, min_stock: 5, sku: 'PST-TRM-CPU', categoryIndex: 9 },
-  { name: 'Adhesivo Marco Pantalla (Varios modelos)', description: 'Cinta adhesiva de doble cara preformada para pegado de pantalla', sale_price: 3.99, cost_price: 1.00, stock: 50, min_stock: 15, sku: 'ADH-MRC-PAN', categoryIndex: 9 },
-  { name: 'Botón Home iPhone 7/8 con Flex', description: 'Botón home de reemplazo con cable flex para iPhone 7 y 8 (no TouchID)', sale_price: 11.99, cost_price: 4.00, stock: 10, min_stock: 3, sku: 'BTN-HOME-IP78', categoryIndex: 9 },
-  { name: 'Altavoz Auricular iPhone 11', description: 'Auricular (speaker) de repuesto para iPhone 11, con flex de sensor proximidad', sale_price: 12.99, cost_price: 4.50, stock: 8, min_stock: 3, sku: 'SPK-EAR-IP11', categoryIndex: 9 },
+  // ── Condimentos y Salsas (9) ──────────────────────────────────────────────
+  { name: 'Sazón Loísa 200g', description: 'Sazón con culantro y achiote Loísa, sobre de 200 gramos', sale_price: 80.00, cost_price: 58.00, stock: 25, min_stock: 8, sku: 'CON-LOI-200', categoryIndex: 9 },
+  { name: 'Ajo en Polvo Goya 42g', description: 'Ajo granulado Goya, frasco de 42 gramos', sale_price: 65.00, cost_price: 46.00, stock: 20, min_stock: 6, sku: 'CON-GOY-AJO-42', categoryIndex: 9 },
+  { name: 'Ketchup Heinz 397g', description: 'Salsa de tomate Heinz, frasco de 397 gramos', sale_price: 130.00, cost_price: 96.00, stock: 15, min_stock: 5, sku: 'CON-HEI-397', categoryIndex: 9 },
+  { name: 'Mayonesa Kraft 445g', description: 'Mayonesa real Kraft, frasco de 445 gramos', sale_price: 150.00, cost_price: 112.00, stock: 15, min_stock: 5, sku: 'CON-KRA-445', categoryIndex: 9 },
+  { name: 'Mostaza French\'s 255g', description: 'Mostaza amarilla French\'s, frasco de 255 gramos', sale_price: 95.00, cost_price: 70.00, stock: 15, min_stock: 5, sku: 'CON-FRE-255', categoryIndex: 9 },
+  { name: 'Vinagre Blanco Loísa 750ml', description: 'Vinagre de mesa blanco Loísa, botella de 750ml', sale_price: 60.00, cost_price: 42.00, stock: 20, min_stock: 6, sku: 'CON-LOI-VIN-750', categoryIndex: 9 },
+  { name: 'Pimienta Negra Molida 50g', description: 'Pimienta negra molida fina, sobre de 50 gramos', sale_price: 45.00, cost_price: 30.00, stock: 20, min_stock: 6, sku: 'CON-PIE-50', categoryIndex: 9 },
+  { name: 'Cubitos Maggi x10', description: 'Cubitos de caldo Maggi, paquete de 10 unidades', sale_price: 50.00, cost_price: 35.00, stock: 30, min_stock: 10, sku: 'CON-MAG-10', categoryIndex: 9 },
+  { name: 'Salsa Worcestershire Lea & Perrins 142ml', description: 'Salsa inglesa Lea & Perrins, botella de 142ml', sale_price: 120.00, cost_price: 88.00, stock: 12, min_stock: 4, sku: 'CON-LEA-142', categoryIndex: 9 },
+  { name: 'Orégano Seco 30g', description: 'Orégano molido seco para sazón criolla, sobre de 30g', sale_price: 30.00, cost_price: 18.00, stock: 25, min_stock: 8, sku: 'CON-ORE-30', categoryIndex: 9 },
 ];
 
 // ─── Main ───────────────────────────────────────────────────────────────────
@@ -207,13 +204,12 @@ async function seed() {
   const categoryRepo = SeedDataSource.getRepository(Category);
   const productRepo = SeedDataSource.getRepository(Product);
 
-  // ── Limpiar datos previos (opcional — comenta si no quieres esto) ──────────
+  // ── Limpiar datos previos ─────────────────────────────────────────────────
   const existingProducts = await productRepo.count();
   const existingCategories = await categoryRepo.count();
 
   if (existingCategories > 0 || existingProducts > 0) {
     console.log(`⚠️  La DB ya contiene ${existingCategories} categorías y ${existingProducts} productos.`);
-    // Deshabilitar temporariamente FK checks en SQLite para limpiar
     await SeedDataSource.query('PRAGMA foreign_keys = OFF;');
     await productRepo.clear();
     await categoryRepo.clear();

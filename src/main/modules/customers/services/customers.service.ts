@@ -63,32 +63,46 @@ export class CustomersService {
     }
 
     async getStats(): Promise<{
+        totalDebt: number;
         totalCustomers: number;
         newThisMonth: number;
-        withEmail: number;
-        withPhone: number;
+        customersWithDebt: number;
+        activeThisMonth: number;
     }> {
         const totalCustomers = await this.customerRepository.count();
 
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
         const newThisMonth = await this.customerRepository
             .createQueryBuilder("customer")
             .where("customer.created_at >= :startOfMonth", { startOfMonth })
             .getCount();
 
-        const withEmail = await this.customerRepository
+        const customersWithDebt = await this.customerRepository
             .createQueryBuilder("customer")
-            .where("customer.email IS NOT NULL AND customer.email != ''")
+            .where("customer.balance > 0")
             .getCount();
 
-        const withPhone = await this.customerRepository
+        const debtResult = await this.customerRepository
             .createQueryBuilder("customer")
-            .where("customer.phone IS NOT NULL AND customer.phone != ''")
-            .getCount();
+            .select("COALESCE(SUM(customer.balance), 0)", "total")
+            .where("customer.balance > 0")
+            .getRawOne<{ total: string }>();
 
-        return { totalCustomers, newThisMonth, withEmail, withPhone };
+        const totalDebt = parseFloat(debtResult?.total ?? "0");
+
+        const activeResult = await this.saleRepository
+            .createQueryBuilder("sale")
+            .select("COUNT(DISTINCT sale.customer_id)", "count")
+            .where("sale.customer_id IS NOT NULL")
+            .andWhere("sale.created_at >= :thirtyDaysAgo", { thirtyDaysAgo })
+            .getRawOne<{ count: string }>();
+
+        const activeThisMonth = parseInt(activeResult?.count ?? "0", 10);
+
+        return { totalDebt, totalCustomers, newThisMonth, customersWithDebt, activeThisMonth };
     }
 
     async getCustomerSales(customerId: string, page: number = 1, limit: number = 20) {

@@ -151,7 +151,7 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[700px] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
-        <DialogHeader className="p-6 pb-4 border-b shrink-0 bg-muted/20">
+        <DialogHeader className="p-6 pb-4 pr-10 border-b shrink-0 bg-muted/20">
           <div className="flex items-start justify-between">
             <div className="flex flex-col gap-1">
               <DialogTitle className="text-2xl flex items-center gap-2">
@@ -247,10 +247,20 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-sm">Venta #{sale.id.slice(0, 8)}...</span>
-                            {sale.status === 'credit' && (
-                              <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-amber-500/10 text-amber-600 border-amber-500/20">
-                                Credito
-                              </Badge>
+                            {sale.payment_method === 'credit' && (
+                              sale.status === 'paid' ? (
+                                <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-green-500/10 text-green-600 border-green-500/20">
+                                  Crédito — Pagado
+                                </Badge>
+                              ) : sale.status === 'partial' ? (
+                                <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-amber-500/10 text-amber-600 border-amber-500/20">
+                                  Crédito — Parcial
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-red-500/10 text-red-600 border-red-500/20">
+                                  Crédito — Pendiente
+                                </Badge>
+                              )
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground">

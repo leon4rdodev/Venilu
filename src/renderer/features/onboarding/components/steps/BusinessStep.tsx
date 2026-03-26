@@ -8,7 +8,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@components/ui/select';
-import { formatPhoneNumber, formatRNC } from '@lib/format-utils';
+import { formatPhoneNumber, formatRNC } from '@lib/formatters';
 import { capitalizeWords } from '@lib/utils';
 import type { BusinessData } from '@renderer/features/onboarding/types/onboarding.types';
 

@@ -1,21 +1,23 @@
 import { useState, useEffect, useCallback } from "react"
-import { Users, UserPlus, Mail, Phone } from "lucide-react"
+import { Users, Activity, CircleDollarSign, AlertCircle } from "lucide-react"
 import { CustomerMetricCard } from "./customer-metric-card"
 import { ipc } from "@lib/ipc"
 
 interface CustomerStatsData {
+  totalDebt: number
   totalCustomers: number
   newThisMonth: number
-  withEmail: number
-  withPhone: number
+  customersWithDebt: number
+  activeThisMonth: number
 }
 
 export function CustomersStats() {
   const [statsData, setStatsData] = useState<CustomerStatsData>({
+    totalDebt: 0,
     totalCustomers: 0,
     newThisMonth: 0,
-    withEmail: 0,
-    withPhone: 0,
+    customersWithDebt: 0,
+    activeThisMonth: 0,
   })
 
   const fetchStats = useCallback(async () => {
@@ -35,38 +37,43 @@ export function CustomersStats() {
 
   useEffect(() => {
     fetchStats()
-
     const handleCustomersChanged = () => fetchStats()
     window.addEventListener('customers-updated', handleCustomersChanged)
-
     return () => {
       window.removeEventListener('customers-updated', handleCustomersChanged)
     }
   }, [fetchStats])
 
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(amount)
+
   const stats = [
+    {
+      title: "Deuda Total",
+      value: formatCurrency(statsData.totalDebt),
+      icon: CircleDollarSign,
+      trend: statsData.totalDebt > 0 ? "down" : "neutral" as "up" | "down" | "neutral",
+      change: statsData.totalDebt > 0 ? "Pendiente" : "Sin deudas",
+    },
+    {
+      title: "Clientes con Deuda",
+      value: statsData.customersWithDebt,
+      icon: AlertCircle,
+      trend: statsData.customersWithDebt > 0 ? "down" : "neutral" as "up" | "down" | "neutral",
+      change: statsData.customersWithDebt > 0 ? `${statsData.customersWithDebt} clientes` : "Ninguno",
+    },
+    {
+      title: "Activos este Mes",
+      value: statsData.activeThisMonth,
+      icon: Activity,
+      trend: statsData.activeThisMonth > 0 ? "up" : "neutral" as "up" | "down" | "neutral",
+      change: statsData.activeThisMonth > 0 ? `+${statsData.activeThisMonth}` : "Sin actividad",
+    },
     {
       title: "Total de Clientes",
       value: statsData.totalCustomers,
       icon: Users,
     },
-    {
-      title: "Nuevos este Mes",
-      value: statsData.newThisMonth,
-      icon: UserPlus,
-      trend: statsData.newThisMonth > 0 ? "up" : "neutral" as "up" | "down" | "neutral",
-      change: statsData.newThisMonth > 0 ? `+${statsData.newThisMonth}` : "Sin cambios"
-    },
-    {
-      title: "Con Email",
-      value: statsData.withEmail,
-      icon: Mail,
-    },
-    {
-      title: "Con Teléfono",
-      value: statsData.withPhone,
-      icon: Phone,
-    }
   ]
 
   return (
