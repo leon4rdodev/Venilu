@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useUser } from '@renderer/features/auth';
-import { Shift, Sale as SharedSale } from '@shared/types/models';
+import { Shift, Sale as SharedSale, DebtPayment } from '@shared/types/models';
 import { IPCResponse } from '@shared/types/ipc';
 
 // Define the structure for a sale within a shift context (simplified shared sale)
@@ -11,6 +11,7 @@ type ShiftSale = Pick<SharedSale, 'total_amount' | 'payment_method'>;
 interface ShiftContextType {
   activeShift: Shift | null;
   shiftSales: ShiftSale[];
+  shiftDebtPayments: DebtPayment[];
   isLoading: boolean;
   openShift: (initialCash: number) => Promise<IPCResponse<Shift>>;
   closeShift: (finalCash: number) => Promise<IPCResponse<Shift>>;
@@ -27,9 +28,10 @@ interface ShiftProviderProps {
 }
 
 export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
-  const { user } = useUser();
+  const { user, sessionReady } = useUser();
   const [activeShift, setActiveShift] = useState<Shift | null>(null);
   const [shiftSales, setShiftSales] = useState<ShiftSale[]>([]);
+  const [shiftDebtPayments, setShiftDebtPayments] = useState<DebtPayment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchActiveShift = async () => {
@@ -49,22 +51,30 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
         if (salesResult.success && salesResult.data) {
           setShiftSales(salesResult.data);
         }
+        // Fetch debt payments for the active shift
+        const dpResult = await window.ipcRenderer.invoke('shifts:getDebtPayments', { shiftId: result.data.id }) as IPCResponse<DebtPayment[]>;
+        if (dpResult.success && dpResult.data) {
+          setShiftDebtPayments(dpResult.data);
+        }
       } else {
         setActiveShift(null);
         setShiftSales([]);
+        setShiftDebtPayments([]);
       }
     } catch (error) {
       console.error('Error fetching active shift:', error);
       setActiveShift(null);
       setShiftSales([]);
+      setShiftDebtPayments([]);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    if (!sessionReady) return; // Wait until backend session is confirmed
     fetchActiveShift();
-  }, [user]);
+  }, [user, sessionReady]);
 
   const openShift = async (initialCash: number) => {
     if (!user) {
@@ -73,7 +83,8 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
     const result = await window.ipcRenderer.invoke('shifts:open', { initialCash, user }) as IPCResponse<Shift>;
     if (result.success && result.data) {
       setActiveShift(result.data);
-      setShiftSales([]); // Reset sales for the new shift
+      setShiftSales([]);
+      setShiftDebtPayments([]);
     }
     return result;
   };
@@ -84,8 +95,9 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
     }
     const result = await window.ipcRenderer.invoke('shifts:close', { shiftId: activeShift.id, finalCash }) as IPCResponse<Shift>;
     if (result.success) {
-      setActiveShift(null); // Clear the shift state
+      setActiveShift(null);
       setShiftSales([]);
+      setShiftDebtPayments([]);
     }
     return result;
   };
@@ -95,7 +107,7 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
   };
 
   return (
-    <ShiftContext.Provider value={{ activeShift, shiftSales, isLoading, openShift, closeShift, addSaleToShift, fetchActiveShift }}>
+    <ShiftContext.Provider value={{ activeShift, shiftSales, shiftDebtPayments, isLoading, openShift, closeShift, addSaleToShift, fetchActiveShift }}>
       {children}
     </ShiftContext.Provider>
   );

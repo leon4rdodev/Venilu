@@ -8,6 +8,7 @@ import { cn } from "@lib/utils"
 import { toast } from "sonner"
 import { PaymentMethod, Customer } from "@shared/types/models"
 import { ipc } from "@lib/ipc"
+import { formatPhone } from "@lib/formatters"
 
 type PaymentDialogProps = {
   open: boolean
@@ -72,7 +73,7 @@ function InlineCustomerSelector({ selectedCustomer, onSelectCustomer }: { select
             </p>
           )}
           {selectedCustomer.phone && Number(selectedCustomer.balance) <= 0 && (
-            <p className="text-xs text-muted-foreground">{selectedCustomer.phone}</p>
+            <p className="text-xs text-muted-foreground">{formatPhone(selectedCustomer.phone)}</p>
           )}
         </div>
         <button
@@ -121,7 +122,7 @@ function InlineCustomerSelector({ selectedCustomer, onSelectCustomer }: { select
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{c.name}</p>
-                  {c.phone && <p className="text-xs text-muted-foreground">{c.phone}</p>}
+                  {c.phone && <p className="text-xs text-muted-foreground">{formatPhone(c.phone)}</p>}
                 </div>
                 {Number(c.balance) > 0 && (
                   <span className="text-xs font-medium text-amber-600 dark:text-amber-400 whitespace-nowrap">
@@ -327,7 +328,7 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                     { id: "cash", label: "Efectivo", icon: Banknote, bgActive: "bg-green-500/10", textActive: "text-green-600 dark:text-green-400" },
                     { id: "card", label: "Tarjeta", icon: CreditCard, bgActive: "bg-blue-500/10", textActive: "text-blue-600 dark:text-blue-400" },
                     { id: "transfer", label: "Transfer.", icon: ArrowRightLeft, bgActive: "bg-purple-500/10", textActive: "text-purple-600 dark:text-purple-400" },
-                    { id: "credit", label: "Fiado", icon: HandCoins, bgActive: "bg-amber-500/10", textActive: "text-amber-600 dark:text-amber-400", requiresCustomer: true },
+                    { id: "credit", label: "Credito", icon: HandCoins, bgActive: "bg-amber-500/10", textActive: "text-amber-600 dark:text-amber-400", requiresCustomer: true },
                   ] as const).map((method) => {
                     const isSelected = paymentMethod === method.id
                     const isDisabled = isLoading || ('requiresCustomer' in method && method.requiresCustomer && !selectedCustomer)
@@ -445,7 +446,7 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                 ) : isCredit ? (
                   <>
                     <HandCoins className="h-5 w-5" />
-                    Confirmar Fiado
+                    Confirmar Credito
                   </>
                 ) : (
                   <><CheckCircle2 className="h-5 w-5" />Confirmar Pago</>
@@ -527,7 +528,7 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                       <span className="font-semibold">
                         {(confirmedDetails?.paymentMethod || paymentMethod) === "cash" ? "Efectivo" : 
                          (confirmedDetails?.paymentMethod || paymentMethod) === "transfer" ? "Transferencia" :
-                         (confirmedDetails?.paymentMethod || paymentMethod) === "credit" ? "Fiado" : "Tarjeta"}
+                         (confirmedDetails?.paymentMethod || paymentMethod) === "credit" ? "Credito" : "Tarjeta"}
                       </span>
                     </div>
                   </div>

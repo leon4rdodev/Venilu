@@ -4,6 +4,7 @@ import { SaleItem as SaleItemEntity } from "@main/modules/sales/entities/sale-it
 import { Product as ProductEntity } from "@main/modules/products/entities/product.entity";
 import { Shift as ShiftEntity } from "@main/modules/shifts/entities/shift.entity";
 import { Customer as CustomerEntity } from "@main/modules/customers/entities/customer.entity";
+import { DebtPayment as DebtPaymentEntity } from "@main/modules/sales/entities/debt-payment.entity";
 import { Repository, DataSource } from "typeorm";
 
 interface ProcessSaleData {
@@ -14,6 +15,8 @@ interface ProcessSaleData {
     subtotal?: number;
     discount_amount?: number;
     total_amount?: number;
+    amount_paid?: number;
+    change_given?: number;
 }
 
 interface SaleItemInput {
@@ -26,6 +29,7 @@ export class SalesService {
     private saleRepository: Repository<SaleEntity>;
     private shiftRepository: Repository<ShiftEntity>;
     private customerRepository: Repository<CustomerEntity>;
+    private debtPaymentRepository: Repository<DebtPaymentEntity>;
     private dataSource: DataSource;
 
     constructor() {
@@ -33,6 +37,7 @@ export class SalesService {
         this.saleRepository = AppDataSource.getRepository(SaleEntity);
         this.shiftRepository = AppDataSource.getRepository(ShiftEntity);
         this.customerRepository = AppDataSource.getRepository(CustomerEntity);
+        this.debtPaymentRepository = AppDataSource.getRepository(DebtPaymentEntity);
     }
 
     private generateShortId(length: number = 8): string {
@@ -66,6 +71,17 @@ export class SalesService {
             customer = await this.customerRepository.findOneBy({ id: saleData.customer_id });
             if (!customer) {
                 throw new Error("Cliente no encontrado");
+            }
+        }
+
+        // Credit limit check
+        if (saleData.payment_method === 'credit' && customer && customer.credit_limit != null) {
+            const currentBalance = Number(customer.balance);
+            const finalTotal = (saleData.total_amount ?? 0);
+            if (currentBalance + finalTotal > Number(customer.credit_limit)) {
+                throw new Error(
+                    `El cliente ha alcanzado su límite de crédito de ${Number(customer.credit_limit).toFixed(2)}. Deuda actual: ${currentBalance.toFixed(2)}`
+                );
             }
         }
 
@@ -140,6 +156,8 @@ export class SalesService {
             sale.subtotal = calculatedSubtotal;
             sale.discount_amount = discountAmount;
             sale.total_amount = finalTotal;
+            sale.amount_paid = saleData.amount_paid || finalTotal;
+            sale.change_given = saleData.change_given || 0;
             sale.status = status;
             sale.items = saleItems;
 
@@ -161,7 +179,12 @@ export class SalesService {
         });
     }
 
-    async payDebt(customerId: string, amount: number): Promise<{ success: true; newBalance: number }> {
+    async payDebt(
+        customerId: string,
+        amount: number,
+        shiftId?: string,
+        paymentMethod: 'cash' | 'transfer' = 'cash'
+    ): Promise<{ success: true; newBalance: number }> {
         if (amount <= 0) {
             throw new Error("El monto debe ser mayor a 0");
         }
@@ -182,6 +205,15 @@ export class SalesService {
 
         customer.balance = currentBalance - amount;
         await this.customerRepository.save(customer);
+
+        // Record the debt payment linked to the current shift
+        const debtPayment = this.debtPaymentRepository.create({
+            customer_id: customerId,
+            shift_id: shiftId || undefined,
+            amount,
+            payment_method: paymentMethod,
+        });
+        await this.debtPaymentRepository.save(debtPayment);
 
         // If balance reaches 0, mark all credit sales as paid
         if (customer.balance <= 0) {

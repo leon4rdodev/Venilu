@@ -24,6 +24,10 @@ export class Customer {
     @Column("decimal", { precision: 10, scale: 2, default: 0 })
     balance!: number;
 
+    /** Maximum credit balance allowed. NULL = unlimited. */
+    @Column("decimal", { precision: 10, scale: 2, nullable: true })
+    credit_limit?: number;
+
     @OneToMany(() => Sale, (sale) => sale.customer)
     sales?: Sale[];
 

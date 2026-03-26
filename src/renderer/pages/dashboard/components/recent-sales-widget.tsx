@@ -59,7 +59,7 @@ export function RecentSalesWidget({ sales, loading }: RecentSalesWidgetProps) {
                       </p>
                       {sale.status === 'credit' && (
                         <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 uppercase tracking-wider shrink-0">
-                          Fiado
+                          Credito
                         </span>
                       )}
                     </div>

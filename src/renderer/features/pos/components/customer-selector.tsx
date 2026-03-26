@@ -5,6 +5,7 @@ import { Input } from "@components/ui/input";
 import { ipc } from "@lib/ipc";
 import { Customer } from "@shared/types/models";
 import { formatCurrency } from "@lib/currency";
+import { formatPhone } from "@lib/formatters";
 import { cn } from "@lib/utils";
 
 interface CustomerSelectorProps {
@@ -160,7 +161,7 @@ export function CustomerSelector({ selectedCustomer, onSelectCustomer }: Custome
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{customer.name}</p>
                     {customer.phone && (
-                      <p className="text-[10px] text-muted-foreground truncate">{customer.phone}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{formatPhone(customer.phone)}</p>
                     )}
                   </div>
                   {Number(customer.balance) > 0 && (

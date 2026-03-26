@@ -20,6 +20,7 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
   const [email, setEmail] = useState("")
   const [address, setAddress] = useState("")
   const [notes, setNotes] = useState("")
+  const [creditLimit, setCreditLimit] = useState("")
   const [saving, setSaving] = useState(false)
 
   const isEditing = !!customer
@@ -31,12 +32,14 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
       setEmail(customer.email || "")
       setAddress(customer.address || "")
       setNotes(customer.notes || "")
+      setCreditLimit(customer.credit_limit != null ? String(customer.credit_limit) : "")
     } else {
       setName("")
       setPhone("")
       setEmail("")
       setAddress("")
       setNotes("")
+      setCreditLimit("")
     }
   }, [customer, open])
 
@@ -52,6 +55,7 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
         email: email.trim() || undefined,
         address: address.trim() || undefined,
         notes: notes.trim() || undefined,
+        credit_limit: creditLimit.trim() ? parseFloat(creditLimit) : null,
       })
       onOpenChange(false)
     } finally {
@@ -129,6 +133,22 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
                 placeholder="Notas adicionales sobre el cliente..."
                 rows={3}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="customer-credit-limit">Límite de Crédito <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+              <Input
+                id="customer-credit-limit"
+                type="text"
+                inputMode="decimal"
+                value={creditLimit}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === '' || /^\d*\.?\d{0,2}$/.test(v)) setCreditLimit(v);
+                }}
+                placeholder="Sin límite"
+              />
+              <p className="text-[11px] text-muted-foreground">Dejar vacío para no aplicar límite.</p>
             </div>
           </div>
 

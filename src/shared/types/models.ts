@@ -28,6 +28,8 @@ export interface Customer {
   address?: string;
   notes?: string;
   balance: number;
+  /** Max credit allowed. null = unlimited. */
+  credit_limit?: number | null;
   created_at: string | Date;
   updated_at: string | Date;
 }
@@ -92,6 +94,20 @@ export interface Shift {
   difference?: number;
   status: ShiftStatus;
   sales?: Sale[];
+  force_closed?: boolean;
+  force_closed_by?: string;
+  force_close_reason?: string;
+}
+
+export interface DebtPayment {
+  id: string;
+  customer_id: string;
+  customer?: Customer;
+  shift_id?: string;
+  amount: number;
+  payment_method: 'cash' | 'transfer';
+  notes?: string;
+  created_at: string | Date;
 }
 
 export interface Setting {

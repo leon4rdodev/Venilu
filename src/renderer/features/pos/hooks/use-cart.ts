@@ -110,7 +110,7 @@ export function useCart() {
       if (paymentMethod === 'credit' && !selectedCustomer) {
         toast({
           title: "Cliente requerido",
-          description: "Selecciona un cliente para ventas a crédito (fiado).",
+          description: "Selecciona un cliente para ventas a crédito (Credito).",
           variant: "destructive",
         });
         return { success: false, message: "Se requiere un cliente para ventas a crédito." };

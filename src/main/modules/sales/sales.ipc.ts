@@ -42,10 +42,10 @@ export function registerSalesHandlers() {
         }
     });
 
-    ipcMain.handle('pay-customer-debt', async (_event, { customerId, amount }) => {
+    ipcMain.handle('pay-customer-debt', async (_event, { customerId, amount, shiftId, paymentMethod }) => {
         try {
             requireAuth();
-            const result = await salesService.payDebt(customerId, amount);
+            const result = await salesService.payDebt(customerId, amount, shiftId, paymentMethod || 'cash');
             return { success: true, data: result };
         } catch (error: any) {
             console.error('Pay Debt Error:', error);

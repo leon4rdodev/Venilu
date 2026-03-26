@@ -1,12 +1,18 @@
 import { AppDataSource } from "@main/config/data-source";
 import { Customer } from "@main/modules/customers/entities/customer.entity";
+import { Sale } from "@main/modules/sales/entities/sale.entity";
+import { DebtPayment } from "@main/modules/sales/entities/debt-payment.entity";
 import { Repository, Like } from "typeorm";
 
 export class CustomersService {
     private customerRepository: Repository<Customer>;
+    private saleRepository: Repository<Sale>;
+    private debtPaymentRepository: Repository<DebtPayment>;
 
     constructor() {
         this.customerRepository = AppDataSource.getRepository(Customer);
+        this.saleRepository = AppDataSource.getRepository(Sale);
+        this.debtPaymentRepository = AppDataSource.getRepository(DebtPayment);
     }
 
     async findAll(): Promise<Customer[]> {
@@ -83,5 +89,40 @@ export class CustomersService {
             .getCount();
 
         return { totalCustomers, newThisMonth, withEmail, withPhone };
+    }
+
+    async getCustomerSales(customerId: string, page: number = 1, limit: number = 20) {
+        const [data, total] = await this.saleRepository.findAndCount({
+            where: { customer_id: customerId },
+            relations: ["items"],
+            order: { created_at: "DESC" },
+            take: limit,
+            skip: (page - 1) * limit,
+        });
+
+        return {
+            data,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit)
+        };
+    }
+
+    async getCustomerPayments(customerId: string, page: number = 1, limit: number = 20) {
+        const [data, total] = await this.debtPaymentRepository.findAndCount({
+            where: { customer_id: customerId },
+            order: { created_at: "DESC" },
+            take: limit,
+            skip: (page - 1) * limit,
+        });
+
+        return {
+            data,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit)
+        };
     }
 }

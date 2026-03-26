@@ -20,8 +20,10 @@ import { formatCurrency } from "@lib/currency";
 import { Spinner } from "@components/ui/spinner";
 import { formatDateTime, formatTime } from "@lib/formatters";
 import { useUser } from "@renderer/features/auth";
+import { useShift } from "@renderer/features/pos/hooks/use-shift";
 import { toast } from "sonner";
 import { TransactionDetailsDialog } from "./transaction-details-dialog";
+import { ForceCloseDialog } from "./force-close-dialog";
 import { cn } from "@lib/utils";
 
 interface SalesHistoryProps {
@@ -51,6 +53,9 @@ interface Shift {
   expected_cash: number | null;
   difference: number | null;
   status: string;
+  force_closed?: boolean;
+  force_closed_by?: string;
+  force_close_reason?: string;
   sales: Sale[];
 }
 
@@ -74,7 +79,7 @@ const paymentMethodConfig: Record<
     color: "text-purple-600 dark:text-purple-400",
   },
   credit: {
-    label: "Fiado",
+    label: "Credito",
     icon: HandCoins,
     color: "text-amber-600 dark:text-amber-400",
   },
@@ -96,7 +101,15 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
   );
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
   const [expandedShift, setExpandedShift] = useState<string | null>(null);
+  const [forceCloseDialogOpen, setForceCloseDialogOpen] = useState(false);
+  const [shiftToForceClose, setShiftToForceClose] = useState<Shift | null>(null);
   const { user } = useUser();
+  const { fetchActiveShift } = useShift();
+
+  const handleForceCloseSuccess = () => {
+    fetchHistory();
+    fetchActiveShift();
+  };
 
   const fetchHistory = async () => {
     if (!user) {
@@ -181,6 +194,12 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
 
   const toggleShift = (shiftId: string) => {
     setExpandedShift(expandedShift === shiftId ? null : shiftId);
+  };
+
+  const handleForceCloseClick = (shift: Shift, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShiftToForceClose(shift);
+    setForceCloseDialogOpen(true);
   };
 
   if (isLoading) {
@@ -318,10 +337,19 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                         {isOpen ? "Activo" : "Cerrado"}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 mt-0.5 text-sm text-muted-foreground">
-                      <span className="truncate" title={shift.user_name}>{shift.user_name}</span>
-                      <span>·</span>
-                      <span className="truncate">{formatDateTime(shift.start_time)}</span>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2 mt-0.5 text-sm text-muted-foreground">
+                        <span className="truncate" title={shift.user_name}>{shift.user_name}</span>
+                        <span>·</span>
+                        <span className="truncate">{formatDateTime(shift.start_time)}</span>
+                      </div>
+                      {shift.force_closed && (
+                        <div className="flex">
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 uppercase tracking-wider">
+                            Cerrado forzosamente
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="text-right shrink-0 whitespace-nowrap">
@@ -378,7 +406,7 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                                         </span>
                                         {sale.status === 'credit' && (
                                           <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-                                            Fiado
+                                            Credito
                                           </span>
                                         )}
                                         <span className="text-xs text-muted-foreground truncate">
@@ -469,7 +497,7 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                                   <div className="flex items-center gap-2">
                                     <HandCoins className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                                     <span className="text-sm">
-                                      Fiado
+                                      Credito
                                     </span>
                                   </div>
                                   <span className="text-sm font-semibold tabular-nums">
@@ -527,11 +555,23 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
 
                           {/* Shift result */}
                           {isOpen ? (
-                            <div className="flex items-center gap-2 justify-center py-3 rounded-lg bg-blue-500/5 border border-blue-500/15">
-                              <Clock className="h-3.5 w-3.5 text-blue-500" />
-                              <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                                Turno activo — pendiente de cierre
-                              </span>
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2 justify-center py-3 rounded-lg bg-blue-500/5 border border-blue-500/15">
+                                <Clock className="h-3.5 w-3.5 text-blue-500" />
+                                <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                                  Turno activo — pendiente de cierre
+                                </span>
+                              </div>
+                              {user?.role === 'admin' && user?.id !== shift.user_name && (
+                                <Button 
+                                  variant="destructive" 
+                                  className="w-full" 
+                                  size="sm"
+                                  onClick={(e) => handleForceCloseClick(shift, e)}
+                                >
+                                  Cerrar forzosamente
+                                </Button>
+                              )}
                             </div>
                           ) : (
                             <div className="rounded-lg border divide-y text-sm">
@@ -596,11 +636,17 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
         )}
       </div>
 
-      {/* Transaction Details Dialog */}
       <TransactionDetailsDialog
         open={transactionDialogOpen}
         onOpenChange={setTransactionDialogOpen}
         transaction={selectedTransaction}
+      />
+
+      <ForceCloseDialog
+        open={forceCloseDialogOpen}
+        onOpenChange={setForceCloseDialogOpen}
+        shiftId={shiftToForceClose?.id}
+        onSuccess={handleForceCloseSuccess}
       />
     </div>
   );

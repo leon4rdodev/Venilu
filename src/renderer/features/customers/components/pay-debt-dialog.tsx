@@ -2,21 +2,24 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent } from "@components/ui/dialog";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
-import { HandCoins, CheckCircle2 } from "lucide-react";
+import { HandCoins, CheckCircle2, Banknote, ArrowLeftRight } from "lucide-react";
 import { formatCurrency, getCurrencySymbol } from "@lib/currency";
 import { Customer } from "@shared/types/models";
 import { ipc } from "@lib/ipc";
 import { toast } from "sonner";
+import { cn } from "@lib/utils";
 
 interface PayDebtDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   customer: Customer | null;
+  shiftId?: string;
   onSuccess: () => void;
 }
 
-export function PayDebtDialog({ open, onOpenChange, customer, onSuccess }: PayDebtDialogProps) {
+export function PayDebtDialog({ open, onOpenChange, customer, shiftId, onSuccess }: PayDebtDialogProps) {
   const [amount, setAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -26,6 +29,7 @@ export function PayDebtDialog({ open, onOpenChange, customer, onSuccess }: PayDe
     if (!open) {
       const timer = setTimeout(() => {
         setAmount("");
+        setPaymentMethod('cash');
         setError(null);
         setIsLoading(false);
         setShowSuccess(false);
@@ -53,6 +57,8 @@ export function PayDebtDialog({ open, onOpenChange, customer, onSuccess }: PayDe
       const result = (await ipc.invoke("pay-customer-debt", {
         customerId: customer.id,
         amount: parsedAmount,
+        shiftId,
+        paymentMethod,
       })) as { success: boolean; data?: { newBalance: number }; message?: string };
 
       if (result.success) {
@@ -92,6 +98,42 @@ export function PayDebtDialog({ open, onOpenChange, customer, onSuccess }: PayDe
                 <span className="text-2xl font-bold text-amber-700 dark:text-amber-400 tabular-nums">
                   {formatCurrency(balance)}
                 </span>
+              </div>
+            </div>
+
+            {/* Payment Method Toggle */}
+            <div className="px-5 pb-3 space-y-2">
+              <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                <ArrowLeftRight className="h-3 w-3" />
+                Método de Pago
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('cash')}
+                  className={cn(
+                    "flex items-center justify-center gap-2 h-10 rounded-lg border text-sm font-medium transition-colors",
+                    paymentMethod === 'cash'
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background hover:bg-muted"
+                  )}
+                >
+                  <Banknote className="h-4 w-4" />
+                  Efectivo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('transfer')}
+                  className={cn(
+                    "flex items-center justify-center gap-2 h-10 rounded-lg border text-sm font-medium transition-colors",
+                    paymentMethod === 'transfer'
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background hover:bg-muted"
+                  )}
+                >
+                  <ArrowLeftRight className="h-4 w-4" />
+                  Transferencia
+                </button>
               </div>
             </div>
 

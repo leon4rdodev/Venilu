@@ -58,4 +58,26 @@ export function registerShiftsHandlers() {
             return { success: false, message: error.message };
         }
     });
+
+    // Debt payments for a given shift (for close-shift summary)
+    ipcMain.handle('shifts:getDebtPayments', async (_event, { shiftId }) => {
+        try {
+            requireAuth();
+            const payments = await shiftsService.getDebtPayments(shiftId);
+            return { success: true, data: payments };
+        } catch (error: any) {
+            return { success: false, message: error.message };
+        }
+    });
+
+    // Admin force-close any open shift
+    ipcMain.handle('shifts:forceClose', async (_event, { shiftId, finalCash, reason }) => {
+        try {
+            const admin = requireRole('admin');
+            const shift = await shiftsService.forceClose(shiftId, finalCash, admin.id, reason);
+            return { success: true, data: shift };
+        } catch (error: any) {
+            return { success: false, message: error.message };
+        }
+    });
 }

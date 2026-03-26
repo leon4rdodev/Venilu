@@ -67,4 +67,24 @@ export function registerCustomersHandlers() {
             return { success: false, message: error.message };
         }
     });
+
+    ipcMain.handle('customers:getSales', async (_event, { customerId, page = 1, limit = 20 }) => {
+        try {
+            requireAuth();
+            const result = await customersService.getCustomerSales(customerId, page, limit);
+            return { success: true, ...result };
+        } catch (error: any) {
+            return { success: false, message: error.message };
+        }
+    });
+
+    ipcMain.handle('customers:getPayments', async (_event, { customerId, page = 1, limit = 20 }) => {
+        try {
+            requireAuth();
+            const result = await customersService.getCustomerPayments(customerId, page, limit);
+            return { success: true, ...result };
+        } catch (error: any) {
+            return { success: false, message: error.message };
+        }
+    });
 }

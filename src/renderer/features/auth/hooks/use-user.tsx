@@ -3,6 +3,7 @@ import { User } from '@shared/types/models';
 
 interface UserContextType {
   user: User | null;
+  sessionReady: boolean;
   setUser: (user: User | null) => void;
   logout: () => void;
 }
@@ -26,6 +27,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       return null;
     }
   });
+  // True only after the main-process session has been confirmed (or if there is no user to restore)
+  const [sessionReady, setSessionReady] = useState(false);
 
   // Restore backend session when user is loaded from localStorage
   useEffect(() => {
@@ -38,6 +41,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           console.error('Error restoring backend session:', error);
         }
       }
+      // Mark session as ready regardless of outcome so the UI isn't permanently blocked
+      setSessionReady(true);
     };
 
     restoreBackendSession();
@@ -76,7 +81,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
   };
 
-  const value = useMemo(() => ({ user, setUser, logout }), [user]);
+  const value = useMemo(() => ({ user, sessionReady, setUser, logout }), [user, sessionReady]);
 
   return (
     <UserContext.Provider value={value}>
