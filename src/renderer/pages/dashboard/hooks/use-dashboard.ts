@@ -6,11 +6,11 @@ import { IPCResponse } from "@shared/types/ipc";
 import { Product, Sale } from "@shared/types/models";
 
 interface LowStockResponse extends IPCResponse {
-  products: Product[];
+  data?: Product[];
 }
 
 interface RecentSalesResponse extends IPCResponse {
-  sales: Sale[];
+  data?: Sale[];
 }
 
 interface DayStats {
@@ -32,7 +32,7 @@ interface TopProduct {
 
 interface TopProductsResponse {
   success: boolean;
-  products: TopProduct[];
+  data?: TopProduct[];
 }
 
 const calculateChange = (current: number, previous: number) => {
@@ -67,9 +67,9 @@ export function useDashboard() {
           setTodayStats(dashboardStatsData.today);
           setYesterdayStats(dashboardStatsData.yesterday);
         }
-        setRecentSales(recentSalesData?.success && recentSalesData.sales ? recentSalesData.sales : []);
-        setLowStockProducts(lowStockData?.success && lowStockData.products ? lowStockData.products : []);
-        setTopProducts(topProductsData?.success && topProductsData.products ? topProductsData.products : []);
+        setRecentSales(recentSalesData?.success && recentSalesData.data ? recentSalesData.data : []);
+        setLowStockProducts(lowStockData?.success && lowStockData.data ? lowStockData.data : []);
+        setTopProducts(topProductsData?.success && topProductsData.data ? topProductsData.data : []);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {

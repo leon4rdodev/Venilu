@@ -37,4 +37,16 @@ export class Shift {
 
     @Column({ default: 'open' })
     status!: 'open' | 'closed';
+
+    /** True when an admin force-closed this shift */
+    @Column({ default: false })
+    force_closed!: boolean;
+
+    /** User ID of the admin who force-closed */
+    @Column({ nullable: true })
+    force_closed_by?: string;
+
+    /** Optional reason provided by the admin */
+    @Column({ nullable: true })
+    force_close_reason?: string;
 }

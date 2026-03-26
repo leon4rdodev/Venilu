@@ -16,11 +16,11 @@ export function useCustomers() {
       setLoading(true);
       const result = (await ipc.invoke("get-customers")) as {
         success: boolean;
-        customers?: Customer[];
+        data?: Customer[];
         message?: string;
       };
-      if (result.success && result.customers) {
-        setCustomers(result.customers);
+      if (result.success && result.data) {
+        setCustomers(result.data);
       } else {
         toast.error("Error al cargar clientes", { description: result.message });
       }
@@ -127,5 +127,6 @@ export function useCustomers() {
     PAGE_SIZE,
     handleSave,
     handleDelete,
+    fetchCustomers,
   };
 }

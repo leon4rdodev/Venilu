@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Product as POSProduct } from '@shared/types/models';
-import { IPCResponse, PaginatedResponse } from '@shared/types/ipc';
+import { IPCResponse } from '@shared/types/ipc';
 
 // Define the pagination structure (if not already in PaginatedResponse)
 export interface POSPagination {
@@ -57,25 +57,18 @@ export function usePOSProducts() {
         category,
         sortBy: 'name',
         sortOrder: 'ASC'
-      }) as IPCResponse<PaginatedResponse<POSProduct>>;
+      }) as IPCResponse<{ products: POSProduct[]; pagination: POSPagination }>;
 
       if (result.success && result.data) {
         if (append) {
           // Append for infinite scroll
-          setProducts(prev => [...prev, ...result.data!.items]);
+          setProducts(prev => [...prev, ...result.data!.products]);
         } else {
           // Replace for search/filter
-          setProducts(result.data.items);
+          setProducts(result.data.products);
         }
         
-        setPagination({
-          currentPage: result.data.page,
-          pageSize: result.data.pageSize,
-          totalItems: result.data.total,
-          totalPages: result.data.totalPages,
-          hasNextPage: result.data.hasNextPage,
-          hasPreviousPage: result.data.hasPreviousPage
-        });
+        setPagination(result.data.pagination);
       } else {
         setHasError(true);
         setErrorMessage(result.message || 'Error al cargar productos');

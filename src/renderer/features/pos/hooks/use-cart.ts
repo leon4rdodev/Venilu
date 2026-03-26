@@ -1,11 +1,13 @@
 import { useState, useCallback } from "react";
-import { Product, PaymentMethod } from "@shared/types/models";
+import { Product, PaymentMethod, Customer } from "@shared/types/models";
 import { CartItemType } from "../components/cart-item";
 import { useToast } from "@renderer/features/layout";
 import { useShift } from "./use-shift";
 
 export function useCart() {
   const [cart, setCart] = useState<CartItemType[]>([]);
+  const [discountAmount, setDiscountAmount] = useState<number>(0);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const { toast } = useToast();
   const { activeShift, addSaleToShift } = useShift();
 
@@ -84,6 +86,8 @@ export function useCart() {
 
   const clearCart = useCallback(() => {
     setCart([]);
+    setDiscountAmount(0);
+    setSelectedCustomer(null);
   }, []);
 
   const handleProcessSale = useCallback(
@@ -102,22 +106,41 @@ export function useCart() {
         return { success: false, message: "No active shift." };
       }
 
-      const totalAmount = cart.reduce((sum, item) => sum + item.sale_price * item.quantity, 0);
+      // Credit sales require a customer
+      if (paymentMethod === 'credit' && !selectedCustomer) {
+        toast({
+          title: "Cliente requerido",
+          description: "Selecciona un cliente para ventas a crédito (Credito).",
+          variant: "destructive",
+        });
+        return { success: false, message: "Se requiere un cliente para ventas a crédito." };
+      }
+
+      const subtotal = cart.reduce((sum, item) => sum + item.sale_price * item.quantity, 0);
+      const totalAmount = Math.max(0, subtotal - discountAmount);
+      
       const saleItems = cart.map((item) => ({
         product_id: item.id,
         quantity: item.quantity,
         price_at_sale: item.sale_price,
       }));
 
-      const saleData = {
+      const saleData: Record<string, any> = {
         user_id: activeShift.user_id,
         shift_id: activeShift.id,
+        subtotal: subtotal,
+        discount_amount: discountAmount,
         total_amount: totalAmount,
         payment_method: paymentMethod,
         amount_paid: amountPaid,
         change_given: changeGiven,
         sale_date: new Date().toISOString(),
       };
+
+      // Add customer if selected
+      if (selectedCustomer) {
+        saleData.customer_id = selectedCustomer.id;
+      }
 
       try {
         const result = (await window.ipcRenderer.invoke("process-sale", { saleData, saleItems })) as {
@@ -127,7 +150,13 @@ export function useCart() {
         };
 
         if (result.success) {
-          toast({ title: "Venta Exitosa", description: `Venta #${result.saleId} procesada correctamente.` });
+          const isCredit = paymentMethod === 'credit';
+          toast({
+            title: isCredit ? "Venta a Crédito Registrada" : "Venta Exitosa",
+            description: isCredit
+              ? `Venta #${result.saleId} registrada a crédito para ${selectedCustomer?.name}.`
+              : `Venta #${result.saleId} procesada correctamente.`,
+          });
           addSaleToShift({ total_amount: saleData.total_amount, payment_method: saleData.payment_method as PaymentMethod });
           clearCart();
           onSuccess();
@@ -142,7 +171,7 @@ export function useCart() {
         return { success: false, message: error.message || "Ocurrió un error inesperado." };
       }
     },
-    [activeShift, cart, toast, addSaleToShift, clearCart]
+    [activeShift, cart, discountAmount, selectedCustomer, toast, addSaleToShift, clearCart]
   );
 
   return {
@@ -152,5 +181,9 @@ export function useCart() {
     removeFromCart,
     clearCart,
     handleProcessSale,
+    discountAmount,
+    setDiscountAmount,
+    selectedCustomer,
+    setSelectedCustomer,
   };
 }

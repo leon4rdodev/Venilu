@@ -177,7 +177,7 @@
 /* === Base Layer === */
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring;
   }
 
   html,
@@ -214,7 +214,6 @@
   width: 0;
 }
 @layer utilities {
-
   /* === Scrollbar Styles (thin, styled) === */
   * {
     scrollbar-width: thin;

@@ -10,7 +10,7 @@ export function registerProductsHandlers() {
         try {
             requireAuth();
             const result = await productsService.findAll(options);
-            return { success: true, ...result };
+            return { success: true, data: result };
         } catch (error: any) {
             return { success: false, message: error.message };
         }
@@ -20,7 +20,7 @@ export function registerProductsHandlers() {
         try {
             requireAuth();
             const result = await productsService.getForPOS(options);
-            return { success: true, ...result };
+            return { success: true, data: result };
         } catch (error: any) {
             return { success: false, message: error.message };
         }
@@ -31,7 +31,7 @@ export function registerProductsHandlers() {
         try {
             requireRole('admin');
             const product = await productsService.create(productData);
-            return { success: true, product };
+            return { success: true, data: product };
         } catch (error: any) {
             return { success: false, message: error.message };
         }
@@ -42,7 +42,7 @@ export function registerProductsHandlers() {
         try {
             requireRole('admin');
             const product = await productsService.update(productId, productData);
-            return { success: true, product };
+            return { success: true, data: product };
         } catch (error: any) {
             return { success: false, message: error.message };
         }
@@ -63,7 +63,7 @@ export function registerProductsHandlers() {
         try {
             requireAuth();
             const products = await productsService.getLowStock(limit);
-            return { success: true, products };
+            return { success: true, data: products };
         } catch (error: any) {
             return { success: false, message: error.message };
         }
@@ -73,7 +73,7 @@ export function registerProductsHandlers() {
         try {
             requireAuth();
             const stats = await productsService.getInventoryStats();
-            return { success: true, stats };
+            return { success: true, data: stats };
         } catch (error: any) {
             return { success: false, message: error.message };
         }

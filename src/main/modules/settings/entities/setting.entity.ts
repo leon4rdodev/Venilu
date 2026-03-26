@@ -28,4 +28,8 @@ export class Setting {
 
     @Column({ default: '80mm' })
     paper_size!: string;
+
+    @Column({ default: 'DOP' })
+    currency!: string;
 }
+

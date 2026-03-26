@@ -144,8 +144,8 @@ export function InventoryTable() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {isLoading ? (
-                      <TableSkeletonRows rows={5} cols={7} />
+                    {isLoading && products.length === 0 ? (
+                      <TableSkeletonRows rows={10} cols={7} />
                     ) : products.length === 0 ? (
                       <EmptyStateRow
                         icon={Package}

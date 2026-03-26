@@ -20,7 +20,7 @@ export function POSInterface() {
     const unique = Array.from(new Set(products.map((p) => p.category?.name).filter(Boolean))) as string[];
     return ["Todos", ...unique];
   }, [products]);
-  const { cart, addToCart, updateQuantity, removeFromCart, clearCart, handleProcessSale } = useCart();
+  const { cart, addToCart, updateQuantity, removeFromCart, clearCart, handleProcessSale, discountAmount, setDiscountAmount, selectedCustomer, setSelectedCustomer } = useCart();
 
   return (
     <>
@@ -63,6 +63,10 @@ export function POSInterface() {
                 onUpdateQuantity={(id, delta) => updateQuantity(id, delta, products)}
                 onRemoveFromCart={removeFromCart}
                 onClearCart={clearCart}
+                discountAmount={discountAmount}
+                setDiscountAmount={setDiscountAmount}
+                selectedCustomer={selectedCustomer}
+                onSelectCustomer={setSelectedCustomer}
                 onProcessSale={(paymentMethod: PaymentMethod, amountPaid: number, changeGiven: number) =>
                   handleProcessSale(paymentMethod, amountPaid, changeGiven, fetchProducts)
                 }

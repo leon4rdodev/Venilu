@@ -31,18 +31,21 @@ export function registerUsersHandlers() {
         try {
             requireRole('admin');
             const users = await usersService.findAll();
-            return { success: true, users };
+            return { success: true, data: users };
         } catch (error: any) {
             return { success: false, message: error.message };
         }
     });
 
-    // Admin only
+    // Admin only (or first user during onboarding)
     ipcMain.handle('create-user', async (_event, userData) => {
         try {
-            requireRole('admin');
+            const onboarding = await usersService.checkOnboardingStatus();
+            if (onboarding.completed) {
+                requireRole('admin');
+            }
             const user = await usersService.create(userData);
-            return { success: true, user };
+            return { success: true, data: user };
         } catch (error: any) {
             return { success: false, message: error.message };
         }

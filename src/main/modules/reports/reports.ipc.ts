@@ -34,7 +34,7 @@ export function registerReportsHandlers() {
                 endDate ? new Date(endDate) : null,
                 limit
             );
-            return { success: true, products };
+            return { success: true, data: products };
         } catch (error: any) {
             return { success: false, message: error.message };
         }
@@ -56,7 +56,7 @@ export function registerReportsHandlers() {
     ipcMain.handle('get-least-selling-products', async (_event, { startDate, endDate, limit }) => {
         try {
             requireRole('admin');
-            return { success: true, products: await reportsService.getLeastSellingProducts(
+            return { success: true, data: await reportsService.getLeastSellingProducts(
                 startDate ? new Date(startDate) : null,
                 endDate ? new Date(endDate) : null,
                 limit

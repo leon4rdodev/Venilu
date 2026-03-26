@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from "typeorm";
 import { Category } from "@main/modules/categories/entities/category.entity";
 
 @Entity("products")
@@ -6,6 +6,7 @@ export class Product {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
 
+    @Index()
     @Column()
     name!: string;
 
@@ -18,21 +19,26 @@ export class Product {
     @Column("decimal", { precision: 10, scale: 2, default: 0 })
     cost_price!: number;
 
+    @Index()
     @Column("integer", { default: 0 })
     stock!: number;
 
+    @Index()
     @Column({ nullable: true })
     barcode?: string;
 
+    @Index()
     @Column({ nullable: true })
     sku?: string;
 
+    @Index()
     @Column("integer", { default: 5 })
     min_stock!: number;
 
     @Column({ nullable: true })
     image?: string; // Storing as base64 or path
 
+    @Index()
     @Column({ nullable: true })
     category_id?: string;
 

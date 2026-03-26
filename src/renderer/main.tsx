@@ -10,6 +10,8 @@ import { ShiftProvider } from '@renderer/features/pos';
 import { MainLayout, AnimatedPage, useTheme } from '@renderer/features/layout';
 import { useOnboarding } from '@renderer/features/onboarding';
 import { ThemeProvider } from '@hooks/use-theme';
+import { CurrencyProvider } from '@renderer/shared/context/currency-context';
+import { UpdateBanner } from '@renderer/shared/components/UpdateBanner';
 
 // Pages
 import LoginPage from '@pages/login/page';
@@ -93,12 +95,15 @@ function AppRoutes() {
 function App() {
   return (
     <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
-      <UserProvider>
-        <ShiftProvider>
-          <AppRoutes />
-          <ToasterWithTheme />
-        </ShiftProvider>
-      </UserProvider>
+      <CurrencyProvider>
+        <UserProvider>
+          <ShiftProvider>
+            <AppRoutes />
+            <ToasterWithTheme />
+            <UpdateBanner />
+          </ShiftProvider>
+        </UserProvider>
+      </CurrencyProvider>
     </ThemeProvider>
   );
 }

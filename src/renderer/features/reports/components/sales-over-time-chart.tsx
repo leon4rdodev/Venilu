@@ -15,14 +15,10 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
-import { formatCurrency } from "@lib/currency";
+import { formatCurrency, getCurrencySymbol } from "@lib/currency";
+import { useCurrency } from "@renderer/shared/context/currency-context";
 import { BarChart3, TrendingUp } from "lucide-react";
 
-const compactCurrency = (value: number) => {
-  if (value >= 1_000_000) return `RD$${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `RD$${(value / 1_000).toFixed(1)}K`;
-  return `RD$${value}`;
-};
 
 interface SalesOverTimeData {
   period: string;
@@ -38,6 +34,16 @@ interface SalesOverTimeChartProps {
 
 export const SalesOverTimeChart = React.memo(
   ({ salesOverTime, loading, interval = "day" }: SalesOverTimeChartProps) => {
+    // Re-render when currency changes so the Y-axis symbol updates
+    const { currency } = useCurrency();
+
+    const compactCurrency = (value: number) => {
+      const sym = getCurrencySymbol(currency);
+      if (value >= 1_000_000) return `${sym}${(value / 1_000_000).toFixed(1)}M`;
+      if (value >= 1_000) return `${sym}${(value / 1_000).toFixed(1)}K`;
+      return `${sym}${value}`;
+    };
+
     const formatPeriodLabel = (value: string) => {
       // Check format: YYYY-W## (Week)
       if (value.includes("-W")) {

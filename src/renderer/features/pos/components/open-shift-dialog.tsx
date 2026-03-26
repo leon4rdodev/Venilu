@@ -6,12 +6,13 @@ import {
 } from '@components/ui/dialog';
 import { Button } from '@components/ui/button';
 import { Input } from '@components/ui/input';
+import { getCurrencySymbol } from '@lib/currency';
 
 import { useShift } from '../hooks/use-shift';
 import { useUser } from '@renderer/features/auth';
 import { toast } from 'sonner';
 import { formatCurrency } from '@lib/currency';
-import { Banknote, LogOut } from 'lucide-react';
+import { Banknote, LogOut, PlayCircle } from 'lucide-react';
 import { cn } from '@lib/utils';
 
 interface OpenShiftDialogProps {
@@ -85,7 +86,7 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
             </div>
             <div className="relative">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-muted-foreground pointer-events-none">
-                RD$
+                {getCurrencySymbol()}
               </div>
               <Input
                 id="initial-cash"
@@ -153,7 +154,7 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
                 Abriendo...
               </>
             ) : (
-              'Iniciar Turno'
+              <><PlayCircle className="h-4 w-4" />Iniciar Turno</>
             )}
           </Button>
         </div>

@@ -36,31 +36,45 @@ export class ReportsService {
     }
 
     private async calculateMetrics(startDate: Date | null, endDate: Date | null) {
-        const query = AppDataSource.getRepository(SaleEntity)
-            .createQueryBuilder("sale")
-            .leftJoin("sale.items", "item") 
-            .leftJoin("item.product", "product");
-
+        // Query 1: Sales aggregates (no joins to avoid row duplication)
+        const saleQuery = AppDataSource.getRepository(SaleEntity).createQueryBuilder("sale");
+        
         if (startDate && endDate) {
-            query.where("sale.created_at BETWEEN :start AND :end", { 
+            saleQuery.where("sale.created_at BETWEEN :start AND :end", { 
                 start: this.formatDate(startDate), 
                 end: this.formatDate(endDate) 
             });
         }
-        
-        const result = await query
+
+        const saleResult = await saleQuery
             .select("SUM(sale.total_amount)", "totalAmount")
-            .addSelect("SUM(item.quantity * COALESCE(product.cost_price, 0))", "totalCost")
-            .addSelect("COUNT(DISTINCT sale.id)", "totalSalesCount")
+            .addSelect("COUNT(sale.id)", "totalSalesCount")
+            .getRawOne();
+
+        // Query 2: Items aggregates
+        const itemQuery = AppDataSource.getRepository(SaleItemEntity)
+            .createQueryBuilder("item")
+            .leftJoin("item.sale", "sale")
+            .leftJoin("item.product", "product");
+
+        if (startDate && endDate) {
+            itemQuery.where("sale.created_at BETWEEN :start AND :end", { 
+                start: this.formatDate(startDate), 
+                end: this.formatDate(endDate) 
+            });
+        }
+
+        const itemResult = await itemQuery
+            .select("SUM(item.quantity * COALESCE(product.cost_price, 0))", "totalCost")
             .addSelect("SUM(item.quantity)", "totalItemsSold")
             .getRawOne();
 
-        const totalAmount = Number(result?.totalAmount || 0);
-        const totalCost = Number(result?.totalCost || 0);
+        const totalAmount = Number(saleResult?.totalAmount || 0);
+        const totalCost = Number(itemResult?.totalCost || 0);
         const netProfit = totalAmount - totalCost;
         const averageMargin = totalAmount > 0 ? (netProfit / totalAmount) * 100 : 0;
-        const totalSalesCount = Number(result?.totalSalesCount || 0);
-        const totalItemsSold = Number(result?.totalItemsSold || 0);
+        const totalSalesCount = Number(saleResult?.totalSalesCount || 0);
+        const totalItemsSold = Number(itemResult?.totalItemsSold || 0);
         const averageTicket = totalSalesCount > 0 ? totalAmount / totalSalesCount : 0;
 
         return {

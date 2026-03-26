@@ -3,15 +3,20 @@ import { useState } from "react";
 import { CreditCard, ShoppingBag, Trash2 } from "lucide-react";
 import { CartItem, CartItemType } from "./cart-item";
 import { PaymentDialog } from "./payment-dialog";
-import { formatCurrency } from "@lib/currency";
+import { formatCurrency, getCurrencySymbol } from "@lib/currency";
 import { Button } from "@components/ui/button";
-import { PaymentMethod } from "@shared/types/models";
+import { Input } from "@components/ui/input";
+import { PaymentMethod, Customer } from "@shared/types/models";
 
 interface CartProps {
   cart: CartItemType[];
   onUpdateQuantity: (id: string, delta: number) => void;
   onRemoveFromCart: (id: string) => void;
   onClearCart: () => void;
+  discountAmount: number;
+  setDiscountAmount: (val: number) => void;
+  selectedCustomer: Customer | null;
+  onSelectCustomer: (customer: Customer | null) => void;
   onProcessSale: (paymentMethod: PaymentMethod, amountPaid: number, changeGiven: number) => Promise<{ success: boolean, saleId?: string, message?: string }>;
 }
 
@@ -20,10 +25,15 @@ export default function Cart({
   onUpdateQuantity,
   onRemoveFromCart,
   onClearCart,
+  discountAmount,
+  setDiscountAmount,
+  selectedCustomer,
+  onSelectCustomer,
   onProcessSale,
 }: CartProps) {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const total = cart.reduce((sum, item) => sum + item.sale_price * item.quantity, 0);
+  const subtotal = cart.reduce((sum, item) => sum + item.sale_price * item.quantity, 0);
+  const total = Math.max(0, subtotal - discountAmount);
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
@@ -81,9 +91,46 @@ export default function Cart({
 
         {/* FOOTER */}
         <div className="shrink-0 border-t bg-background p-4 space-y-3">
+          {/* Subtotal & Descuento */}
+          <div className="flex flex-col gap-2 mb-2">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="font-medium text-foreground tabular-nums">
+                {formatCurrency(subtotal)}
+              </span>
+            </div>
+            
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground mr-2">Descuento</span>
+              <div className="flex items-center gap-1 w-24">
+                <span className="text-muted-foreground text-xs">{getCurrencySymbol()}</span>
+                <Input
+                  type="number"
+                  min="0"
+                  max={subtotal}
+                  value={discountAmount === 0 ? "" : discountAmount}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (isNaN(val) || val < 0) {
+                      setDiscountAmount(0);
+                    } else if (val > subtotal) {
+                      setDiscountAmount(subtotal);
+                    } else {
+                      setDiscountAmount(val);
+                    }
+                  }}
+                  className="h-7 text-right text-xs bg-muted/50 border-transparent hover:border-border focus:border-primary"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full h-px bg-border/50" />
+
           {/* Total */}
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-muted-foreground">Total</span>
+          <div className="flex justify-between items-center mt-1">
+            <span className="text-sm font-medium text-muted-foreground">Total a pagar</span>
             <span className="text-2xl font-bold text-primary tabular-nums">
               {formatCurrency(total)}
             </span>
@@ -105,7 +152,11 @@ export default function Cart({
       <PaymentDialog
         open={paymentDialogOpen}
         onOpenChange={setPaymentDialogOpen}
+        subtotal={subtotal}
+        discountAmount={discountAmount}
         total={total}
+        selectedCustomer={selectedCustomer}
+        onSelectCustomer={onSelectCustomer}
         onComplete={async (paymentMethod, amountPaid, changeGiven) => {
           const result = await onProcessSale(paymentMethod as PaymentMethod, amountPaid, changeGiven);
           return result;

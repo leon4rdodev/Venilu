@@ -42,8 +42,8 @@ export function SettingsInterface() {
         animate="show"
         className="grid grid-cols-1 lg:grid-cols-2 gap-6"
       >
-        {/* Business Settings - Full Width on large screens if desired, or half */}
-        <motion.div variants={item} className="space-y-4 lg:col-span-2">
+        {/* Business Settings */}
+        <motion.div variants={item} className="space-y-4">
           <div className="flex items-center gap-2 text-lg font-semibold text-foreground/80">
             <Building2 className="h-5 w-5 text-primary" />
             <h2>Información del Negocio</h2>

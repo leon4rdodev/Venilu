@@ -66,11 +66,11 @@ export function useReports() {
 
       if (salesTime) setSalesOverTime(salesTime as SalesOverTimeData[]);
 
-      const topProducts = topProductsResponse as { success: boolean; products: SellingProduct[] };
-      setTopSellingProducts(topProducts?.success ? topProducts.products : []);
+      const topProducts = topProductsResponse as { success: boolean; data: SellingProduct[] };
+      setTopSellingProducts(topProducts?.success ? topProducts.data : []);
 
-      const leastProducts = leastProductsResponse as { success: boolean; products: SellingProduct[] };
-      setLeastSellingProducts(leastProducts?.success ? leastProducts.products : []);
+      const leastProducts = leastProductsResponse as { success: boolean; data: SellingProduct[] };
+      setLeastSellingProducts(leastProducts?.success ? leastProducts.data : []);
     } catch (error: unknown) {
       console.error("Error fetching report data:", error);
       toast({

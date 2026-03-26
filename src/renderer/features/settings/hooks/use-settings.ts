@@ -39,17 +39,21 @@ export function useSettings() {
         throw new Error('IPC Renderer not available');
       }
 
+      // Optimistic update: apply changes locally immediately (no flicker)
+      setSettings(prev => prev ? { ...prev, ...newSettings } : prev);
+
       const result = await window.ipcRenderer.invoke('settings:update', newSettings) as IPCResponse<void>;
 
       if (result.success) {
-        // Reload settings to get updated data
-        await loadSettings();
         return { success: true };
       } else {
+        // Revert on failure by reloading from DB
+        await loadSettings();
         return { success: false, message: result.message };
       }
     } catch (err) {
       console.error('Error updating settings:', err);
+      await loadSettings();
       return {
         success: false,
         message: err instanceof Error ? err.message : 'Unknown error'
