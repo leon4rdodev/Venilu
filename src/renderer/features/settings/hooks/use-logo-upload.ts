@@ -39,28 +39,78 @@ export function useLogoUpload(initialFileName: string | null = null) {
 
     setIsUploadingLogo(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const base64 = event.target?.result as string;
-        if (!window.ipcRenderer) return;
+      const processImage = new Promise<void>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64 = event.target?.result as string;
+          
+          const img = new Image();
+          img.onload = async () => {
+            try {
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              if (!ctx) throw new Error("Could not get canvas context");
+              
+              canvas.width = img.width;
+              canvas.height = img.height;
+              
+              // Draw image
+              ctx.drawImage(img, 0, 0);
+              
+              // Convert to grayscale
+              const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              const data = imageData.data;
+              
+              for (let i = 0; i < data.length; i += 4) {
+                 const r = data[i];
+                 const g = data[i + 1];
+                 const b = data[i + 2];
+                 
+                 // Grayscale (Luminance)
+                 const v = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                 
+                 data[i] = v;     // R
+                 data[i + 1] = v; // G
+                 data[i + 2] = v; // B
+                 // Alpha remains the same
+              }
+              
+              ctx.putImageData(imageData, 0, 0);
+              const processedBase64 = canvas.toDataURL('image/png');
+              
+              if (!window.ipcRenderer) {
+                  resolve();
+                  return;
+              }
 
-        const result = (await window.ipcRenderer.invoke("upload-logo", {
-          fileName: file.name,
-          fileData: base64,
-        })) as { success: boolean; fileName?: string; message?: string };
+              const result = (await window.ipcRenderer.invoke("upload-logo", {
+                fileName: file.name,
+                fileData: processedBase64,
+              })) as { success: boolean; fileName?: string; message?: string };
 
-        if (result.success && result.fileName) {
-          setLogoPreview(base64);
-          setLogoFile(result.fileName);
-          toast.success("Logo cargado", { description: "El logo se guardó correctamente" });
-        } else {
-          toast.error("Error al cargar logo", { description: result.message });
-        }
-      };
-      reader.readAsDataURL(file);
+              if (result.success && result.fileName) {
+                setLogoPreview(processedBase64);
+                setLogoFile(result.fileName);
+                toast.success("Logo cargado", { description: "El logo se procesó a escala de grises y se guardó" });
+              } else {
+                toast.error("Error al cargar logo", { description: result.message });
+              }
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          };
+          img.onerror = () => reject(new Error("Error loading image for processing"));
+          img.src = base64;
+        };
+        reader.onerror = () => reject(new Error("Error reading file"));
+        reader.readAsDataURL(file);
+      });
+
+      await processImage;
     } catch (error) {
       console.error("Error uploading logo:", error);
-      toast.error("Error al cargar logo");
+      toast.error("Error al procesar el logo");
     } finally {
       setIsUploadingLogo(false);
     }

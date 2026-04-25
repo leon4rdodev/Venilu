@@ -11,7 +11,7 @@ import { MainLayout, AnimatedPage, useTheme } from '@renderer/features/layout';
 import { useOnboarding } from '@renderer/features/onboarding';
 import { ThemeProvider } from '@hooks/use-theme';
 import { CurrencyProvider } from '@renderer/shared/context/currency-context';
-import { UpdateBanner } from '@renderer/shared/components/UpdateBanner';
+// import { UpdateBanner } from '@renderer/shared/components/UpdateBanner';
 
 // Pages
 import LoginPage from '@pages/login/page';
@@ -100,7 +100,7 @@ function App() {
           <ShiftProvider>
             <AppRoutes />
             <ToasterWithTheme />
-            <UpdateBanner />
+            {/* <UpdateBanner /> */}
           </ShiftProvider>
         </UserProvider>
       </CurrencyProvider>

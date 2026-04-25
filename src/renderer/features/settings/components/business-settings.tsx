@@ -92,7 +92,7 @@ export function BusinessSettings() {
         <div className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-border/50">
 
           {/* LEFT — Identity & Locale */}
-          <div className="lg:w-64 xl:w-72 shrink-0 p-6 space-y-6">
+          <div className="lg:w-80 xl:w-96 shrink-0 p-6 xl:p-8 space-y-8">
 
             {/* Logo */}
             <div className="space-y-3">
@@ -101,13 +101,13 @@ export function BusinessSettings() {
                 Logotipo
               </div>
               <div className="flex flex-col items-center gap-3">
-                <div className="relative group">
+                <div className="relative group w-full flex justify-center">
                   {logoPreview ? (
                     <div className="relative">
                       <img
                         src={logoPreview}
                         alt="Logo"
-                        className="w-24 h-24 object-contain rounded-xl border border-border bg-muted"
+                        className="w-48 h-48 object-contain rounded-xl border border-border bg-muted"
                       />
                       <Button
                         size="icon"
@@ -120,9 +120,9 @@ export function BusinessSettings() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="w-24 h-24 rounded-xl border-2 border-dashed border-border bg-muted/50 flex flex-col items-center justify-center gap-1 group-hover:border-primary/40 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                      <ImageIcon className="h-7 w-7 text-muted-foreground/30" />
-                      <span className="text-[10px] text-muted-foreground/50">Sin logo</span>
+                    <div className="w-48 h-48 rounded-xl border-2 border-dashed border-border bg-muted/50 flex flex-col items-center justify-center gap-2 group-hover:border-primary/40 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                      <ImageIcon className="h-10 w-10 text-muted-foreground/30" />
+                      <span className="text-xs text-muted-foreground/50 font-medium">Sin logo</span>
                     </div>
                   )}
                 </div>
@@ -165,8 +165,7 @@ export function BusinessSettings() {
                     {SUPPORTED_CURRENCIES.map((c) => (
                       <SelectItem key={c.code} value={c.code}>
                         <span className="font-mono font-semibold text-xs mr-2">{c.symbol}</span>
-                        <span className="text-muted-foreground mr-1">{c.code}</span>
-                        <span className="text-xs">— {c.label}</span>
+                        <span className="text-muted-foreground">{c.code}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>

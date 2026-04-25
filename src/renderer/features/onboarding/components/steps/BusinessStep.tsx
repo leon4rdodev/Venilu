@@ -122,12 +122,12 @@ export function BusinessStep({
                             <SelectValue placeholder="Selecciona una moneda" />
                         </SelectTrigger>
                         <SelectContent>
-                            {CURRENCIES.map(({ code, label, symbol }) => (
+                            {CURRENCIES.map(({ code, symbol }) => (
                                 <SelectItem key={code} value={code}>
                                     <span className="font-mono text-xs text-muted-foreground w-8 inline-block">
                                         {symbol}
                                     </span>
-                                    {label}
+                                    {code}
                                 </SelectItem>
                             ))}
                         </SelectContent>

@@ -75,7 +75,8 @@ export class PrinterService {
             business_address,
             business_phone,
             business_tax_id,
-            paper_size
+            paper_size,
+            logo_filename
         } = settings;
         
         const bName = business_name || 'Mi Negocio';
@@ -84,6 +85,23 @@ export class PrinterService {
         const bTaxId = business_tax_id || '';
         const paperWidth = paper_size || '80mm';
         const is58mm = paperWidth === '58mm';
+        
+        let logoBase64 = '';
+        if (logo_filename) {
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                const { app } = require('electron');
+                const filePath = path.join(app.getPath('userData'), logo_filename);
+                if (fs.existsSync(filePath)) {
+                    const buffer = fs.readFileSync(filePath);
+                    const ext = path.extname(logo_filename).substring(1) || 'png';
+                    logoBase64 = `data:image/${ext};base64,${buffer.toString('base64')}`;
+                }
+            } catch (e) {
+                console.error('Error loading logo for receipt:', e);
+            }
+        }
 
         const paymentMethodLabels: { [key: string]: string } = {
             'cash': 'Efectivo',
@@ -127,6 +145,12 @@ export class PrinterService {
             text-align: center;
             margin-bottom: ${is58mm ? '5px' : '10px'};
         }
+        .logo-img {
+            max-width: 60%;
+            height: auto;
+            margin: 0 auto 8px;
+            display: block;
+        }
         .business-name {
             font-size: ${is58mm ? '14px' : '16px'};
             font-weight: 800;
@@ -161,7 +185,7 @@ export class PrinterService {
         }
         th {
             text-align: left;
-            border-bottom: 1px solid #000;
+            border-bottom: 1px dashed #000;
             padding-bottom: 4px;
             font-size: ${is58mm ? '9px' : '10px'};
             font-weight: 700;
@@ -183,7 +207,7 @@ export class PrinterService {
         
         .totals-section {
             margin-top: 5px;
-            border-top: 1px solid #000;
+            border-top: 1px dashed #000;
             padding-top: 5px;
         }
         .total-row {
@@ -196,7 +220,6 @@ export class PrinterService {
             font-size: ${is58mm ? '14px' : '16px'};
             font-weight: 800;
             margin-top: 5px;
-            border-top: 1px dashed #000;
             padding-top: 5px;
         }
         .payment-section {
@@ -207,7 +230,6 @@ export class PrinterService {
             text-align: center;
             margin-top: 15px;
             font-size: ${is58mm ? '9px' : '10px'};
-            color: #444;
         }
         .thank-you {
             font-weight: bold;
@@ -216,14 +238,14 @@ export class PrinterService {
             text-transform: uppercase;
         }
         .pos-brand {
-            font-size: 9px;
-            color: #888;
+            font-size: 8px;
             margin-top: 5px;
         }
     </style>
 </head>
 <body>
     <div class="header">
+        ${logoBase64 ? `<img src="${logoBase64}" class="logo-img" alt="Logo">` : ''}
         <div class="business-name">${bName}</div>
         ${bAddress ? `<div class="info-row">${bAddress}</div>` : ''}
         ${bPhone ? `<div class="info-row">Tel: ${bPhone}</div>` : ''}
@@ -269,10 +291,11 @@ export class PrinterService {
             <span>Subtotal</span>
             <span>${formatCurrency(subtotal)}</span>
         </div>
-        <div class="total-row" style="color: #666;">
+        <div class="total-row">
             <span>Descuento</span>
             <span>-${formatCurrency(discountAmount)}</span>
         </div>
+        <div class="divider" style="margin: 4px 0;"></div>
         ` : ''}
         <div class="total-row final">
             <span>TOTAL</span>
