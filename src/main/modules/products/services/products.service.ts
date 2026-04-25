@@ -38,7 +38,10 @@ export class ProductsService {
             .leftJoinAndSelect("product.category", "category");
 
         if (search) {
-            queryBuilder.andWhere("product.name LIKE :search", { search: `%${search}%` });
+            queryBuilder.andWhere(
+                "(product.name LIKE :search OR product.sku LIKE :search OR product.barcode LIKE :search)",
+                { search: `%${search}%` }
+            );
         }
 
         if (category && category !== 'all') {
@@ -51,9 +54,9 @@ export class ProductsService {
         
         // Handle special case if sorting by category name (joined column)
         if (sortBy === 'category') {
-             queryBuilder.orderBy("category.name", sortOrder);
+            queryBuilder.orderBy("category.name", sortOrder);
         } else {
-             queryBuilder.orderBy(sortField, sortOrder);
+            queryBuilder.orderBy(sortField, sortOrder);
         }
 
         // Get count and data

@@ -62,12 +62,21 @@ export function ProductGrid({ products, categories, onAddToCart, showSalesHistor
       {/* Header toolbar - Redesigned */}
       <div className="bg-card rounded-xl border shadow-sm p-3 flex flex-col sm:flex-row gap-3 items-center sticky top-0 z-10">
         <div className="relative flex-1 w-full">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar productos por nombre o SKU..."
-            className="pl-11 pr-10 h-11 bg-background/50 border-input/60 focus:bg-background transition-all text-base"
+            className="pl-9 pr-9 h-10! bg-background/50 border-input/60 focus:bg-background transition-all"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && searchQuery) {
+                const product = products.find(p => p.barcode === searchQuery || p.sku === searchQuery);
+                if (product) {
+                  onAddToCart(product);
+                  setSearchQuery("");
+                }
+              }
+            }}
             autoFocus
           />
           {searchQuery && (
@@ -82,7 +91,7 @@ export function ProductGrid({ products, categories, onAddToCart, showSalesHistor
         
         <div className="flex gap-3 w-full sm:w-auto">
           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="w-full sm:w-[200px] h-11! bg-background/50 border-input/60 focus:bg-background">
+            <SelectTrigger className="w-full sm:w-[200px] h-10! bg-background/50 border-input/60 focus:bg-background">
               <SelectValue placeholder="Categoría" />
             </SelectTrigger>
             <SelectContent>
@@ -96,7 +105,7 @@ export function ProductGrid({ products, categories, onAddToCart, showSalesHistor
           
           <Button
             variant="secondary"
-            className="h-11 w-11 shrink-0 border border-input/60 bg-background/50 hover:bg-muted"
+            className="h-10! w-10! shrink-0 border border-input/60 bg-background/50 hover:bg-muted"
             onClick={() => setShowSalesHistory(!showSalesHistory)}
             title="Historial de ventas"
           >

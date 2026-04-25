@@ -5,7 +5,7 @@ import { Input } from "@components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@components/ui/card";
 import { Badge } from "@components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select";
-import { Pencil, Trash2, Plus, Search, Tag, Package } from "lucide-react";
+import { Pencil, Trash2, Plus, Search, Tag, Package, X } from "lucide-react";
 import { InventoryStats } from "./inventory-stats";
 import { ProductDialog } from "./product-dialog";
 import { InventoryPagination } from "./inventory-pagination";
@@ -16,6 +16,7 @@ import { EmptyStateRow } from "@renderer/shared/components/empty-state";
 import { formatCurrency } from "@lib/currency";
 import { useProducts } from "../hooks/use-products";
 import { Product } from "@shared/types/models";
+import { useBarcodeScanner } from "@renderer/features/pos/hooks/use-barcode-scanner";
 
 export function InventoryTable() {
   const {
@@ -41,6 +42,12 @@ export function InventoryTable() {
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+
+  const handleBarcodeScan = useCallback((barcode: string) => {
+    setSearchQuery(barcode);
+  }, [setSearchQuery]);
+
+  useBarcodeScanner({ onScan: handleBarcodeScan });
 
   const handleEdit = useCallback((product: Product) => {
     setEditingProduct(product);
@@ -86,15 +93,24 @@ export function InventoryTable() {
           </div>
           <div className="flex items-center justify-between gap-3 pt-2 flex-wrap">
             <div className="flex items-center gap-3">
-              <div className="relative">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Buscar producto..."
-                  className="pl-9 w-64"
+                  className="pl-9 pr-9 w-64"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   disabled={isLoading}
                 />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted/80 transition-colors"
+                    title="Limpiar búsqueda"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
               <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={isLoading}>
                 <SelectTrigger className="w-[180px]">

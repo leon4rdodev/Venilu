@@ -9,7 +9,9 @@ import { useCart } from "../hooks/use-cart";
 import { usePOSProducts } from "../hooks/use-pos-products";
 import { useShift } from "../hooks/use-shift";
 import { PaymentMethod } from "@shared/types/models";
-
+import { useToast } from "@renderer/features/layout";
+import { useBarcodeScanner } from "../hooks/use-barcode-scanner";
+import { useCallback } from "react";
 export function POSInterface() {
   const [showSalesHistory, setShowSalesHistory] = useState(false);
   const [showOpenShiftDialog, setShowOpenShiftDialog] = useState(false);
@@ -21,6 +23,35 @@ export function POSInterface() {
     return ["Todos", ...unique];
   }, [products]);
   const { cart, addToCart, updateQuantity, removeFromCart, clearCart, handleProcessSale, discountAmount, setDiscountAmount, selectedCustomer, setSelectedCustomer } = useCart();
+  const { toast } = useToast();
+
+  const handleBarcodeScan = useCallback((barcode: string) => {
+    if (!activeShift) {
+      toast({
+        title: "No hay turno activo",
+        description: "Abre un turno antes de escanear productos.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const product = products.find(p => p.barcode === barcode || p.sku === barcode);
+    if (product) {
+      addToCart(product, products);
+      toast({
+        title: "Producto Escaneado",
+        description: `${product.name} agregado al carrito.`,
+      });
+    } else {
+      toast({
+        title: "Producto no encontrado",
+        description: `No se encontró ningún producto con el código ${barcode}.`,
+        variant: "destructive"
+      });
+    }
+  }, [products, activeShift, addToCart, toast]);
+
+  useBarcodeScanner({ onScan: handleBarcodeScan });
 
   return (
     <>
