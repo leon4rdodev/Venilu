@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react"
+import React, { useState, useEffect, useRef, useCallback } from "react"
 import { Dialog, DialogContent } from "@components/ui/dialog"
 import { Button } from "@components/ui/button"
 import { Input } from "@components/ui/input"
@@ -166,6 +166,16 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
   const [showSuccess, setShowSuccess] = useState(false)
   const [saleId, setSaleId] = useState<string | undefined>(undefined)
   const [isPrinting, setIsPrinting] = useState(false)
+  const amountInputRef = useRef<HTMLInputElement>(null)
+
+  // Focus the cash amount input when the dialog opens with cash selected,
+  // or when the user switches back to the cash payment method
+  useEffect(() => {
+    if (open && paymentMethod === "cash" && !showSuccess) {
+      const id = setTimeout(() => amountInputRef.current?.focus(), 50)
+      return () => clearTimeout(id)
+    }
+  }, [open, paymentMethod, showSuccess])
 
   const [confirmedDetails, setConfirmedDetails] = useState<{
     total: number
@@ -237,8 +247,8 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
       } else {
         setError(result.message || "Error al procesar la venta")
       }
-    } catch (err: any) {
-      setError(err.message || "Ocurrió un error inesperado")
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Ocurrió un error inesperado")
     } finally {
       setIsLoading(false)
     }
@@ -259,7 +269,7 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
       } else {
         toast.error("Error al imprimir", { description: result.message || "No se pudo imprimir el ticket" })
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("Error al imprimir")
     } finally {
       setIsPrinting(false)
@@ -375,6 +385,7 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                       {getCurrencySymbol()}
                     </div>
                     <Input
+                      ref={amountInputRef}
                       id="amount"
                       type="text"
                       inputMode="decimal"
@@ -383,7 +394,6 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                       onChange={handleAmountChange}
                       className="h-14 text-xl! text-right font-bold pl-20 pr-5 rounded-xl"
                       style={{ fontSize: '1.35rem' }}
-                      autoFocus
                       disabled={isLoading}
                     />
                   </div>

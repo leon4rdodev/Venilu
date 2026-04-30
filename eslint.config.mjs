@@ -9,6 +9,9 @@ import { fixupConfigRules } from "@eslint/compat";
 
 
 export default [
+// General recommended rules applied first so TypeScript-specific blocks can override them
+  pluginJs.configs.recommended,
+
   // Ignore compiled files, dev scripts, and node_modules
   {
     ignores: ["dist/**", "dist-electron/**", "node_modules/", "src/main/main-dev.js"],
@@ -110,12 +113,20 @@ export default [
     },
     rules: {
       ...tseslintPlugin.configs.recommended.rules,
+      // Disable the base JS rule — @typescript-eslint/no-unused-vars supersedes it for TS files
+      "no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+      "@typescript-eslint/no-unused-vars": ["warn", {
+        "vars": "all",
+        "varsIgnorePattern": "^_",
+        "args": "all",
+        "argsIgnorePattern": "^_",
+        "destructuredArrayIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_",
+        "ignoreRestSiblings": true
+      }],
     },
   },
-
-  // TypeScript main process files configuration
   {
     files: ["src/main/**/*.{ts,tsx}"],
     languageOptions: {
@@ -131,9 +142,18 @@ export default [
     },
     rules: {
       ...tseslintPlugin.configs.recommended.rules,
+      "no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
-      "no-undef": "off", // Node globals handled by globals.node
+      "@typescript-eslint/no-unused-vars": ["warn", {
+        "vars": "all",
+        "varsIgnorePattern": "^_",
+        "args": "all",
+        "argsIgnorePattern": "^_",
+        "destructuredArrayIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_",
+        "ignoreRestSiblings": true
+      }],
+      "no-undef": "off",
     },
   },
 
@@ -153,12 +173,18 @@ export default [
     },
     rules: {
       ...tseslintPlugin.configs.recommended.rules,
+      "no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
-      "no-undef": "off", // Allow Node.js globals
+      "@typescript-eslint/no-unused-vars": ["warn", {
+        "vars": "all",
+        "varsIgnorePattern": "^_",
+        "args": "all",
+        "argsIgnorePattern": "^_",
+        "destructuredArrayIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_",
+        "ignoreRestSiblings": true
+      }],
+      "no-undef": "off",
     },
   },
-
-  // General recommended rules
-  pluginJs.configs.recommended,
-];
+];

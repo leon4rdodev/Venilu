@@ -10,7 +10,7 @@ import { cn } from "@lib/utils"
 
 type SaleConfirmationDialogProps = {
   open: boolean
-  onOpenChange: (open: boolean) => void
+  onOpenChange: (_open: boolean) => void
   saleId?: string
 }
 
@@ -71,7 +71,7 @@ export function SaleConfirmationDialog({ open, onOpenChange, saleId }: SaleConfi
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         {/* Header con gradiente */}
-        <div className="relative bg-gradient-to-br from-green-500 to-emerald-600 p-8 pb-12">
+        <div className="relative bg-linear-to-br from-green-500 to-emerald-600 p-8 pb-12">
           <div className="flex items-center justify-center mb-4">
             <div className="relative">
               <div className="absolute inset-0 bg-white/20 rounded-full blur-xl" />

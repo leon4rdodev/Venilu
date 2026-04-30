@@ -88,8 +88,8 @@ export function useCustomers() {
       await fetchCustomers();
       window.dispatchEvent(new Event("customers-updated"));
       return true;
-    } catch (error: any) {
-      toast.error("Error", { description: error.message });
+    } catch (error: unknown) {
+      toast.error("Error", { description: error instanceof Error ? error.message : "Error inesperado" });
       return false;
     }
   };
@@ -109,8 +109,8 @@ export function useCustomers() {
         toast.error("Error al eliminar", { description: result.message });
         return false;
       }
-    } catch (error: any) {
-      toast.error("Error", { description: error.message });
+    } catch (error: unknown) {
+      toast.error("Error", { description: error instanceof Error ? error.message : "Error inesperado" });
       return false;
     }
   };

@@ -35,9 +35,17 @@ export function CustomersStats() {
     }
   }, [])
 
+  // Initial data load on mount
   useEffect(() => {
-    fetchStats()
-    const handleCustomersChanged = () => fetchStats()
+    const init = async () => {
+      await fetchStats()
+    }
+    void init()
+  }, [fetchStats])
+
+  // Re-fetch whenever customers are updated from elsewhere in the app
+  useEffect(() => {
+    const handleCustomersChanged = () => { void fetchStats() }
     window.addEventListener('customers-updated', handleCustomersChanged)
     return () => {
       window.removeEventListener('customers-updated', handleCustomersChanged)

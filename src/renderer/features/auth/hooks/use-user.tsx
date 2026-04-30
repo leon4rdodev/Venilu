@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useMemo, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode, useMemo, useEffect, useRef, useCallback } from 'react';
 import { User } from '@shared/types/models';
 
 interface UserContextType {
@@ -30,13 +30,19 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   // True only after the main-process session has been confirmed (or if there is no user to restore)
   const [sessionReady, setSessionReady] = useState(false);
 
+  // Capture the user value that existed at mount time (restored from localStorage).
+  // Using a ref avoids adding `user` to the effect deps, which would cause the
+  // session restoration IPC call to re-fire on every login/logout — not desired.
+  const initialUserRef = useRef(user);
+
   useEffect(() => {
     const restoreBackendSession = async () => {
-      if (user && window.ipcRenderer) {
+      const initialUser = initialUserRef.current;
+      if (initialUser && window.ipcRenderer) {
         try {
           // Send only the ID — main reloads permissions from DB
-          await window.ipcRenderer.invoke('set-logged-in-user', user.id);
-          console.log('[useUser] Backend session restored for:', user.username);
+          await window.ipcRenderer.invoke('set-logged-in-user', initialUser.id);
+          console.log('[useUser] Backend session restored for:', initialUser.username);
         } catch (error) {
           console.error('[useUser] Error restoring backend session:', error);
         }
@@ -44,9 +50,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       setSessionReady(true);
     };
     restoreBackendSession();
-  }, []); // Only run on mount
+  }, []); // Intentionally runs once on mount — initialUserRef is stable
 
-  const setUser = (user: User | null) => {
+  const setUser = useCallback((user: User | null) => {
     try {
       if (user) {
         window.localStorage.setItem('user', JSON.stringify(user));
@@ -63,9 +69,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error('[useUser] Error saving user to localStorage', error);
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     // Call backend to clear session
     try {
       if (window.ipcRenderer) {
@@ -74,12 +80,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error('Error calling backend logout:', error);
     }
-
     // Clear user state - this will trigger navigation to /login via App.tsx
     setUser(null);
-  };
+  }, [setUser]);
 
-  const value = useMemo(() => ({ user, sessionReady, setUser, logout }), [user, sessionReady]);
+  const value = useMemo(() => ({ user, sessionReady, setUser, logout }), [user, sessionReady, setUser, logout]);
 
   return (
     <UserContext.Provider value={value}>

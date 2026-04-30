@@ -56,8 +56,9 @@ export function ForceCloseDialog({ open, onOpenChange, shiftId, onSuccess }: For
       } else {
         throw new Error(result.message || "Error al cerrar turno");
       }
-    } catch (error: any) {
-      toast.error("Error", { description: error.message });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Error inesperado';
+      toast.error("Error", { description: message });
     } finally {
       setIsLoading(false);
     }

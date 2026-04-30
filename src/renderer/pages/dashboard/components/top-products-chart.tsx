@@ -1,11 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@components/ui/card";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { Package, TrendingUp, BarChart3 } from "lucide-react";
-
-interface TopProduct {
-  productName: string;
-  totalSold: number;
-}
+import type { TopProduct } from "@renderer/features/dashboard/types";
 
 interface TopProductsChartProps {
   data: TopProduct[];

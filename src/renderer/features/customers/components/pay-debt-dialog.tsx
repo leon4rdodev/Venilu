@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent } from "@components/ui/dialog";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
@@ -24,6 +24,16 @@ export function PayDebtDialog({ open, onOpenChange, customer, shiftId, onSuccess
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [newBalance, setNewBalance] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open && !showSuccess) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [open, showSuccess]);
 
   useEffect(() => {
     if (!open) {
@@ -73,8 +83,8 @@ export function PayDebtDialog({ open, onOpenChange, customer, shiftId, onSuccess
       } else {
         setError(result.message || "Error al registrar el abono");
       }
-    } catch (err: any) {
-      setError(err.message || "Error inesperado");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error inesperado");
     } finally {
       setIsLoading(false);
     }
@@ -169,6 +179,7 @@ export function PayDebtDialog({ open, onOpenChange, customer, shiftId, onSuccess
                   {getCurrencySymbol()}
                 </div>
                 <Input
+                  ref={inputRef}
                   type="text"
                   inputMode="decimal"
                   placeholder="0.00"
@@ -181,7 +192,6 @@ export function PayDebtDialog({ open, onOpenChange, customer, shiftId, onSuccess
                   }}
                   className="h-12 text-lg! text-right font-bold pl-18 pr-5"
                   style={{ fontSize: "1.25rem" }}
-                  autoFocus
                   disabled={isLoading}
                 />
               </div>

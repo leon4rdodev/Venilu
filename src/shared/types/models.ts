@@ -2,6 +2,11 @@ export type UserRole = "admin" | "employee";
 export type PaymentMethod = "cash" | "card" | "transfer" | "credit";
 export type SaleStatus = "paid" | "credit" | "partial";
 export type ShiftStatus = "open" | "closed";
+export type DebtPaymentMethod = "cash" | "transfer";
+
+// ---------------------------------------------------------------------------
+// Domain entities
+// ---------------------------------------------------------------------------
 
 /**
  * A configurable role with a set of granular permissions.
@@ -97,12 +102,47 @@ export interface SaleItem {
   quantity: number;
   unit_price: number;
   total_price: number;
-  price_at_sale?: number; // legacy/frontend mapping
+  /** Legacy alias used by some frontend mappers */
+  price_at_sale?: number;
+}
+
+/**
+ * A cash/transfer payment received from a customer to reduce their credit balance.
+ * Always linked to a Shift so it appears in cash reconciliation.
+ */
+export interface DebtPayment {
+  id: string;
+  customer_id: string;
+  customer?: Customer;
+  /** Display name — populated when fetching with relations */
+  customer_name?: string;
+  shift_id?: string;
+  amount: number;
+  payment_method: DebtPaymentMethod;
+  notes?: string;
+  created_at: string | Date;
+}
+
+/**
+ * Lightweight summary of a debt payment as returned by the shift history API.
+ * Includes the customer name resolved server-side.
+ */
+export interface DebtPaymentSummary {
+  id: string;
+  customer_id: string;
+  customer_name: string;
+  shift_id?: string;
+  amount: number;
+  payment_method: DebtPaymentMethod;
+  notes?: string;
+  created_at: string | Date;
 }
 
 export interface Shift {
   id: string;
   user_id: string;
+  /** Resolved from the user relation — available in history responses */
+  user_name?: string;
   start_time: string | Date;
   end_time?: string | Date;
   initial_cash: number;
@@ -111,20 +151,11 @@ export interface Shift {
   difference?: number;
   status: ShiftStatus;
   sales?: Sale[];
+  /** Debt payments received during this shift — populated by getShiftsHistory */
+  debt_payments?: DebtPaymentSummary[];
   force_closed?: boolean;
   force_closed_by?: string;
   force_close_reason?: string;
-}
-
-export interface DebtPayment {
-  id: string;
-  customer_id: string;
-  customer?: Customer;
-  shift_id?: string;
-  amount: number;
-  payment_method: 'cash' | 'transfer';
-  notes?: string;
-  created_at: string | Date;
 }
 
 export interface Setting {
@@ -139,4 +170,3 @@ export interface Setting {
   paper_size: string;
   currency: string;
 }
-

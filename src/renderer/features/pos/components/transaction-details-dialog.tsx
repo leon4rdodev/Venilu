@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent } from '@components/ui/dialog';
 import { Button } from '@components/ui/button';
 import { formatCurrency } from '@lib/currency';
@@ -41,13 +41,7 @@ export function TransactionDetailsDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
 
-  useEffect(() => {
-    if (open && transaction) {
-      fetchSaleItems();
-    }
-  }, [open, transaction]);
-
-  const fetchSaleItems = async () => {
+  const fetchSaleItems = useCallback(async () => {
     if (!transaction) return;
 
     setIsLoading(true);
@@ -73,7 +67,13 @@ export function TransactionDetailsDialog({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [transaction]);
+
+  useEffect(() => {
+    if (open && transaction) {
+      fetchSaleItems();
+    }
+  }, [open, transaction, fetchSaleItems]);
 
   const handlePrint = async () => {
     if (!transaction || !window.ipcRenderer) {

@@ -1,5 +1,5 @@
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +32,16 @@ interface CloseShiftDialogProps {
 export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
   const [finalCash, setFinalCash] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const { activeShift, shiftSales, shiftDebtPayments, closeShift } = useShift();
+
+  // Focus the cash input when the dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      const id = setTimeout(() => inputRef.current?.focus(), 50);
+      return () => clearTimeout(id);
+    }
+  }, [isOpen]);
 
   const { initialCash, cashSalesTotal, expectedCash, totalSales, otherSalesTotal, totalTransactions, cashDebtTotal, transferDebtTotal, totalDebtPayments } = useMemo(() => {
     if (!activeShift) return { initialCash: 0, cashSalesTotal: 0, expectedCash: 0, totalSales: 0, otherSalesTotal: 0, totalTransactions: 0, cashDebtTotal: 0, transferDebtTotal: 0, totalDebtPayments: 0 };
@@ -261,6 +270,7 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
               {getCurrencySymbol()}
             </div>
             <Input
+              ref={inputRef}
               id="final-cash"
               type="text"
               inputMode="decimal"
@@ -269,7 +279,6 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
               placeholder="0.00"
               className="h-12 text-lg! text-right font-bold pl-20 pr-5"
               style={{ fontSize: '1.25rem' }}
-              autoFocus
               disabled={isLoading}
             />
           </div>

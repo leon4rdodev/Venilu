@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Button } from "@components/ui/button";
 import {
   ArrowLeft,
@@ -26,34 +26,10 @@ import { TransactionDetailsDialog } from "./transaction-details-dialog";
 import { ForceCloseDialog } from "./force-close-dialog";
 import { cn } from "@lib/utils";
 import { Sale } from "@shared/types/models";
+import type { ShiftHistoryEntry } from "@renderer/features/pos/types";
 
 interface SalesHistoryProps {
-  setShowSalesHistory: (show: boolean) => void;
-}
-
-interface DebtPaymentSummary {
-  id: string;
-  amount: number;
-  payment_method: string;
-  customer_name: string;
-  created_at: string;
-}
-
-interface Shift {
-  id: string;
-  user_name: string;
-  start_time: string;
-  end_time: string | null;
-  initial_cash: number;
-  final_cash: number | null;
-  expected_cash: number | null;
-  difference: number | null;
-  status: string;
-  force_closed?: boolean;
-  force_closed_by?: string;
-  force_close_reason?: string;
-  sales: Sale[];
-  debt_payments: DebtPaymentSummary[];
+  setShowSalesHistory: (_show: boolean) => void;
 }
 
 const paymentMethodConfig: Record<
@@ -90,7 +66,7 @@ const getMethodConfig = (method: string) =>
   };
 
 export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
-  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [shifts, setShifts] = useState<ShiftHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTransaction, setSelectedTransaction] = useState<Sale | null>(
@@ -99,7 +75,7 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
   const [expandedShift, setExpandedShift] = useState<string | null>(null);
   const [forceCloseDialogOpen, setForceCloseDialogOpen] = useState(false);
-  const [shiftToForceClose, setShiftToForceClose] = useState<Shift | null>(null);
+  const [shiftToForceClose, setShiftToForceClose] = useState<ShiftHistoryEntry | null>(null);
   const { user } = useUser();
   const { fetchActiveShift } = useShift();
 
@@ -108,7 +84,7 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
     fetchActiveShift();
   };
 
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     if (!user) {
       setError("No hay usuario autenticado");
       setIsLoading(false);
@@ -127,7 +103,7 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
         user,
       })) as {
         success: boolean;
-        data?: Shift[];
+        data?: ShiftHistoryEntry[];
         message?: string;
       };
 
@@ -147,11 +123,11 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchHistory();
-  }, [user]);
+  }, [fetchHistory]);
 
   const handleViewTransaction = (sale: Sale) => {
     setSelectedTransaction(sale);
@@ -193,7 +169,7 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
     setExpandedShift(expandedShift === shiftId ? null : shiftId);
   };
 
-  const handleForceCloseClick = (shift: Shift, e: React.MouseEvent) => {
+  const handleForceCloseClick = (shift: ShiftHistoryEntry, e: React.MouseEvent) => {
     e.stopPropagation();
     setShiftToForceClose(shift);
     setForceCloseDialogOpen(true);

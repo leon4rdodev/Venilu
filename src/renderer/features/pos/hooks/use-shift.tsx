@@ -1,11 +1,10 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useUser } from '@renderer/features/auth';
-import { Shift, Sale as SharedSale, DebtPayment } from '@shared/types/models';
+import { Shift, DebtPayment } from '@shared/types/models';
 import { IPCResponse } from '@shared/types/ipc';
+import type { ShiftSale } from '@renderer/features/pos/types';
 
-// Define the structure for a sale within a shift context (simplified shared sale)
-type ShiftSale = Pick<SharedSale, 'total_amount' | 'payment_method'>;
 
 // Define the context value's structure
 interface ShiftContextType {

@@ -1,5 +1,5 @@
 
-import { useMemo } from "react";
+import { useMemo, createElement } from "react";
 import { Card } from "@components/ui/card";
 import {
   Smartphone,
@@ -42,7 +42,7 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onAddToCart }: ProductCardProps) {
-  const Icon = useMemo(() => getCategoryIcon(product.category?.name || ""), [product.category]);
+  const categoryIcon = useMemo(() => getCategoryIcon(product.category?.name || ""), [product.category]);
   const colorClasses = useMemo(() => getCategoryColor(product.category?.name || ""), [product.category]);
   const isOutOfStock = product.stock === 0;
   const isLowStock = product.stock > 0 && product.stock <= (product.min_stock || 10);
@@ -60,7 +60,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
       {/* Top section: Icon and Stock Badge */}
       <div className="relative p-4 flex items-start justify-between gap-2">
         <div className={cn("p-2.5 rounded-xl transition-all duration-300 group-hover:scale-105 shrink-0", colorClasses.split(" ").slice(1).join(" "))}>
-          <Icon className={cn("h-6 w-6", colorClasses.split(" ")[0])} />
+          {createElement(categoryIcon, { className: cn("h-6 w-6", colorClasses.split(" ")[0]) })}
         </div>
         
         <span

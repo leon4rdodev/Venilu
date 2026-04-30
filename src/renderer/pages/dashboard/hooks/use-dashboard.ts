@@ -2,33 +2,20 @@ import { useState, useEffect, useMemo } from 'react';
 import { DollarSign, ShoppingBag, TrendingUp, Package } from 'lucide-react';
 import { ipc } from '@lib/ipc';
 import { formatCurrency } from '@lib/currency';
-import { IPCResponse } from '@shared/types/ipc';
 import { Product, Sale } from '@shared/types/models';
 import { usePermissions } from '@renderer/features/auth/hooks/use-permission';
 import { useUser } from '@renderer/features/auth';
+import type {
+  DayStats,
+  DashboardStatsResponse,
+  TopProduct,
+  TopProductsResponse,
+  ShiftSummary,
+  ShiftSummaryResponse,
+  LowStockResponse,
+  RecentSalesResponse,
+} from '@renderer/features/dashboard/types';
 
-interface LowStockResponse extends IPCResponse { data?: Product[] }
-interface RecentSalesResponse extends IPCResponse { data?: Sale[] }
-interface DashboardStatsResponse {
-  today: DayStats;
-  yesterday: DayStats;
-}
-interface DayStats {
-  totalSales: number;
-  totalTransactions: number;
-  averageTicket: number;
-  totalItemsSold: number;
-}
-interface TopProduct { productName: string; totalSold: number }
-interface TopProductsResponse { success: boolean; data?: TopProduct[] }
-interface ShiftSummary {
-  hasOpenShift: boolean;
-  shiftId?: string;
-  startTime?: string;
-  totalTransactions: number;
-  totalAmount: number;
-}
-interface ShiftSummaryResponse extends IPCResponse { data?: ShiftSummary }
 
 const calculateChange = (current: number, previous: number) => {
   if (previous === 0) return current > 0 ? 100 : 0;

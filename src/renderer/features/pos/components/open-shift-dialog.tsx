@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -23,8 +23,17 @@ interface OpenShiftDialogProps {
 export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
   const [initialCash, setInitialCash] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const { openShift } = useShift();
   const { logout } = useUser();
+
+  // Focus the cash input when the dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      const id = setTimeout(() => inputRef.current?.focus(), 50);
+      return () => clearTimeout(id);
+    }
+  }, [isOpen]);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -89,6 +98,7 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
                 {getCurrencySymbol()}
               </div>
               <Input
+                ref={inputRef}
                 id="initial-cash"
                 type="text"
                 inputMode="decimal"
@@ -97,7 +107,6 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
                 placeholder="0.00"
                 className="h-12 text-lg! text-right font-bold pl-18 pr-5"
                 style={{ fontSize: '1.25rem' }}
-                autoFocus
                 disabled={isLoading}
               />
             </div>

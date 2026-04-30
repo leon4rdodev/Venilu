@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { formatCurrency } from "@lib/currency";
 import { formatDateTime, formatPhone } from "@lib/formatters";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@components/ui/dialog";
@@ -33,20 +33,7 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
   const [selectedTransaction, setSelectedTransaction] = useState<Sale | null>(null);
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
 
-  useEffect(() => {
-    if (open && customer) {
-      fetchHistoryData();
-    } else {
-      setSales([]);
-      setPayments([]);
-      setSalesPage(1);
-      setPaymentsPage(1);
-      setSalesTotalPages(1);
-      setPaymentsTotalPages(1);
-    }
-  }, [open, customer]);
-
-  const fetchHistoryData = async () => {
+  const fetchHistoryData = useCallback(async () => {
     if (!customer) return;
     setIsLoading(true);
     setSalesPage(1);
@@ -54,8 +41,8 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
     try {
       // Fetch sales and payments in parallel
       const [salesResult, paymentsResult] = await Promise.all([
-        ipc.invoke("customers:getSales", { customerId: customer.id, page: 1, limit: 15 }) as Promise<any>,
-        ipc.invoke("customers:getPayments", { customerId: customer.id, page: 1, limit: 15 }) as Promise<any>,
+        ipc.invoke("customers:getSales", { customerId: customer.id, page: 1, limit: 15 }) as Promise<{ success: boolean; data?: Sale[]; totalPages?: number; message?: string }>,
+        ipc.invoke("customers:getPayments", { customerId: customer.id, page: 1, limit: 15 }) as Promise<{ success: boolean; data?: DebtPayment[]; totalPages?: number; message?: string }>,
       ]);
 
       if (salesResult.success && salesResult.data) {
@@ -71,26 +58,40 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
       } else {
         toast.error("Error al cargar pagos", { description: paymentsResult.message });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching customer history:", error);
       toast.error("Error", { description: "No se pudo cargar el historial del cliente." });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [customer]);
+
+  useEffect(() => {
+    if (open && customer) {
+      fetchHistoryData();
+    } else {
+      setSales([]);
+      setPayments([]);
+      setSalesPage(1);
+      setPaymentsPage(1);
+      setSalesTotalPages(1);
+      setPaymentsTotalPages(1);
+    }
+  }, [open, customer, fetchHistoryData]);
 
   const loadMoreSales = async () => {
     if (!customer || salesPage >= salesTotalPages) return;
     setSalesLoadingMore(true);
     try {
       const nextPage = salesPage + 1;
-      const result = await ipc.invoke("customers:getSales", { customerId: customer.id, page: nextPage, limit: 15 }) as any;
+      const result = await ipc.invoke("customers:getSales", { customerId: customer.id, page: nextPage, limit: 15 }) as { success: boolean; data?: Sale[]; totalPages?: number };
       if (result.success && result.data) {
-        setSales(prev => [...prev, ...result.data]);
+        setSales(prev => [...prev, ...(result.data ?? [])]);
         setSalesPage(nextPage);
         setSalesTotalPages(result.totalPages || 1);
       }
-    } catch (error) {
+    } catch (error: unknown) {
+      console.error("Error loading more sales:", error);
       toast.error("Error", { description: "Carga de compras fallida." });
     } finally {
       setSalesLoadingMore(false);
@@ -102,13 +103,14 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
     setPaymentsLoadingMore(true);
     try {
       const nextPage = paymentsPage + 1;
-      const result = await ipc.invoke("customers:getPayments", { customerId: customer.id, page: nextPage, limit: 15 }) as any;
+      const result = await ipc.invoke("customers:getPayments", { customerId: customer.id, page: nextPage, limit: 15 }) as { success: boolean; data?: DebtPayment[]; totalPages?: number };
       if (result.success && result.data) {
-        setPayments(prev => [...prev, ...result.data]);
+        setPayments(prev => [...prev, ...(result.data ?? [])]);
         setPaymentsPage(nextPage);
         setPaymentsTotalPages(result.totalPages || 1);
       }
-    } catch (error) {
+    } catch (error: unknown) {
+      console.error("Error loading more payments:", error);
       toast.error("Error", { description: "Carga de pagos fallida." });
     } finally {
       setPaymentsLoadingMore(false);
@@ -235,10 +237,11 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
               ) : (
                 <>
                   {sales.map((sale) => (
-                    <div 
-                      key={sale.id} 
+                    <button
+                      key={sale.id}
+                      type="button"
                       onClick={() => handleViewTransaction(sale)}
-                      className="group flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/40 transition-colors cursor-pointer"
+                      className="group w-full text-left flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/40 transition-colors cursor-pointer"
                     >
                       <div className="flex items-start gap-3">
                         <div className="mt-0.5 p-2 rounded-full bg-primary/10">
@@ -274,7 +277,7 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
                           {formatCurrency(sale.total_amount)}
                         </span>
                       </div>
-                    </div>
+                    </button>
                   ))}
                   {salesPage < salesTotalPages && (
                     <div className="flex justify-center pt-2 pb-6">

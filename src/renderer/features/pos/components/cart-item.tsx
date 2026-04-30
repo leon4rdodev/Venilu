@@ -1,3 +1,4 @@
+import { createElement } from "react"
 import { Button } from "@components/ui/button"
 import { Minus, Plus, X } from "lucide-react"
 import { formatCurrency } from "@lib/currency"
@@ -16,19 +17,19 @@ export type CartItemType = {
 
 interface CartItemProps {
   item: CartItemType
-  onUpdateQuantity: (id: string, delta: number) => void
-  onRemoveFromCart: (id: string) => void
+  onUpdateQuantity: (_id: string, _delta: number) => void
+  onRemoveFromCart: (_id: string) => void
 }
 
 export function CartItem({ item, onUpdateQuantity, onRemoveFromCart }: CartItemProps) {
-  const Icon = getCategoryIcon(item.category?.name || "Otros");
+  const categoryIcon = getCategoryIcon(item.category?.name || "Otros");
   const colorClasses = getCategoryColor(item.category?.name || "Otros");
 
   return (
     <div className="group relative flex gap-3 p-3 rounded-xl border bg-card hover:border-primary/40 transition-all duration-200">
       {/* Category Icon */}
       <div className={cn("h-12 w-12 shrink-0 rounded-lg flex items-center justify-center", colorClasses)}>
-        <Icon className="h-6 w-6" />
+        {createElement(categoryIcon, { className: "h-6 w-6" })}
       </div>
 
       <div className="flex-1 flex flex-col justify-between min-w-0">
