@@ -12,7 +12,7 @@ interface HeaderProps {
 
 export function Header({ userName, userRole }: HeaderProps) {
   const { theme, setTheme } = useTheme()
-  const { activeShift, shiftSales } = useShift();
+  const { activeShift, shiftSales, shiftDebtPayments } = useShift();
   const { logout } = useUser();
   const [isCloseShiftDialogOpen, setCloseShiftDialogOpen] = useState(false);
 
@@ -21,8 +21,12 @@ export function Header({ userName, userRole }: HeaderProps) {
     const cashSalesTotal = (shiftSales || [])
       .filter(sale => sale.payment_method === 'cash')
       .reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0);
-    return Number(activeShift.initial_cash || 0) + cashSalesTotal;
-  }, [activeShift, shiftSales]);
+    // Add cash debt payments received during this shift
+    const cashDebtTotal = (shiftDebtPayments || [])
+      .filter(p => p.payment_method === 'cash')
+      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    return Number(activeShift.initial_cash || 0) + cashSalesTotal + cashDebtTotal;
+  }, [activeShift, shiftSales, shiftDebtPayments]);
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark")

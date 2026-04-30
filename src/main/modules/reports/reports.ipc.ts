@@ -1,91 +1,110 @@
-import { ipcMain } from "electron";
-import { ReportsService } from "@main/modules/reports/services/reports.service";
-import { PdfService } from "@main/shared/services/pdf.service";
-import { requireRole } from "@main/shared/session";
+import { ipcMain } from 'electron';
+import { ReportsService } from '@main/modules/reports/services/reports.service';
+import { PdfService } from '@main/shared/services/pdf.service';
+import { requirePermission, getSessionUser } from '@main/shared/session';
 
 const reportsService = new ReportsService();
 const pdfService = new PdfService();
 
 export function registerReportsHandlers() {
-    // All report handlers are admin-only
-    ipcMain.handle('get-total-sales-metrics', async (_event, { startDate, endDate }) => {
-        try {
-            requireRole('admin');
-            const metrics = await reportsService.getTotalSalesMetrics(
-                startDate ? new Date(startDate) : null,
-                endDate ? new Date(endDate) : null
-            );
-            return metrics;
-        } catch (error: any) {
-            console.error("Error in get-total-sales-metrics IPC:", error);
-            const emptyMetrics = {
-                totalAmount: 0, netProfit: 0, totalCost: 0, averageMargin: 0,
-                totalSalesCount: 0, totalItemsSold: 0, averageTicket: 0
-            };
-            return { current: emptyMetrics, previous: emptyMetrics };
-        }
-    });
+  // ─── Employee-level: shift summary (requires only pos:access) ─────────────
 
-    ipcMain.handle('get-top-selling-products', async (_event, { startDate, endDate, limit }) => {
-        try {
-            requireRole('admin');
-            const products = await reportsService.getTopSellingProducts(
-                startDate ? new Date(startDate) : null,
-                endDate ? new Date(endDate) : null,
-                limit
-            );
-            return { success: true, data: products };
-        } catch (error: any) {
-            return { success: false, message: error.message };
-        }
-    });
+  /**
+   * Returns the active shift stats for the current user.
+   * Used by the adaptive dashboard — visible to any user with pos:access.
+   * Does NOT expose business-wide financial data.
+   */
+  ipcMain.handle('get-shift-summary', async () => {
+    try {
+      requirePermission('pos:access');
+      const session = getSessionUser()!;
+      const summary = await reportsService.getShiftSummary(session.id);
+      return { success: true, data: summary };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
 
-    ipcMain.handle('get-sales-over-time', async (_event, { startDate, endDate, interval }) => {
-        try {
-            requireRole('admin');
-            return reportsService.getSalesOverTime(
-                startDate ? new Date(startDate) : null,
-                endDate ? new Date(endDate) : null,
-                interval
-            );
-        } catch (error: any) {
-            return { success: false, message: error.message };
-        }
-    });
+  // ─── Manager-level: dashboard overview (requires reports:view_summary) ────
 
-    ipcMain.handle('get-least-selling-products', async (_event, { startDate, endDate, limit }) => {
-        try {
-            requireRole('admin');
-            return { success: true, data: await reportsService.getLeastSellingProducts(
-                startDate ? new Date(startDate) : null,
-                endDate ? new Date(endDate) : null,
-                limit
-            )};
-        } catch (error: any) {
-            return { success: false, message: error.message };
-        }
-    });
+  ipcMain.handle('get-dashboard-stats', async () => {
+    try {
+      requirePermission('reports:view_summary');
+      return await reportsService.getDashboardStats();
+    } catch (err: any) {
+      console.error('[reports.ipc] get-dashboard-stats:', err);
+      return {
+        today: { totalSales: 0, totalTransactions: 0, averageTicket: 0, totalItemsSold: 0 },
+        yesterday: { totalSales: 0, totalTransactions: 0, averageTicket: 0, totalItemsSold: 0 },
+      };
+    }
+  });
 
-    // Dashboard stats: admin only (shows financial overview)
-    ipcMain.handle('get-dashboard-stats', async () => {
-        try {
-            requireRole('admin');
-            return await reportsService.getDashboardStats();
-        } catch (error: any) {
-            console.error("Error in get-dashboard-stats IPC:", error);
-            return {
-                today: { totalSales: 0, totalTransactions: 0, averageTicket: 0, totalItemsSold: 0 },
-                yesterday: { totalSales: 0, totalTransactions: 0, averageTicket: 0, totalItemsSold: 0 }
-            };
-        }
-    });
+  ipcMain.handle('get-top-selling-products', async (_event, { startDate, endDate, limit }) => {
+    try {
+      requirePermission('reports:view_summary');
+      const products = await reportsService.getTopSellingProducts(
+        startDate ? new Date(startDate) : null,
+        endDate ? new Date(endDate) : null,
+        limit,
+      );
+      return { success: true, data: products };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
 
-    ipcMain.handle('generate-sales-report-pdf', async (_event, data) => {
-        try {
-            requireRole('admin');
-            return await pdfService.generateSalesReportPdf(data);
-        } catch (error: any) {
-            return { success: false, message: error.message };
-        }
-    });
+  // ─── Full reports page (requires reports:view_full) ───────────────────────
+
+  ipcMain.handle('get-total-sales-metrics', async (_event, { startDate, endDate }) => {
+    try {
+      requirePermission('reports:view_full');
+      return await reportsService.getTotalSalesMetrics(
+        startDate ? new Date(startDate) : null,
+        endDate ? new Date(endDate) : null,
+      );
+    } catch (err: any) {
+      console.error('[reports.ipc] get-total-sales-metrics:', err);
+      const empty = { totalAmount: 0, netProfit: 0, totalCost: 0, averageMargin: 0, totalSalesCount: 0, totalItemsSold: 0, averageTicket: 0 };
+      return { current: empty, previous: empty };
+    }
+  });
+
+  ipcMain.handle('get-sales-over-time', async (_event, { startDate, endDate, interval }) => {
+    try {
+      requirePermission('reports:view_full');
+      return reportsService.getSalesOverTime(
+        startDate ? new Date(startDate) : null,
+        endDate ? new Date(endDate) : null,
+        interval,
+      );
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  ipcMain.handle('get-least-selling-products', async (_event, { startDate, endDate, limit }) => {
+    try {
+      requirePermission('reports:view_full');
+      return {
+        success: true,
+        data: await reportsService.getLeastSellingProducts(
+          startDate ? new Date(startDate) : null,
+          endDate ? new Date(endDate) : null,
+          limit,
+        ),
+      };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  ipcMain.handle('generate-sales-report-pdf', async (_event, data) => {
+    try {
+      requirePermission('reports:export_pdf');
+      return await pdfService.generateSalesReportPdf(data);
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
 }

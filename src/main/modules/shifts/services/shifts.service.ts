@@ -120,6 +120,8 @@ export class ShiftsService {
         const query = this.shiftRepository.createQueryBuilder("shift")
             .leftJoinAndSelect("shift.user", "user")
             .leftJoinAndSelect("shift.sales", "sales")
+            .leftJoinAndSelect("shift.debt_payments", "debt_payments")
+            .leftJoinAndSelect("debt_payments.customer", "dp_customer")
             .orderBy("shift.start_time", "DESC")
             .addOrderBy("sales.created_at", "DESC");
 
@@ -135,7 +137,11 @@ export class ShiftsService {
             sales: (shift.sales || []).map(sale => ({
                 ...sale,
                 sale_date: sale.created_at
-            }))
+            })),
+            debt_payments: (shift.debt_payments || []).map(dp => ({
+                ...dp,
+                customer_name: dp.customer?.name || 'Cliente',
+            })),
         }));
     }
 

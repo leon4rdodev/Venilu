@@ -1,81 +1,103 @@
-import { ipcMain } from "electron";
-import { ProductsService } from "@main/modules/products/services/products.service";
-import { requireRole, requireAuth } from "@main/shared/session";
+import { ipcMain } from 'electron';
+import { ProductsService } from '@main/modules/products/services/products.service';
+import { requirePermission, hasPermission } from '@main/shared/session';
+import { auditService } from '@main/modules/audit/services/audit.service';
 
 const productsService = new ProductsService();
 
 export function registerProductsHandlers() {
-    // Any authenticated user can read products (needed for POS)
-    ipcMain.handle('get-products', async (_event, options) => {
-        try {
-            requireAuth();
-            const result = await productsService.findAll(options);
-            return { success: true, data: result };
-        } catch (error: any) {
-            return { success: false, message: error.message };
-        }
-    });
+  /**
+   * Returns inventory product list for managers.
+   * cost_price is stripped server-side if the user lacks inventory:view_costs.
+   */
+  ipcMain.handle('get-products', async (_event, options) => {
+    try {
+      requirePermission('inventory:view');
+      const result = await productsService.findAll(options);
+      const canViewCosts = hasPermission('inventory:view_costs');
 
-    ipcMain.handle('get-products-for-pos', async (_event, options) => {
-        try {
-            requireAuth();
-            const result = await productsService.getForPOS(options);
-            return { success: true, data: result };
-        } catch (error: any) {
-            return { success: false, message: error.message };
-        }
-    });
+      const products = canViewCosts
+        ? result.products
+        : result.products.map(({ cost_price: _stripped, ...rest }: any) => rest);
 
-    // Admin only
-    ipcMain.handle('create-product', async (_event, productData) => {
-        try {
-            requireRole('admin');
-            const product = await productsService.create(productData);
-            return { success: true, data: product };
-        } catch (error: any) {
-            return { success: false, message: error.message };
-        }
-    });
+      // Shape: { success, data: { products, pagination } } — matches use-products.ts
+      return { success: true, data: { products, pagination: result.pagination } };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
 
-    // Admin only
-    ipcMain.handle('update-product', async (_event, { productId, productData }) => {
-        try {
-            requireRole('admin');
-            const product = await productsService.update(productId, productData);
-            return { success: true, data: product };
-        } catch (error: any) {
-            return { success: false, message: error.message };
-        }
-    });
+  /**
+   * Lightweight product list for the POS screen.
+   * Always strips cost_price — POS employees never need it.
+   * Response shape: { success, data: { products, pagination } } — matches use-pos-products.ts
+   */
+  ipcMain.handle('get-products-for-pos', async (_event, options) => {
+    try {
+      requirePermission('pos:access');
+      const result = await productsService.getForPOS(options);
+      // Always strip cost_price from POS endpoint — employees never need it
+      const products = result.products.map(({ cost_price: _stripped, ...rest }: any) => rest);
+      return { success: true, data: { products, pagination: result.pagination } };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
 
-    // Admin only
-    ipcMain.handle('delete-product', async (_event, productId) => {
-        try {
-            requireRole('admin');
-            await productsService.delete(productId);
-            return { success: true };
-        } catch (error: any) {
-            return { success: false, message: error.message };
-        }
-    });
+  ipcMain.handle('create-product', async (_event, productData) => {
+    try {
+      requirePermission('inventory:create');
+      const product = await productsService.create(productData);
+      return { success: true, data: product };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
 
-    ipcMain.handle('get-low-stock-products', async (_event, limit) => {
-        try {
-            requireAuth();
-            const products = await productsService.getLowStock(limit);
-            return { success: true, data: products };
-        } catch (error: any) {
-            return { success: false, message: error.message };
-        }
-    });
+  ipcMain.handle('update-product', async (_event, { productId, productData }) => {
+    try {
+      // Always require inventory:edit; additionally check edit_price if price changed
+      requirePermission('inventory:edit');
 
-    ipcMain.handle('get-inventory-stats', async () => {
-        try {
-            requireAuth();
-            const stats = await productsService.getInventoryStats();
-            return { success: true, data: stats };
-        } catch (error: any) {
-            return { success: false, message: error.message };
-        }
-    });
+      const hasPriceChange =
+        productData.sale_price !== undefined || productData.cost_price !== undefined;
+      if (hasPriceChange) requirePermission('inventory:edit_price');
+
+      const product = await productsService.update(productId, productData);
+      return { success: true, data: product };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  ipcMain.handle('delete-product', async (_event, productId) => {
+    try {
+      requirePermission('inventory:delete');
+      await productsService.delete(productId);
+      auditService.log('inventory:delete', productId);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  ipcMain.handle('get-low-stock-products', async (_event, limit) => {
+    try {
+      requirePermission('inventory:view');
+      const products = await productsService.getLowStock(limit);
+      return { success: true, data: products };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  ipcMain.handle('get-inventory-stats', async () => {
+    try {
+      requirePermission('inventory:view');
+      const stats = await productsService.getInventoryStats();
+      return { success: true, data: stats };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
 }

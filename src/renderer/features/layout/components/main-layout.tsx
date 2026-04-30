@@ -23,7 +23,7 @@ export function MainLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar userRole={role} />
+      <Sidebar />
       
       <div className={cn(
         "flex-1 flex flex-col transition-all duration-200 ease-in-out", 

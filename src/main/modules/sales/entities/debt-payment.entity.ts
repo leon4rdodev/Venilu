@@ -17,7 +17,7 @@ export class DebtPayment {
     @Column({ nullable: true })
     shift_id?: string;
 
-    @ManyToOne(() => Shift)
+    @ManyToOne(() => Shift, (shift) => shift.debt_payments, { nullable: true, onDelete: 'SET NULL' })
     @JoinColumn({ name: "shift_id" })
     shift?: Shift;
 

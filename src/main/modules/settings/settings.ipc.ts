@@ -1,101 +1,103 @@
-import { ipcMain } from "electron";
-import { SettingsService } from "@main/modules/settings/services/settings.service";
-import { UsersService } from "@main/modules/users/services/users.service";
-import { requireRole, requireAuth } from "@main/shared/session";
+import { ipcMain, app } from 'electron';
+import fs from 'fs';
+import path from 'path';
+import { SettingsService } from '@main/modules/settings/services/settings.service';
+import { UsersService } from '@main/modules/users/services/users.service';
+import { requirePermission } from '@main/shared/session';
 
 const settingsService = new SettingsService();
 const usersService = new UsersService();
 
 export function registerSettingsHandlers() {
-    // Any authenticated user can read settings
-    ipcMain.handle('settings:get', async () => {
-        try {
-            requireAuth();
-            const settings = await settingsService.get();
-            return { success: true, data: settings };
-        } catch (error: any) {
-            return { success: false, message: error.message };
-        }
-    });
+  ipcMain.handle('settings:get', async () => {
+    try {
+      // settings:get is public — needed on the login page for business branding
+      const settings = await settingsService.get();
+      return { success: true, data: settings };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
 
-    // Admin only (or during onboarding)
-    ipcMain.handle('settings:update', async (_event, settingsData) => {
-        try {
-            const onboarding = await usersService.checkOnboardingStatus();
-            if (onboarding.completed) {
-                requireRole('admin');
-            }
-            await settingsService.update(settingsData);
-            return { success: true, message: 'Settings updated successfully' };
-        } catch (error: any) {
-            return { success: false, message: error.message };
-        }
-    });
+  ipcMain.handle('settings:update', async (_event, settingsData) => {
+    try {
+      // Allow without auth during onboarding (first time setup)
+      const onboarding = await usersService.checkOnboardingStatus();
+      if (onboarding.completed) requirePermission('settings:edit');
+      await settingsService.update(settingsData);
+      return { success: true, message: 'Configuración actualizada.' };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
 
-    // Logo handlers
-    ipcMain.handle('upload-logo', async (_event, { fileName, fileData }: { fileName: string; fileData: string }) => {
-        try {
-            const fs = require('fs');
-            const path = require('path');
-            const { app } = require('electron');
-            
-            // Extract base64 data (remove "data:image/png;base64," prefix)
-            const base64Data = fileData.replace(/^data:image\/\w+;base64,/, "");
-            const buffer = Buffer.from(base64Data, 'base64');
-            
-            // Generate a unique filename to avoid caching issues
-            const ext = path.extname(fileName) || '.png';
-            const uniqueFileName = `logo_${Date.now()}${ext}`;
-            const filePath = path.join(app.getPath('userData'), uniqueFileName);
-            
-            fs.writeFileSync(filePath, buffer);
-            
-            return { success: true, fileName: uniqueFileName, message: 'Logo uploaded' };
-        } catch (error: any) {
-            console.error('Error uploading logo:', error);
-            return { success: false, message: error.message };
-        }
-    });
+  // ─── Logo handlers ────────────────────────────────────────────────────────
 
-    ipcMain.handle('get-logo', async (_event, { fileName }: { fileName: string }) => {
-        try {
-            const fs = require('fs');
-            const path = require('path');
-            const { app } = require('electron');
-            
-            if (!fileName) return { success: false, message: 'No filename provided' };
-            
-            const filePath = path.join(app.getPath('userData'), fileName);
-            if (!fs.existsSync(filePath)) {
-                return { success: false, message: 'Logo not found' };
-            }
-            
-            const buffer = fs.readFileSync(filePath);
-            const ext = path.extname(fileName).substring(1) || 'png';
-            const fileData = `data:image/${ext};base64,${buffer.toString('base64')}`;
-            
-            return { success: true, fileData };
-        } catch (error: any) {
-            return { success: false, message: error.message };
-        }
-    });
+  ipcMain.handle('upload-logo', async (_event, { fileName, fileData }: { fileName: string; fileData: string }) => {
+    try {
+      // Logo upload is allowed during onboarding (before first login)
+      const onboarding = await usersService.checkOnboardingStatus();
+      if (onboarding.completed) requirePermission('settings:logo');
 
-    ipcMain.handle('delete-logo', async (_event, { fileName }: { fileName: string }) => {
-        try {
-            const fs = require('fs');
-            const path = require('path');
-            const { app } = require('electron');
-            
-            if (!fileName) return { success: true }; // Nothing to delete
-            
-            const filePath = path.join(app.getPath('userData'), fileName);
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
-            }
-            
-            return { success: true, message: 'Logo deleted' };
-        } catch (error: any) {
-            return { success: false, message: error.message };
-        }
-    });
+      const base64Data = fileData.replace(/^data:image\/\w+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+
+      const ext = path.extname(fileName) || '.png';
+      // Sanitize: only allow safe image extensions
+      if (!['.png', '.jpg', '.jpeg', '.webp', '.gif'].includes(ext.toLowerCase())) {
+        throw new Error('Formato de imagen no permitido.');
+      }
+
+      const uniqueFileName = `logo_${Date.now()}${ext}`;
+      const filePath = path.join(app.getPath('userData'), uniqueFileName);
+      fs.writeFileSync(filePath, buffer);
+
+      return { success: true, fileName: uniqueFileName };
+    } catch (err: any) {
+      console.error('[settings.ipc] upload-logo:', err);
+      return { success: false, message: err.message };
+    }
+  });
+
+  ipcMain.handle('get-logo', async (_event, { fileName }: { fileName: string }) => {
+    try {
+      // Public endpoint — logo is shown on the login page (no sensitive data)
+      if (!fileName) return { success: false, message: 'Nombre de archivo requerido.' };
+
+      // Sanitize: resolve relative to userData and validate it stays inside
+      const userDataDir = app.getPath('userData');
+      const filePath = path.resolve(userDataDir, path.basename(fileName));
+      if (!filePath.startsWith(userDataDir)) {
+        throw new Error('Ruta de archivo no permitida.');
+      }
+
+      if (!fs.existsSync(filePath)) return { success: false, message: 'Logo no encontrado.' };
+
+      const buffer = fs.readFileSync(filePath);
+      const ext = path.extname(fileName).substring(1) || 'png';
+      const fileData = `data:image/${ext};base64,${buffer.toString('base64')}`;
+
+      return { success: true, fileData };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  ipcMain.handle('delete-logo', async (_event, { fileName }: { fileName: string }) => {
+    try {
+      requirePermission('settings:logo');
+      if (!fileName) return { success: true };
+
+      const userDataDir = app.getPath('userData');
+      const filePath = path.resolve(userDataDir, path.basename(fileName));
+      if (!filePath.startsWith(userDataDir)) {
+        throw new Error('Ruta de archivo no permitida.');
+      }
+
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
 }

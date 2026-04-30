@@ -41,7 +41,9 @@ export function PayDebtDialog({ open, onOpenChange, customer, shiftId, onSuccess
 
   const balance = Number(customer?.balance || 0);
   const parsedAmount = parseFloat(amount) || 0;
-  const isValid = parsedAmount > 0 && parsedAmount <= balance;
+  // Must have an active shift so the payment is tied to a cash reconciliation period.
+  // A payment without shiftId is orphaned and never shows in the close-shift balance.
+  const isValid = parsedAmount > 0 && parsedAmount <= balance && !!shiftId;
 
   const handlePayFull = () => {
     setAmount(balance.toFixed(2));
@@ -99,6 +101,17 @@ export function PayDebtDialog({ open, onOpenChange, customer, shiftId, onSuccess
                   {formatCurrency(balance)}
                 </span>
               </div>
+
+              {/* No-shift warning — payment without a shift is orphaned and skews cash balance */}
+              {!shiftId && (
+                <div className="mt-2 flex items-start gap-2 px-3.5 py-2.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                  <span className="shrink-0 mt-0.5">⚠</span>
+                  <span>
+                    No tienes un turno activo. Abre un turno en el POS primero para que este abono
+                    quede registrado en el balance de caja.
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Payment Method Toggle */}

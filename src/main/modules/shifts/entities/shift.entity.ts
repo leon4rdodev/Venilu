@@ -1,6 +1,7 @@
 import { Entity, PrimaryColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, OneToMany } from "typeorm";
 import { User } from "@main/modules/users/entities/user.entity";
 import { Sale } from "@main/modules/sales/entities/sale.entity";
+import { DebtPayment } from "@main/modules/sales/entities/debt-payment.entity";
 
 @Entity("shifts")
 export class Shift {
@@ -16,6 +17,9 @@ export class Shift {
 
     @OneToMany(() => Sale, (sale) => sale.shift)
     sales!: Sale[];
+
+    @OneToMany(() => DebtPayment, (dp) => dp.shift)
+    debt_payments!: DebtPayment[];
 
     @CreateDateColumn()
     start_time!: Date;

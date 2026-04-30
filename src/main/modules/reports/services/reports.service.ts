@@ -1,6 +1,7 @@
 import { AppDataSource } from "@main/config/data-source";
 import { Sale as SaleEntity } from "@main/modules/sales/entities/sale.entity";
 import { SaleItem as SaleItemEntity } from "@main/modules/sales/entities/sale-item.entity";
+import { Shift as ShiftEntity } from "@main/modules/shifts/entities/shift.entity";
 // import { Between } from "typeorm";
 
 interface SalesMetrics {
@@ -200,5 +201,39 @@ export class ReportsService {
             }
         };
     }
-}
 
+    /**
+     * Returns summary stats for the currently active shift of a given user.
+     * This is the employee-facing dashboard widget — no requirePermission beyond pos:access.
+     */
+    async getShiftSummary(userId: string): Promise<{
+        hasOpenShift: boolean;
+        shiftId?: string;
+        startTime?: Date;
+        totalTransactions: number;
+        totalAmount: number;
+    }> {
+        const shift = await AppDataSource.getRepository(ShiftEntity).findOne({
+            where: { user_id: userId, status: 'open' },
+        });
+
+        if (!shift) {
+            return { hasOpenShift: false, totalTransactions: 0, totalAmount: 0 };
+        }
+
+        const result = await AppDataSource.getRepository(SaleEntity)
+            .createQueryBuilder('sale')
+            .select('COUNT(sale.id)', 'totalTransactions')
+            .addSelect('SUM(sale.total_amount)', 'totalAmount')
+            .where('sale.shift_id = :shiftId', { shiftId: shift.id })
+            .getRawOne();
+
+        return {
+            hasOpenShift: true,
+            shiftId: shift.id,
+            startTime: shift.start_time,
+            totalTransactions: Number(result?.totalTransactions ?? 0),
+            totalAmount: Number(result?.totalAmount ?? 0),
+        };
+    }
+}

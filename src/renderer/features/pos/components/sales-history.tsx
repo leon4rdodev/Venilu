@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@components/ui/button";
 import {
   ArrowLeft,
@@ -25,22 +25,18 @@ import { toast } from "sonner";
 import { TransactionDetailsDialog } from "./transaction-details-dialog";
 import { ForceCloseDialog } from "./force-close-dialog";
 import { cn } from "@lib/utils";
+import { Sale } from "@shared/types/models";
 
 interface SalesHistoryProps {
   setShowSalesHistory: (show: boolean) => void;
 }
 
-interface Sale {
+interface DebtPaymentSummary {
   id: string;
-  total_amount: number;
+  amount: number;
   payment_method: string;
-  sale_date: string;
-  subtotal?: number;
-  discount_amount?: number;
-  amount_paid?: number;
-  change_given?: number;
-  customer_name?: string;
-  status?: string;
+  customer_name: string;
+  created_at: string;
 }
 
 interface Shift {
@@ -57,6 +53,7 @@ interface Shift {
   force_closed_by?: string;
   force_close_reason?: string;
   sales: Sale[];
+  debt_payments: DebtPaymentSummary[];
 }
 
 const paymentMethodConfig: Record<
@@ -300,6 +297,14 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
             const creditSales = shift.sales
               .filter((s) => s.payment_method === "credit")
               .reduce((sum, s) => sum + s.total_amount, 0);
+            // Debt payments received during this shift
+            const debtPayments = shift.debt_payments || [];
+            const cashDebtTotal = debtPayments
+              .filter((p) => p.payment_method === "cash")
+              .reduce((sum, p) => sum + Number(p.amount), 0);
+            const transferDebtTotal = debtPayments
+              .filter((p) => p.payment_method === "transfer")
+              .reduce((sum, p) => sum + Number(p.amount), 0);
             const isExpanded = expandedShift === shift.id;
             const isOpen = shift.status === "open";
 
@@ -505,6 +510,29 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                                   </span>
                                 </div>
                               )}
+                              {/* Debt payments received during this shift */}
+                              {cashDebtTotal > 0 && (
+                                <div className="flex items-center justify-between px-3.5 py-2.5">
+                                  <div className="flex items-center gap-2">
+                                    <HandCoins className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                    <span className="text-sm">Abonos (efectivo)</span>
+                                  </div>
+                                  <span className="text-sm font-semibold tabular-nums text-green-700 dark:text-green-400">
+                                    +{formatCurrency(cashDebtTotal)}
+                                  </span>
+                                </div>
+                              )}
+                              {transferDebtTotal > 0 && (
+                                <div className="flex items-center justify-between px-3.5 py-2.5">
+                                  <div className="flex items-center gap-2">
+                                    <ArrowRightLeft className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                    <span className="text-sm">Abonos (transferencia)</span>
+                                  </div>
+                                  <span className="text-sm font-semibold tabular-nums">
+                                    {formatCurrency(transferDebtTotal)}
+                                  </span>
+                                </div>
+                              )}
                               <div className="flex items-center justify-between px-3.5 py-2.5 bg-muted/40">
                                 <span className="text-sm font-semibold">
                                   Total
@@ -539,6 +567,16 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                                   +{formatCurrency(cashSales)}
                                 </span>
                               </div>
+                              {cashDebtTotal > 0 && (
+                                <div className="flex items-center justify-between px-3.5 py-2.5">
+                                  <span className="text-sm text-muted-foreground">
+                                    + Abonos en efectivo
+                                  </span>
+                                  <span className="text-sm font-medium text-green-700 dark:text-green-400 tabular-nums">
+                                    +{formatCurrency(cashDebtTotal)}
+                                  </span>
+                                </div>
+                              )}
                               <div className="flex items-center justify-between px-3.5 py-2.5 bg-muted/40">
                                 <span className="text-sm font-semibold">
                                   Efectivo esperado
@@ -546,7 +584,7 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                                 <span className="text-base font-bold tabular-nums">
                                   {formatCurrency(
                                     shift.expected_cash ??
-                                      shift.initial_cash + cashSales,
+                                      shift.initial_cash + cashSales + cashDebtTotal,
                                   )}
                                 </span>
                               </div>

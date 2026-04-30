@@ -85,6 +85,15 @@ export class UsersService {
         const isValid = await bcrypt.compare(password, user.password);
         if (!isValid) return null;
 
+        // role_entity is eagerly loaded — permissions are available immediately
         return user;
+    }
+
+    /**
+     * Load a user by ID with their role entity (eager).
+     * Used by session restoration to re-hydrate permissions from DB — never trust the renderer.
+     */
+    async findOneWithRole(id: string): Promise<UserEntity | null> {
+        return this.userRepository.findOneBy({ id });
     }
 }

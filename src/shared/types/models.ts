@@ -3,11 +3,28 @@ export type PaymentMethod = "cash" | "card" | "transfer" | "credit";
 export type SaleStatus = "paid" | "credit" | "partial";
 export type ShiftStatus = "open" | "closed";
 
+/**
+ * A configurable role with a set of granular permissions.
+ * System roles (is_system: true) cannot be edited or deleted.
+ */
+export interface Role {
+  id: string;
+  name: string;
+  is_system: boolean;
+  permissions: string[];
+  created_at: string | Date;
+  updated_at: string | Date;
+}
+
 export interface User {
   id: string;
   username: string;
   name: string;
   role: UserRole;
+  /** FK to the assigned Role entity */
+  role_id?: string;
+  /** Flattened permission strings from the assigned Role — loaded from DB on login */
+  permissions: string[];
   created_at: string | Date;
   updated_at: string | Date;
 }

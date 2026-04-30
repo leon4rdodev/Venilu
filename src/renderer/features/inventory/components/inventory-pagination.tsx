@@ -1,5 +1,4 @@
 import { Button } from "@components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select"
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 
 export interface InventoryPaginationProps {
@@ -18,8 +17,6 @@ export function InventoryPagination({
   pageSize,
   totalItems,
   onPageChange,
-  onPageSizeChange,
-  pageSizeOptions = [10, 25, 50, 100]
 }: InventoryPaginationProps) {
   const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1
   const endItem = Math.min(currentPage * pageSize, totalItems)

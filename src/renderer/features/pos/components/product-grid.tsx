@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Input } from "@components/ui/input"
 import {
   Select,
@@ -27,6 +27,14 @@ export function ProductGrid({ products, categories, onAddToCart, showSalesHistor
   const [selectedCategory, setSelectedCategory] = useState("Todos")
   const [searchQuery, setSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  // Focus the search input on mount so the cashier can scan/type immediately.
+  // useEffect is the accessibility-correct alternative to autoFocus — focus
+  // fires after mount, giving screen readers time to announce the page first.
+  useEffect(() => {
+    searchRef.current?.focus()
+  }, [])
 
   const filteredProducts = products.filter((product) => {
     const matchesCategory = selectedCategory === "Todos" || product.category?.name === selectedCategory
@@ -37,10 +45,6 @@ export function ProductGrid({ products, categories, onAddToCart, showSalesHistor
     return matchesCategory && matchesSearch
   })
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [selectedCategory, searchQuery])
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE)
@@ -64,10 +68,14 @@ export function ProductGrid({ products, categories, onAddToCart, showSalesHistor
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
+            ref={searchRef}
             placeholder="Buscar productos por nombre o SKU..."
             className="pl-9 pr-9 h-10! bg-background/50 border-input/60 focus:bg-background transition-all"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value)
+              setCurrentPage(1)
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && searchQuery) {
                 const product = products.find(p => p.barcode === searchQuery || p.sku === searchQuery);
@@ -77,7 +85,6 @@ export function ProductGrid({ products, categories, onAddToCart, showSalesHistor
                 }
               }
             }}
-            autoFocus
           />
           {searchQuery && (
             <button
@@ -90,7 +97,13 @@ export function ProductGrid({ products, categories, onAddToCart, showSalesHistor
         </div>
         
         <div className="flex gap-3 w-full sm:w-auto">
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+          <Select
+            value={selectedCategory}
+            onValueChange={(value) => {
+              setSelectedCategory(value)
+              setCurrentPage(1)
+            }}
+          >
             <SelectTrigger className="w-full sm:w-[200px] h-10! bg-background/50 border-input/60 focus:bg-background">
               <SelectValue placeholder="Categoría" />
             </SelectTrigger>

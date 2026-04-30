@@ -1,5 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { autoUpdater } from 'electron-updater';
+import { requirePermission } from '@main/shared/session';
 
 /**
  * Configures and registers auto-updater IPC handlers.
@@ -46,6 +47,7 @@ export function setupAutoUpdater(mainWindow: BrowserWindow) {
 
   // ─── IPC: renderer asks to restart & install ───────────────────────────────
   ipcMain.handle('updater:install-now', () => {
+    requirePermission('system:update');
     autoUpdater.quitAndInstall();
   });
 

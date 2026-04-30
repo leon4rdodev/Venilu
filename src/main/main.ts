@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import { AppDataSource } from '@main/config/data-source';
+import { RolesService } from '@main/modules/users/services/roles.service';
 import { registerUsersHandlers } from '@main/modules/users/users.ipc';
 import { registerProductsHandlers } from '@main/modules/products/products.ipc';
 import { registerCategoriesHandlers } from '@main/modules/categories/categories.ipc';
@@ -14,7 +15,6 @@ import { registerPrinterHandlers } from '@main/shared/ipc/printer.ipc';
 import { registerSessionHandlers } from '@main/shared/session';
 import { setupAutoUpdater } from '@main/shared/ipc/updater.ipc';
 
-// Determine if we are in development mode
 const isDev = process.env.NODE_ENV === 'development';
 
 async function createWindow() {
@@ -39,19 +39,25 @@ async function createWindow() {
         mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
     }
 
-    // Setup auto-updater (only runs checks in production)
     setupAutoUpdater(mainWindow);
-
     return mainWindow;
 }
 
 async function initialize() {
     try {
+        // 1. Initialize DB and synchronize schema (creates new tables/columns)
         await AppDataSource.initialize();
-        console.log('Data Source has been initialized!');
+        console.log('[App] Database initialized.');
 
-        // Register IPC Handlers
-        registerSessionHandlers(); // must be first — sets up session/auth context
+        // 2. Seed system roles (idempotent — safe to run on every boot)
+        const rolesService = new RolesService();
+        await rolesService.seedSystemRoles();
+
+        // 3. Assign role_id to existing users who don't have one yet
+        await rolesService.migrateExistingUsers();
+
+        // 4. Register IPC handlers — must happen after DB is ready
+        registerSessionHandlers(); // first — establishes auth context
         registerUsersHandlers();
         registerProductsHandlers();
         registerCategoriesHandlers();
@@ -63,9 +69,10 @@ async function initialize() {
         registerCustomersHandlers();
         registerPrinterHandlers();
 
+        // 5. Create the browser window
         createWindow();
     } catch (err) {
-        console.error('Error during initialization:', err);
+        console.error('[App] Initialization error:', err);
         app.quit();
     }
 }

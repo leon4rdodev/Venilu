@@ -11,7 +11,7 @@ import { MainLayout, AnimatedPage, useTheme } from '@renderer/features/layout';
 import { useOnboarding } from '@renderer/features/onboarding';
 import { ThemeProvider } from '@hooks/use-theme';
 import { CurrencyProvider } from '@renderer/shared/context/currency-context';
-// import { UpdateBanner } from '@renderer/shared/components/UpdateBanner';
+import { PermissionGuard } from '@renderer/shared/components/permission-guard';
 
 // Pages
 import LoginPage from '@pages/login/page';
@@ -75,11 +75,31 @@ function AppRoutes() {
 
         <Route element={user ? <MainLayout /> : <Navigate to="/login" />}>
           <Route path="dashboard" element={<AnimatedPage><DashboardPage /></AnimatedPage>} />
-          <Route path="inventory" element={<AnimatedPage><InventoryPage /></AnimatedPage>} />
-          <Route path="pos" element={<AnimatedPage><PosPage /></AnimatedPage>} />
-          <Route path="reports" element={<AnimatedPage><ReportsPage /></AnimatedPage>} />
-          <Route path="customers" element={<AnimatedPage><CustomersPage /></AnimatedPage>} />
-          <Route path="settings" element={<AnimatedPage><SettingsPage /></AnimatedPage>} />
+          <Route path="pos" element={
+            <PermissionGuard permission="pos:access">
+              <AnimatedPage><PosPage /></AnimatedPage>
+            </PermissionGuard>
+          } />
+          <Route path="inventory" element={
+            <PermissionGuard permission="inventory:view">
+              <AnimatedPage><InventoryPage /></AnimatedPage>
+            </PermissionGuard>
+          } />
+          <Route path="customers" element={
+            <PermissionGuard permission="customers:view">
+              <AnimatedPage><CustomersPage /></AnimatedPage>
+            </PermissionGuard>
+          } />
+          <Route path="reports" element={
+            <PermissionGuard permission="reports:view_full">
+              <AnimatedPage><ReportsPage /></AnimatedPage>
+            </PermissionGuard>
+          } />
+          <Route path="settings" element={
+            <PermissionGuard permission="settings:view">
+              <AnimatedPage><SettingsPage /></AnimatedPage>
+            </PermissionGuard>
+          } />
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Route>
 

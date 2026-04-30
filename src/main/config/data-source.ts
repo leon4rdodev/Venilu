@@ -11,6 +11,8 @@ import { DebtPayment } from "@main/modules/sales/entities/debt-payment.entity";
 import { Shift } from "@main/modules/shifts/entities/shift.entity";
 import { Setting } from "@main/modules/settings/entities/setting.entity";
 import { Customer } from "@main/modules/customers/entities/customer.entity";
+import { Role } from "@main/modules/users/entities/role.entity";
+import { AuditLog } from "@main/modules/audit/entities/audit-log.entity";
 
 const isDev = process.env.NODE_ENV === 'development';
 const dbPath = path.join(app.getPath('userData'), 'database.sqlite');
@@ -22,6 +24,7 @@ export const AppDataSource = new DataSource({
     logging: isDev,
     entities: [
         User,
+        Role,
         Product,
         Category,
         Sale,
@@ -29,8 +32,9 @@ export const AppDataSource = new DataSource({
         DebtPayment,
         Shift,
         Setting,
-        Customer
-    ], 
+        Customer,
+        AuditLog,
+    ],
     migrations: [],
     subscribers: [],
 });

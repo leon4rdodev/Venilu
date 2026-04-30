@@ -30,21 +30,19 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   // True only after the main-process session has been confirmed (or if there is no user to restore)
   const [sessionReady, setSessionReady] = useState(false);
 
-  // Restore backend session when user is loaded from localStorage
   useEffect(() => {
     const restoreBackendSession = async () => {
       if (user && window.ipcRenderer) {
         try {
-          await window.ipcRenderer.invoke('set-logged-in-user', user);
-          console.log('Backend session restored for user:', user.username);
+          // Send only the ID — main reloads permissions from DB
+          await window.ipcRenderer.invoke('set-logged-in-user', user.id);
+          console.log('[useUser] Backend session restored for:', user.username);
         } catch (error) {
-          console.error('Error restoring backend session:', error);
+          console.error('[useUser] Error restoring backend session:', error);
         }
       }
-      // Mark session as ready regardless of outcome so the UI isn't permanently blocked
       setSessionReady(true);
     };
-
     restoreBackendSession();
   }, []); // Only run on mount
 
@@ -52,10 +50,10 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     try {
       if (user) {
         window.localStorage.setItem('user', JSON.stringify(user));
-        // Also update backend session when user is set
+        // Send ONLY the user ID — main process reloads permissions from DB
         if (window.ipcRenderer) {
-          window.ipcRenderer.invoke('set-logged-in-user', user).catch((error: Error) => {
-            console.error('Error setting backend session:', error);
+          window.ipcRenderer.invoke('set-logged-in-user', user.id).catch((error: Error) => {
+            console.error('[useUser] Error setting backend session:', error);
           });
         }
       } else {
@@ -63,7 +61,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       }
       setUserState(user);
     } catch (error) {
-      console.error("Error saving user to localStorage", error);
+      console.error('[useUser] Error saving user to localStorage', error);
     }
   };
 

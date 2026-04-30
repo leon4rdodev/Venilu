@@ -84,15 +84,7 @@ export function useReports() {
   }, [startDate, endDate, toast]);
 
   useEffect(() => {
-    const clearCacheAndFetch = async () => {
-      try {
-        await window.ipcRenderer.invoke("clear-reports-cache");
-      } catch (error) {
-        console.error("Error clearing cache:", error);
-      }
-      fetchReportData();
-    };
-    clearCacheAndFetch();
+    fetchReportData();
   }, [fetchReportData]);
 
   const salesMetrics = useMemo(() => {
