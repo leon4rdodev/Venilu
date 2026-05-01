@@ -223,6 +223,7 @@ export function InventoryTable() {
       </Card>
 
       <ProductDialog
+        key={dialogOpen ? (editingProduct?.id || 'new') : 'closed'}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         product={editingProduct}

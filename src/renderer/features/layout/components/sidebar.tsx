@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { cn } from '@lib/utils';
 import { Link, useLocation } from 'react-router-dom';
 import {
@@ -8,7 +8,6 @@ import {
   BarChart,
   Users,
   Settings,
-  Smartphone,
 } from 'lucide-react';
 import { usePermission } from '@renderer/features/auth/hooks/use-permission';
 
@@ -61,11 +60,10 @@ export function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-16 border-r border-border bg-background">
       <div className="flex h-full flex-col">
-        {/* Logo */}
         <div className="flex h-16 shrink-0 items-center justify-center border-b border-border">
           <Link to="/dashboard" className="group">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary group-hover:scale-105 transition-transform">
-              <Smartphone className="h-5 w-5 text-primary-foreground" />
+              <span className="text-lg font-black text-primary-foreground select-none">V</span>
             </div>
           </Link>
         </div>

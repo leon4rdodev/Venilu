@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { Dialog, DialogContent } from "@components/ui/dialog"
 import { Button } from "@components/ui/button"
 import { Input } from "@components/ui/input"
@@ -22,14 +21,29 @@ type ProductDialogProps = {
 
 export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = false }: ProductDialogProps) {
   const { categories, isLoading: loadingCategories, loadCategories } = useCategories();
-  const [formData, setFormData] = useState({
-    name: "",
-    category_id: "",
-    cost_price: "",
-    sale_price: "",
-    stock: "",
-    sku: "",
-    min_stock: "2",
+  const [formData, setFormData] = useState(() => {
+    if (product) {
+      return {
+        name: product.name,
+        category_id: (product.category_id || product.category?.id || "").toString(),
+        cost_price: (product.cost_price || 0).toString(),
+        sale_price: (product.sale_price || 0).toString(),
+        stock: (product.stock || 0).toString(),
+        sku: product.sku || "",
+        min_stock: (product.min_stock || 5).toString(),
+      }
+    }
+    // For new products, try to use the first category as default if available
+    const defaultCategoryId = categories && categories.length > 0 ? categories[0].id.toString() : "";
+    return {
+      name: "",
+      category_id: defaultCategoryId,
+      cost_price: "",
+      sale_price: "",
+      stock: "",
+      sku: "",
+      min_stock: "2",
+    }
   })
 
   useEffect(() => {
@@ -38,30 +52,15 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
     return () => window.removeEventListener('categories-updated', handleCategoriesUpdated);
   }, [loadCategories]);
 
+  // Keep the category_id in sync if it's empty and categories just loaded
   useEffect(() => {
-    if (product) {
-      setFormData({
-        name: product.name,
-        category_id: (product.category_id || product.category?.id || "").toString(),
-        cost_price: (product.cost_price || 0).toString(),
-        sale_price: (product.sale_price || 0).toString(),
-        stock: (product.stock || 0).toString(),
-        sku: product.sku || "",
-        min_stock: (product.min_stock || 5).toString(),
-      })
-    } else {
-      const defaultCategoryId = categories.length > 0 ? categories[0].id.toString() : "";
-      setFormData({
-        name: "",
-        category_id: defaultCategoryId,
-        cost_price: "",
-        sale_price: "",
-        stock: "",
-        sku: "",
-        min_stock: "2",
-      })
+    if (!product && !formData.category_id && categories.length > 0) {
+      void Promise.resolve().then(() => {
+        setFormData(prev => ({ ...prev, category_id: categories[0].id.toString() }));
+      });
     }
-  }, [product, open, categories])
+  }, [categories, product, formData.category_id]);
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -76,9 +75,9 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
   };
 
   const handleSave = () => {
-    const data: any = {
+    const data: Partial<Product> = {
       name: formData.name,
-      category_id: formData.category_id,
+      category_id: formData.category_id || undefined,
       category: null,
       cost_price: Number.parseFloat(formData.cost_price) || 0,
       sale_price: Number.parseFloat(formData.sale_price) || 0,

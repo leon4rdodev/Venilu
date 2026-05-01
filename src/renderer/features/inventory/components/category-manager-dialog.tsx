@@ -75,7 +75,8 @@ export function CategoryManagerDialog({
       } else {
         toast.error("Error", { description: result.message });
       }
-    } catch {
+    } catch (error: unknown) {
+      console.error("Error creating category:", error);
       toast.error("Error al crear categoría");
     } finally {
       setIsCreating(false);
@@ -107,7 +108,8 @@ export function CategoryManagerDialog({
       } else {
         toast.error("Error", { description: result.message });
       }
-    } catch {
+    } catch (error: unknown) {
+      console.error("Error updating category:", error);
       toast.error("Error al actualizar categoría");
     }
   };
@@ -135,7 +137,8 @@ export function CategoryManagerDialog({
       } else {
         toast.error("Error", { description: result.message });
       }
-    } catch {
+    } catch (error: unknown) {
+      console.error("Error deleting category:", error);
       toast.error("Error al eliminar categoría");
     } finally {
       setIsDeleting(false);
@@ -217,7 +220,7 @@ export function CategoryManagerDialog({
                           <TableCell className="font-medium">
                             {isEditing ? (
                               <Input
-                                autoFocus
+                                ref={editInputRef}
                                 value={editingName}
                                 onChange={(e) => setEditingName(e.target.value)}
                                 onKeyDown={(e) => {

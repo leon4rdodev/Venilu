@@ -25,12 +25,18 @@ async function createWindow() {
     const mainWindow = new BrowserWindow({
         width: 1300,
         height: 800,
+        show: false,
+        backgroundColor: '#ffffff',
         autoHideMenuBar: true,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
             preload: preloadPath,
         },
+    });
+
+    mainWindow.once('ready-to-show', () => {
+        mainWindow.show();
     });
 
     if (isDev) {
