@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { toast } from 'sonner';
 import {
     AdminData,
@@ -228,9 +228,11 @@ export function useOnboardingWizard(onComplete: () => void): UseOnboardingWizard
             const result = await window.ipcRenderer.invoke('test-print', {
                 printerName: printerData.printer_name,
             }) as { success: boolean; message: string };
-            result.success
-                ? toast.success('Impresión de prueba enviada')
-                : toast.error(result.message || 'Error al imprimir');
+            if (result.success) {
+                toast.success('Impresión de prueba enviada');
+            } else {
+                toast.error(result.message || 'Error al imprimir');
+            }
         } catch {
             toast.error('Error al realizar la prueba de impresión');
         } finally {

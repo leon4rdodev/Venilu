@@ -157,7 +157,11 @@ export function useCart() {
               ? `Venta #${result.saleId} registrada a crédito para ${selectedCustomer?.name}.`
               : `Venta #${result.saleId} procesada correctamente.`,
           });
-          addSaleToShift({ total_amount: saleData.total_amount, payment_method: saleData.payment_method as PaymentMethod });
+          addSaleToShift({ 
+            total_amount: saleData.total_amount, 
+            payment_method: saleData.payment_method as PaymentMethod,
+            status: isCredit ? 'credit' : 'paid' 
+          });
           clearCart();
           onSuccess();
           return { success: true, saleId: result.saleId };

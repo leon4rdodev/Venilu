@@ -303,7 +303,7 @@ export class SalesService {
         });
     }
 
-    async getSaleItems(saleId: string): Promise<any[]> {
+    async getSaleItems(saleId: string): Promise<SaleItemEntity[]> {
         const sale = await this.saleRepository.findOne({
             where: { id: saleId },
             relations: ['items', 'items.product']
@@ -311,9 +311,54 @@ export class SalesService {
         
         if (!sale) return [];
 
-        return sale.items.map(item => ({
-            ...item,
-            price_at_sale: Number(item.unit_price) || 0
-        }));
+        return sale.items;
+    }
+
+    async voidSale(saleId: string): Promise<{ success: boolean; message?: string }> {
+        return await this.dataSource.transaction(async (transactionalEntityManager) => {
+            const sale = await transactionalEntityManager.findOne(SaleEntity, {
+                where: { id: saleId },
+                relations: ['items', 'items.product']
+            });
+
+            if (!sale) {
+                throw new Error("Venta no encontrada");
+            }
+
+            if (sale.status === 'voided') {
+                throw new Error("Esta venta ya ha sido anulada");
+            }
+
+            // Restore stock
+            for (const item of sale.items) {
+                if (item.product_id) {
+                    const product = await transactionalEntityManager.findOne(ProductEntity, {
+                        where: { id: item.product_id }
+                    });
+                    if (product) {
+                        product.stock += item.quantity;
+                        await transactionalEntityManager.save(ProductEntity, product);
+                    }
+                }
+            }
+
+            // If it was credit, update customer balance
+            if (sale.payment_method === 'credit' && sale.customer_id) {
+                const customer = await transactionalEntityManager.findOne(CustomerEntity, {
+                    where: { id: sale.customer_id }
+                });
+                if (customer) {
+                    // Subtract the total amount of the sale from the balance
+                    customer.balance = Number(customer.balance) - Number(sale.total_amount);
+                    await transactionalEntityManager.save(CustomerEntity, customer);
+                }
+            }
+
+            // Mark as voided
+            sale.status = 'voided';
+            await transactionalEntityManager.save(SaleEntity, sale);
+
+            return { success: true, message: "Venta anulada correctamente" };
+        });
     }
 }

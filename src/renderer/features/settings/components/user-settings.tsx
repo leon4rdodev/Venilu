@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@components/ui/card"
 import { Button } from "@components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@components/ui/table"
@@ -8,9 +8,12 @@ import { UserDialog } from './user-dialog';
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@components/ui/alert-dialog';
 import { ipc } from '@lib/ipc';
-import { User } from '@shared/types/models';
+import { User, Role } from '@shared/types/models';
 
-// Using shared User model from @shared/types/models
+// Extended type since role_entity comes from the eager relation in the backend
+interface ExtendedUser extends User {
+  role_entity?: Role;
+}
 
 interface UsersResponse {
   success: boolean;
@@ -24,33 +27,38 @@ export function UserSettings() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-
-  const fetchUsers = useCallback(async () => {
-    const result = await ipc.invoke('get-users') as UsersResponse;
-    if (result.success && result.data) {
-      const mappedUsers = result.data.map((u: any) => ({
-        ...u,
-        created_at: u.created_at || new Date(),
-        updated_at: u.updated_at || new Date()
-      }));
-      setUsers(mappedUsers);
-    }
-  }, []);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    async function loadUsers() {
+      try {
+        const result = await ipc.invoke('get-users') as UsersResponse;
+        if (result.success && result.data) {
+          const mappedUsers = result.data.map((u: ExtendedUser) => ({
+            ...u,
+            created_at: u.created_at || new Date(),
+            updated_at: u.updated_at || new Date()
+          })) as User[];
+          setUsers(mappedUsers);
+        }
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      }
+    }
+    
+    loadUsers();
+  }, [refreshTrigger]);
 
   const handleSave = () => {
     setIsDialogOpen(false);
-    fetchUsers();
+    setRefreshTrigger(prev => prev + 1);
   };
 
   const handleDelete = async () => {
     if (selectedUser) {
       await ipc.invoke('delete-user', selectedUser.id);
       setIsAlertOpen(false);
-      fetchUsers();
+      setRefreshTrigger(prev => prev + 1);
     }
   };
 
@@ -80,7 +88,7 @@ export function UserSettings() {
                   <TableCell className="font-medium">{user.name}</TableCell>
                   <TableCell>{user.username}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">{user.role}</Badge>
+                    <Badge variant="outline">{(user as ExtendedUser).role_entity?.name || user.role}</Badge>
                   </TableCell>
                   {role === 'admin' && (
                     <TableCell className="text-right">

@@ -11,11 +11,13 @@ interface ShiftContextType {
   activeShift: Shift | null;
   shiftSales: ShiftSale[];
   shiftDebtPayments: DebtPayment[];
+  shiftExpenses: any[];
   isLoading: boolean;
   openShift: (initialCash: number) => Promise<IPCResponse<Shift>>;
   closeShift: (finalCash: number) => Promise<IPCResponse<Shift>>;
   addSaleToShift: (sale: ShiftSale) => void;
   addDebtPaymentToShift: (payment: DebtPayment) => void;
+  addExpenseToShift: (expense: any) => void;
   fetchActiveShift: () => Promise<void>;
 }
 
@@ -32,12 +34,14 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
   const [activeShift, setActiveShift] = useState<Shift | null>(null);
   const [shiftSales, setShiftSales] = useState<ShiftSale[]>([]);
   const [shiftDebtPayments, setShiftDebtPayments] = useState<DebtPayment[]>([]);
+  const [shiftExpenses, setShiftExpenses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchActiveShift = async () => {
     if (!user) {
       setActiveShift(null);
       setShiftSales([]);
+      setShiftExpenses([]);
       setIsLoading(false);
       return;
     }
@@ -56,16 +60,23 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
         if (dpResult.success && dpResult.data) {
           setShiftDebtPayments(dpResult.data);
         }
+        // Fetch expenses for the active shift
+        const expResult = await window.ipcRenderer.invoke('shifts:getExpenses', { shiftId: result.data.id }) as IPCResponse<any[]>;
+        if (expResult.success && expResult.data) {
+          setShiftExpenses(expResult.data);
+        }
       } else {
         setActiveShift(null);
         setShiftSales([]);
         setShiftDebtPayments([]);
+        setShiftExpenses([]);
       }
     } catch (error) {
       console.error('Error fetching active shift:', error);
       setActiveShift(null);
       setShiftSales([]);
       setShiftDebtPayments([]);
+      setShiftExpenses([]);
     } finally {
       setIsLoading(false);
     }
@@ -85,6 +96,7 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
       setActiveShift(result.data);
       setShiftSales([]);
       setShiftDebtPayments([]);
+      setShiftExpenses([]);
     }
     return result;
   };
@@ -98,6 +110,7 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
       setActiveShift(null);
       setShiftSales([]);
       setShiftDebtPayments([]);
+      setShiftExpenses([]);
     }
     return result;
   };
@@ -110,8 +123,24 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
     setShiftDebtPayments(prevPayments => [payment, ...prevPayments]);
   };
 
+  const addExpenseToShift = (expense: any) => {
+    setShiftExpenses(prev => [...prev, expense]);
+  };
+
   return (
-    <ShiftContext.Provider value={{ activeShift, shiftSales, shiftDebtPayments, isLoading, openShift, closeShift, addSaleToShift, addDebtPaymentToShift, fetchActiveShift }}>
+    <ShiftContext.Provider value={{ 
+      activeShift, 
+      shiftSales, 
+      shiftDebtPayments, 
+      shiftExpenses,
+      isLoading, 
+      openShift, 
+      closeShift, 
+      addSaleToShift, 
+      addDebtPaymentToShift, 
+      addExpenseToShift,
+      fetchActiveShift 
+    }}>
       {children}
     </ShiftContext.Provider>
   );

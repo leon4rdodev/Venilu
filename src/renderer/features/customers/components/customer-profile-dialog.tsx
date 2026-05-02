@@ -25,10 +25,12 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
   const [isLoading, setIsLoading] = useState(false);
   const [salesPage, setSalesPage] = useState(1);
   const [salesTotalPages, setSalesTotalPages] = useState(1);
+  const [totalSpent, setTotalSpent] = useState(0);
   const [salesLoadingMore, setSalesLoadingMore] = useState(false);
   const [paymentsPage, setPaymentsPage] = useState(1);
   const [paymentsTotalPages, setPaymentsTotalPages] = useState(1);
   const [paymentsLoadingMore, setPaymentsLoadingMore] = useState(false);
+  const [localCustomer, setLocalCustomer] = useState<Customer | null>(customer);
 
   const [selectedTransaction, setSelectedTransaction] = useState<Sale | null>(null);
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
@@ -41,13 +43,14 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
     try {
       // Fetch sales and payments in parallel
       const [salesResult, paymentsResult] = await Promise.all([
-        ipc.invoke("customers:getSales", { customerId: customer.id, page: 1, limit: 15 }) as Promise<{ success: boolean; data?: Sale[]; totalPages?: number; message?: string }>,
+        ipc.invoke("customers:getSales", { customerId: customer.id, page: 1, limit: 15 }) as Promise<{ success: boolean; data?: Sale[]; totalPages?: number; totalSpent?: number; message?: string }>,
         ipc.invoke("customers:getPayments", { customerId: customer.id, page: 1, limit: 15 }) as Promise<{ success: boolean; data?: DebtPayment[]; totalPages?: number; message?: string }>,
       ]);
 
       if (salesResult.success && salesResult.data) {
         setSales(salesResult.data);
         setSalesTotalPages(salesResult.totalPages || 1);
+        setTotalSpent(salesResult.totalSpent || 0);
       } else {
         toast.error("Error al cargar ventas", { description: salesResult.message });
       }
@@ -66,8 +69,26 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
     }
   }, [customer]);
 
+  const fetchCustomer = useCallback(async () => {
+    if (!customer) return;
+    try {
+      const result = await ipc.invoke("get-customer", customer.id) as { success: boolean; data: Customer };
+      if (result.success) {
+        setLocalCustomer(result.data);
+      }
+    } catch (error) {
+      console.error("Error fetching customer:", error);
+    }
+  }, [customer]);
+
+  const handleVoidSuccess = useCallback(() => {
+    fetchHistoryData();
+    fetchCustomer();
+  }, [fetchHistoryData, fetchCustomer]);
+
   useEffect(() => {
     if (open && customer) {
+      setLocalCustomer(customer);
       fetchHistoryData();
     } else {
       setSales([]);
@@ -122,11 +143,10 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
     setTransactionDialogOpen(true);
   };
 
-  if (!customer) return null;
+  if (!localCustomer) return null;
 
-  const totalSpent = sales.reduce((sum, sale) => sum + sale.total_amount, 0);
-  const creditLimit = customer.credit_limit != null ? Number(customer.credit_limit) : null;
-  const balance = Number(customer.balance || 0);
+  const creditLimit = localCustomer.credit_limit != null ? Number(localCustomer.credit_limit) : null;
+  const balance = Number(localCustomer.balance || 0);
   const isOverLimit = creditLimit !== null && balance >= creditLimit;
 
   // Helpers for formatting
@@ -158,7 +178,7 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
             <div className="flex flex-col gap-1">
               <DialogTitle className="text-2xl flex items-center gap-2">
                 <User className="h-6 w-6 text-primary" />
-                {customer.name}
+                {localCustomer.name}
               </DialogTitle>
               {isOverLimit && (
                 <Badge variant="destructive" className="w-fit text-[10px] mt-1 uppercase tracking-wider">
@@ -166,34 +186,28 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
                 </Badge>
               )}
             </div>
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground font-medium">Deuda Actual</p>
-              <p className={cn("text-2xl font-bold tracking-tight", isOverLimit ? "text-destructive" : "text-amber-600 dark:text-amber-400")}>
-                {formatCurrency(balance)}
-              </p>
-            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-6 text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Phone className="h-4 w-4 text-muted-foreground" />
-              {customer.phone ? (
-                <span className="text-sm font-medium">{formatPhone(customer.phone)}</span>
+              {localCustomer.phone ? (
+                <span className="text-sm font-medium">{formatPhone(localCustomer.phone)}</span>
               ) : (
                 <span className="text-sm italic text-muted-foreground">No registrado</span>
               )}
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Mail className="h-4 w-4" />
-              <span className="truncate">{customer.email || 'Sin correo'}</span>
+              <span className="truncate">{localCustomer.email || 'Sin correo'}</span>
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <MapPin className="h-4 w-4" />
-              <span className="truncate">{customer.address || 'Sin dirección'}</span>
+              <span className="truncate">{localCustomer.address || 'Sin dirección'}</span>
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <FileText className="h-4 w-4" />
-              <span className="truncate">{customer.notes || 'Sin notas'}</span>
+              <span className="truncate">{localCustomer.notes || 'Sin notas'}</span>
             </div>
           </div>
 
@@ -206,6 +220,12 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
               <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">Límite de Crédito</p>
               <p className="text-lg font-semibold tabular-nums">
                 {creditLimit !== null ? formatCurrency(creditLimit) : "Ilimitado"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">Deuda Actual</p>
+              <p className={cn("text-lg font-semibold tabular-nums", isOverLimit ? "text-destructive" : "text-amber-600 dark:text-amber-400")}>
+                {formatCurrency(balance)}
               </p>
             </div>
           </div>
@@ -236,49 +256,63 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
                 </div>
               ) : (
                 <>
-                  {sales.map((sale) => (
-                    <button
-                      key={sale.id}
-                      type="button"
-                      onClick={() => handleViewTransaction(sale)}
-                      className="group w-full text-left flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/40 transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="mt-0.5 p-2 rounded-full bg-primary/10">
-                          {getPaymentMethodIcon(sale.payment_method)}
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-sm">Venta #{sale.id.slice(0, 8)}...</span>
-                            {sale.payment_method === 'credit' && (
-                              sale.status === 'paid' ? (
-                                <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-green-500/10 text-green-600 border-green-500/20">
-                                  Crédito — Pagado
-                                </Badge>
-                              ) : sale.status === 'partial' ? (
-                                <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-amber-500/10 text-amber-600 border-amber-500/20">
-                                  Crédito — Parcial
+                   {sales.map((sale) => {
+                    const isVoided = sale.status === 'voided';
+                    return (
+                      <button
+                        key={sale.id}
+                        type="button"
+                        onClick={() => handleViewTransaction(sale)}
+                        className={cn(
+                          "group w-full text-left flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/40 transition-colors cursor-pointer",
+                          isVoided && "opacity-60 bg-muted/30"
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={cn("mt-0.5 p-2 rounded-full", isVoided ? "bg-muted" : "bg-primary/10")}>
+                            {getPaymentMethodIcon(sale.payment_method)}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className={cn("font-semibold text-sm", isVoided && "line-through")}>
+                                Venta #{sale.id.slice(0, 8)}...
+                              </span>
+                              {isVoided ? (
+                                <Badge variant="destructive" className="text-[9px] h-4 px-1.5 uppercase tracking-tighter">
+                                  Anulada
                                 </Badge>
                               ) : (
-                                <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-red-500/10 text-red-600 border-red-500/20">
-                                  Crédito — Pendiente
-                                </Badge>
-                              )
-                            )}
+                                sale.payment_method === 'credit' && (
+                                  sale.status === 'paid' ? (
+                                    <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-green-500/10 text-green-600 border-green-500/20">
+                                      Crédito — Pagado
+                                    </Badge>
+                                  ) : sale.status === 'partial' ? (
+                                    <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-amber-500/10 text-amber-600 border-amber-500/20">
+                                      Crédito — Parcial
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-red-500/10 text-red-600 border-red-500/20">
+                                      Crédito — Pendiente
+                                    </Badge>
+                                  )
+                                )
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDateTime(sale.created_at)} • {getPaymentMethodLabel(sale.payment_method)}
+                            </p>
                           </div>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDateTime(sale.created_at)} • {getPaymentMethodLabel(sale.payment_method)}
-                          </p>
                         </div>
-                      </div>
-                      <div className="mt-2 sm:mt-0 sm:text-right flex items-center justify-between sm:block">
-                        <span className="text-sm font-bold tabular-nums ml-11 sm:ml-0 flex items-center gap-2">
-                          <Eye className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                          {formatCurrency(sale.total_amount)}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
+                        <div className="mt-2 sm:mt-0 sm:text-right flex items-center justify-between sm:block">
+                          <span className={cn("text-sm font-bold tabular-nums ml-11 sm:ml-0 flex items-center gap-2", isVoided && "line-through text-muted-foreground")}>
+                            <Eye className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            {formatCurrency(sale.total_amount)}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
                   {salesPage < salesTotalPages && (
                     <div className="flex justify-center pt-2 pb-6">
                       <Button variant="outline" size="sm" onClick={loadMoreSales} disabled={salesLoadingMore}>
@@ -352,6 +386,7 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
         onOpenChange={setTransactionDialogOpen}
         transaction={selectedTransaction}
         hideCustomerName={true}
+        onVoidSuccess={handleVoidSuccess}
       />
     </Dialog>
   );

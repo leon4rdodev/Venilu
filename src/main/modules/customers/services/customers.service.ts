@@ -2,7 +2,7 @@ import { AppDataSource } from "@main/config/data-source";
 import { Customer } from "@main/modules/customers/entities/customer.entity";
 import { Sale } from "@main/modules/sales/entities/sale.entity";
 import { DebtPayment } from "@main/modules/sales/entities/debt-payment.entity";
-import { Repository, Like } from "typeorm";
+import { Repository, Like, Not } from "typeorm";
 
 export class CustomersService {
     private customerRepository: Repository<Customer>;
@@ -97,6 +97,7 @@ export class CustomersService {
             .createQueryBuilder("sale")
             .select("COUNT(DISTINCT sale.customer_id)", "count")
             .where("sale.customer_id IS NOT NULL")
+            .andWhere("sale.status != :voidedStatus", { voidedStatus: 'voided' })
             .andWhere("sale.created_at >= :thirtyDaysAgo", { thirtyDaysAgo })
             .getRawOne<{ count: string }>();
 
@@ -114,9 +115,20 @@ export class CustomersService {
             skip: (page - 1) * limit,
         });
 
+        // Calculate total spent across ALL sales (not just this page)
+        const totalSpentResult = await this.saleRepository
+            .createQueryBuilder("sale")
+            .select("SUM(sale.total_amount)", "total")
+            .where("sale.customer_id = :customerId", { customerId })
+            .andWhere("sale.status != :voided", { voided: 'voided' })
+            .getRawOne();
+
+        const totalValue = totalSpentResult && totalSpentResult.total ? parseFloat(totalSpentResult.total) : 0;
+
         return {
             data,
             total,
+            totalSpent: totalValue,
             page,
             limit,
             totalPages: Math.ceil(total / limit)

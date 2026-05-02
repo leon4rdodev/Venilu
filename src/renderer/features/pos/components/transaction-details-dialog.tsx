@@ -3,16 +3,18 @@ import { Dialog, DialogContent } from '@components/ui/dialog';
 import { Button } from '@components/ui/button';
 import { formatCurrency } from '@lib/currency';
 import { formatDateTime } from '@lib/formatters';
-import { Receipt, Banknote, CreditCard, ArrowRightLeft, Printer, ShoppingBag, HandCoins, User2 } from 'lucide-react';
+import { Receipt, Banknote, CreditCard, ArrowRightLeft, Printer, ShoppingBag, HandCoins, User2, Trash2 } from 'lucide-react';
 import { Spinner } from "@components/ui/spinner";
 import { cn } from '@lib/utils';
 import { toast } from 'sonner';
 import { Sale } from '@shared/types/models';
+import { usePermission } from '@renderer/features/auth/hooks/use-permission';
+import { PERMISSIONS } from '@shared/permissions';
 
 interface SaleItem {
   product_name: string;
   quantity: number;
-  price_at_sale: number;
+  unit_price: number;
 }
 
 interface TransactionDetailsDialogProps {
@@ -20,6 +22,7 @@ interface TransactionDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
   transaction: Sale | null;
   hideCustomerName?: boolean;
+  onVoidSuccess?: () => void;
 }
 
 const methodConfig: Record<string, { label: string; icon: typeof Banknote; color: string }> = {
@@ -35,11 +38,14 @@ export function TransactionDetailsDialog({
   open,
   onOpenChange,
   transaction,
-  hideCustomerName = false
+  hideCustomerName = false,
+  onVoidSuccess
 }: TransactionDetailsDialogProps) {
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [isVoiding, setIsVoiding] = useState(false);
+  const canVoid = usePermission(PERMISSIONS.SALES_VOID);
 
   const fetchSaleItems = useCallback(async () => {
     if (!transaction) return;
@@ -60,6 +66,7 @@ export function TransactionDetailsDialog({
         setSaleItems(result.data || []);
       } else {
         setSaleItems([]);
+        toast.error('Error al cargar productos', { description: result.message });
       }
     } catch (err) {
       console.error('Error fetching sale items:', err);
@@ -100,19 +107,52 @@ export function TransactionDetailsDialog({
     }
   };
 
+  const handleVoid = async () => {
+    if (!transaction || !window.ipcRenderer) return;
+
+    const confirmed = window.confirm('¿Estás seguro de que deseas anular esta venta? Esta acción restaurará el stock y no se puede deshacer.');
+    if (!confirmed) return;
+
+    setIsVoiding(true);
+    try {
+      const result = await window.ipcRenderer.invoke('sales:void', { saleId: transaction.id }) as {
+        success: boolean;
+        message?: string;
+      };
+
+      if (result.success) {
+        toast.success('Venta anulada correctamente');
+        onVoidSuccess?.();
+        onOpenChange(false);
+      } else {
+        toast.error(result.message || 'Error al anular venta');
+      }
+    } catch (_error) {
+      toast.error('Error de conexión');
+    } finally {
+      setIsVoiding(false);
+    }
+  };
+
   if (!open || !transaction) return null;
 
   const config = getConfig(transaction.payment_method);
   const MethodIcon = config.icon;
   const isCash = transaction.payment_method.toLowerCase() === 'cash';
+  const isVoided = transaction.status === 'voided';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm p-0 gap-0 overflow-hidden max-h-[85vh] flex flex-col">
         {/* Header */}
         <div className="p-5 pb-3 space-y-1 border-b shrink-0">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-xl font-semibold tracking-tight">Venta #{transaction.id}</h2>
+            {isVoided && (
+              <span className="inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500 text-white uppercase tracking-wider">
+                Anulada
+              </span>
+            )}
           </div>
           <p className="text-sm text-muted-foreground">
             {formatDateTime(transaction.sale_date || transaction.created_at)}
@@ -125,10 +165,10 @@ export function TransactionDetailsDialog({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className={cn("flex-1 overflow-y-auto", isVoided && "opacity-60 grayscale-[0.5]")}>
           {/* Payment Summary */}
           <div className="px-5 pt-4 pb-3">
-            <div className="rounded-lg border divide-y text-sm">
+            <div className={cn("rounded-lg border divide-y text-sm", isVoided && "border-red-200 dark:border-red-900/30")}>
               {(transaction.discount_amount ?? 0) > 0 && (
                  <>
                     <div className="flex items-center justify-between px-3.5 py-2.5">
@@ -143,7 +183,7 @@ export function TransactionDetailsDialog({
               )}
               <div className="flex items-center justify-between px-3.5 py-2.5 bg-muted/20">
                 <span className="text-muted-foreground font-medium">Total</span>
-                <span className="text-lg font-bold tabular-nums">{formatCurrency(transaction.total_amount)}</span>
+                <span className={cn("text-lg font-bold tabular-nums", isVoided && "line-through")}>{formatCurrency(transaction.total_amount)}</span>
               </div>
               <div className="flex items-center justify-between px-3.5 py-2.5">
                 <span className="text-muted-foreground">Método</span>
@@ -177,6 +217,12 @@ export function TransactionDetailsDialog({
                 <span className="text-sm font-medium">{transaction.customer_name}</span>
               </div>
             )}
+            {isVoided && (
+              <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs font-medium flex items-center gap-2">
+                <Trash2 className="h-3.5 w-3.5" />
+                Esta venta fue anulada y los productos devueltos al inventario.
+              </div>
+            )}
           </div>
 
           {/* Products */}
@@ -199,19 +245,19 @@ export function TransactionDetailsDialog({
                 {saleItems.map((item, index) => (
                   <div key={index} className="flex items-center justify-between px-3.5 py-2.5 gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate" title={item.product_name}>{item.product_name}</p>
+                      <p className={cn("text-sm font-medium truncate", isVoided && "line-through text-muted-foreground")} title={item.product_name}>{item.product_name}</p>
                       <p className="text-xs text-muted-foreground truncate">
-                        {item.quantity} × {formatCurrency(item.price_at_sale)}
+                        {item.quantity} × {formatCurrency(item.unit_price)}
                       </p>
                     </div>
-                    <span className="text-sm font-semibold tabular-nums shrink-0 whitespace-nowrap">
-                      {formatCurrency(item.quantity * item.price_at_sale)}
+                    <span className={cn("text-sm font-semibold tabular-nums shrink-0 whitespace-nowrap", isVoided && "text-muted-foreground")}>
+                      {formatCurrency(item.quantity * item.unit_price)}
                     </span>
                   </div>
                 ))}
                 <div className="flex items-center justify-between px-3.5 py-2.5 bg-muted/40">
                   <span className="text-sm font-semibold">Total</span>
-                  <span className="text-sm font-bold tabular-nums">{formatCurrency(transaction.total_amount)}</span>
+                  <span className={cn("text-sm font-bold tabular-nums", isVoided && "line-through")}>{formatCurrency(transaction.total_amount)}</span>
                 </div>
               </div>
             )}
@@ -219,31 +265,51 @@ export function TransactionDetailsDialog({
         </div>
 
         {/* Actions */}
-        <div className="p-5 pt-3 border-t flex gap-3 shrink-0">
-          <Button
-            variant="outline"
-            onClick={handlePrint}
-            disabled={isPrinting}
-            className="flex-1 h-11"
-          >
-            {isPrinting ? (
-              <>
-                <div className="h-4 w-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                Imprimiendo...
-              </>
-            ) : (
-              <>
-                <Printer className="h-4 w-4" />
-                Imprimir
-              </>
-            )}
-          </Button>
-          <Button
-            onClick={() => onOpenChange(false)}
-            className="flex-1 h-11"
-          >
-            Cerrar
-          </Button>
+        <div className="p-5 pt-3 border-t flex flex-col gap-3 shrink-0">
+          <div className="flex gap-3 w-full">
+            <Button
+              variant="outline"
+              onClick={handlePrint}
+              disabled={isPrinting || isVoided}
+              className="flex-1 h-11"
+            >
+              {isPrinting ? (
+                <>
+                  <div className="h-4 w-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                  Imprimiendo...
+                </>
+              ) : (
+                <>
+                  <Printer className="h-4 w-4" />
+                  Imprimir
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={() => onOpenChange(false)}
+              className="flex-1 h-11"
+            >
+              Cerrar
+            </Button>
+          </div>
+          
+          {!isVoided && canVoid && (
+            <Button
+              variant="ghost"
+              onClick={handleVoid}
+              disabled={isVoiding}
+              className="w-full h-10 text-destructive hover:text-destructive hover:bg-destructive/10 gap-2 text-xs font-semibold uppercase tracking-wide"
+            >
+              {isVoiding ? (
+                <>Anulando...</>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4" />
+                  Anular esta venta
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

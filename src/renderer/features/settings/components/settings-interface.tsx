@@ -1,9 +1,10 @@
-import { Building2, Users, Printer, Database } from "lucide-react"
+import { Building2, Users, Printer, Database, ShieldCheck } from "lucide-react"
 import { motion } from "framer-motion"
 import { BusinessSettings } from "./business-settings"
 import { UserSettings } from "./user-settings"
 import { PrinterSettings } from "./printer-settings"
 import { BackupSettings } from "./backup-settings"
+import { RolesSettings } from "./roles-settings"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs"
 
 export function SettingsInterface() {
@@ -59,6 +60,13 @@ export function SettingsInterface() {
                 Usuarios
               </TabsTrigger>
               <TabsTrigger 
+                value="roles" 
+                className="w-full justify-start gap-3 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none border-none rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Roles y Permisos
+              </TabsTrigger>
+              <TabsTrigger 
                 value="printer" 
                 className="w-full justify-start gap-3 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none border-none rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors"
               >
@@ -93,6 +101,16 @@ export function SettingsInterface() {
                   <h2>Gestión de Usuarios</h2>
                 </div>
                 <UserSettings />
+              </motion.div>
+            </TabsContent>
+
+            <TabsContent value="roles" className="m-0 mt-0 focus-visible:outline-none focus-visible:ring-0">
+              <motion.div variants={item} className="space-y-4">
+                <div className="flex items-center gap-2 text-lg font-semibold text-foreground border-b pb-2">
+                  <ShieldCheck className="h-5 w-5 text-primary" />
+                  <h2>Roles y Permisos</h2>
+                </div>
+                <RolesSettings />
               </motion.div>
             </TabsContent>
 

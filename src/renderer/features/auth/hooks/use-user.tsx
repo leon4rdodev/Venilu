@@ -52,36 +52,31 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     restoreBackendSession();
   }, []); // Intentionally runs once on mount — initialUserRef is stable
 
-  const setUser = useCallback((user: User | null) => {
+  const setUser = useCallback(async (user: User | null) => {
     try {
+      setSessionReady(false);
       if (user) {
         window.localStorage.setItem('user', JSON.stringify(user));
         // Send ONLY the user ID — main process reloads permissions from DB
         if (window.ipcRenderer) {
-          window.ipcRenderer.invoke('set-logged-in-user', user.id).catch((error: Error) => {
-            console.error('[useUser] Error setting backend session:', error);
-          });
+          await window.ipcRenderer.invoke('set-logged-in-user', user.id);
         }
       } else {
         window.localStorage.removeItem('user');
+        if (window.ipcRenderer) {
+          await window.ipcRenderer.invoke('logout');
+        }
       }
       setUserState(user);
     } catch (error) {
-      console.error('[useUser] Error saving user to localStorage', error);
+      console.error('[useUser] Error setting backend session:', error);
+    } finally {
+      setSessionReady(true);
     }
   }, []);
 
   const logout = useCallback(async () => {
-    // Call backend to clear session
-    try {
-      if (window.ipcRenderer) {
-        await window.ipcRenderer.invoke('logout');
-      }
-    } catch (error) {
-      console.error('Error calling backend logout:', error);
-    }
-    // Clear user state - this will trigger navigation to /login via App.tsx
-    setUser(null);
+    await setUser(null);
   }, [setUser]);
 
   const value = useMemo(() => ({ user, sessionReady, setUser, logout }), [user, sessionReady, setUser, logout]);

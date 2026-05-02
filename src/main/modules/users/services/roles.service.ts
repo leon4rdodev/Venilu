@@ -39,9 +39,13 @@ export class RolesService {
 
   async update(id: string, data: { name?: string; permissions?: string[] }): Promise<Role> {
     const role = await this.findOneOrFail(id);
-    if (role.is_system) throw new Error('Los roles del sistema no pueden modificarse.');
+    
+    if (role.is_system && role.name === SYSTEM_ROLE_NAMES.ADMIN) {
+      throw new Error('El rol de Administrador no puede modificarse.');
+    }
 
-    if (data.name) {
+    if (data.name && data.name !== role.name) {
+      if (role.is_system) throw new Error('No puedes cambiar el nombre de un rol del sistema.');
       const duplicate = await this.roleRepo.findOneBy({ name: data.name });
       if (duplicate && duplicate.id !== id)
         throw new Error(`Ya existe un rol llamado "${data.name}".`);
@@ -59,6 +63,18 @@ export class RolesService {
   async delete(id: string): Promise<void> {
     const role = await this.findOneOrFail(id);
     if (role.is_system) throw new Error('Los roles del sistema no pueden eliminarse.');
+    
+    // Fallback users to Empleado Base
+    const employeeRole = await this.roleRepo.findOneBy({ name: SYSTEM_ROLE_NAMES.EMPLOYEE });
+    if (employeeRole) {
+      await this.userRepo
+        .createQueryBuilder()
+        .update(User)
+        .set({ role_id: employeeRole.id })
+        .where("role_id = :id", { id })
+        .execute();
+    }
+
     await this.roleRepo.delete(id);
   }
 
@@ -69,8 +85,8 @@ export class RolesService {
    * Safe to call on every boot — idempotent.
    */
   async seedSystemRoles(): Promise<void> {
-    await this.upsertSystemRole(SYSTEM_ROLE_NAMES.ADMIN, ALL_PERMISSIONS);
-    await this.upsertSystemRole(SYSTEM_ROLE_NAMES.EMPLOYEE, EMPLOYEE_BASE_PERMISSIONS);
+    await this.upsertSystemRole(SYSTEM_ROLE_NAMES.ADMIN, ALL_PERMISSIONS, true);
+    await this.upsertSystemRole(SYSTEM_ROLE_NAMES.EMPLOYEE, EMPLOYEE_BASE_PERMISSIONS, false);
     console.log('[RolesService] System roles seeded.');
   }
 
@@ -114,16 +130,17 @@ export class RolesService {
     return role;
   }
 
-  private async upsertSystemRole(name: string, permissions: string[]): Promise<void> {
+  private async upsertSystemRole(name: string, permissions: string[], forcePermissions: boolean): Promise<void> {
     const existing = await this.roleRepo.findOneBy({ name });
     if (existing) {
-      // Always keep system role permissions up to date
-      existing.permissions = permissions as string[];
+      if (forcePermissions) {
+        existing.permissions = permissions;
+      }
       existing.is_system = true;
       await this.roleRepo.save(existing);
     } else {
       await this.roleRepo.save(
-        this.roleRepo.create({ name, is_system: true, permissions: permissions as string[] }),
+        this.roleRepo.create({ name, is_system: true, permissions }),
       );
     }
   }

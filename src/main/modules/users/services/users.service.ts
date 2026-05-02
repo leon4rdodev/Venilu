@@ -67,6 +67,12 @@ export class UsersService {
             userData.password = await bcrypt.hash(userData.password, 10);
         }
 
+        // FIX: Because role_entity is eagerly loaded, TypeORM prioritizes it over role_id.
+        // We must remove the existing entity reference so TypeORM uses the new role_id.
+        if (userData.role_id) {
+            delete user.role_entity;
+        }
+
         this.userRepository.merge(user, userData);
         return this.userRepository.save(user);
     }

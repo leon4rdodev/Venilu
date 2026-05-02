@@ -47,7 +47,7 @@ function AppRoutes() {
     const timer = setTimeout(() => {
       setMinTimeElapsed(true);
       window.dispatchEvent(new CustomEvent('venilu-ready'));
-    }, 5000);
+    }, 2000);
     return () => clearTimeout(timer);
   }, []);
 

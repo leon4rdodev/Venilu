@@ -52,7 +52,7 @@ export class Sale {
     payment_method!: 'cash' | 'card' | 'transfer' | 'credit';
 
     @Column({ default: 'paid' })
-    status!: 'paid' | 'credit' | 'partial';
+    status!: 'paid' | 'credit' | 'partial' | 'voided';
 
     @CreateDateColumn()
     created_at!: Date;

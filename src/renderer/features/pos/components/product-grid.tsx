@@ -8,10 +8,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@components/ui/select"
-import { Search, History, Package, ChevronLeft, ChevronRight, LayoutGrid, X } from "lucide-react"
+import { Search, History, Package, ChevronLeft, ChevronRight, LayoutGrid, X, MinusCircle, Eye } from "lucide-react"
 import { ProductCard } from "./product-card"
 import { Product } from "@shared/types/models"
 import { Button } from "@components/ui/button"
+import { usePermission } from "@renderer/features/auth/hooks/use-permission"
+import { useShift } from "@renderer/features/pos/hooks/use-shift"
+import { PERMISSIONS } from "@shared/permissions"
 
 interface ProductGridProps {
   products: Product[];
@@ -19,11 +22,13 @@ interface ProductGridProps {
   onAddToCart: (product: Product) => void
   showSalesHistory: boolean;
   setShowSalesHistory: (show: boolean) => void;
+  onAddExpense: () => void;
+  onViewExpenses: () => void;
 }
 
 const ITEMS_PER_PAGE = 25;
 
-export function ProductGrid({ products, categories, onAddToCart, showSalesHistory, setShowSalesHistory }: ProductGridProps) {
+export function ProductGrid({ products, categories, onAddToCart, showSalesHistory, setShowSalesHistory, onAddExpense, onViewExpenses }: ProductGridProps) {
   const [selectedCategory, setSelectedCategory] = useState("Todos")
   const [searchQuery, setSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
@@ -59,6 +64,9 @@ export function ProductGrid({ products, categories, onAddToCart, showSalesHistor
   const handleNextPage = () => {
     setCurrentPage(prev => Math.min(totalPages, prev + 1))
   }
+
+  const { shiftExpenses } = useShift()
+  const canManageExpenses = usePermission(PERMISSIONS.SHIFTS_EXPENSES)
 
   return (
     <div className="flex-1 flex flex-col gap-3 overflow-hidden">
@@ -96,7 +104,7 @@ export function ProductGrid({ products, categories, onAddToCart, showSalesHistor
           )}
         </div>
         
-        <div className="flex gap-3 w-full sm:w-auto">
+        <div className="flex gap-2 w-full sm:w-auto">
           <Select
             value={selectedCategory}
             onValueChange={(value) => {
@@ -116,14 +124,36 @@ export function ProductGrid({ products, categories, onAddToCart, showSalesHistor
             </SelectContent>
           </Select>
           
-          <Button
-            variant="secondary"
-            className="h-10! w-10! shrink-0 border border-input/60 bg-background/50 hover:bg-muted"
-            onClick={() => setShowSalesHistory(!showSalesHistory)}
-            title="Historial de ventas"
-          >
-            <History className="h-5 w-5 text-muted-foreground" />
-          </Button>
+          <div className="flex gap-1.5 shrink-0">
+            {canManageExpenses && (
+              <div className="flex gap-1">
+                <div className="relative">
+                  <Button
+                    variant="secondary"
+                    className="h-10! w-10! shrink-0 border border-input/60 bg-background/50 hover:bg-destructive/10 hover:border-destructive/30 transition-colors"
+                    onClick={onAddExpense}
+                    title="Registrar gasto de caja"
+                  >
+                    <MinusCircle className="h-5 w-5 text-destructive" />
+                  </Button>
+                  {shiftExpenses.length > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-white shadow-sm ring-2 ring-background animate-in zoom-in duration-300">
+                      {shiftExpenses.length}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            <Button
+              variant="secondary"
+              className="h-10! w-10! shrink-0 border border-input/60 bg-background/50 hover:bg-muted"
+              onClick={() => setShowSalesHistory(!showSalesHistory)}
+              title="Historial de ventas"
+            >
+              <History className="h-5 w-5 text-muted-foreground" />
+            </Button>
+          </div>
         </div>
       </div>
 

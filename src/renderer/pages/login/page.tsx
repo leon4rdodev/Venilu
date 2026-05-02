@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { User } from "@shared/types/models";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
@@ -24,13 +24,21 @@ const features = [
   { icon: Users, label: "Gestión de clientes" },
 ];
 
-export default function LoginPage({ onLogin }: { onLogin: (data: User) => void }) {
+export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promise<void> }) {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const usernameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Focus username on mount for better DX, but safely via useEffect
+    if (usernameRef.current) {
+      usernameRef.current.focus();
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +50,7 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => void }
         password,
       })) as { success: boolean; message?: string; data?: User };
       if (result.success && result.data) {
-        onLogin(result.data);
+        await onLogin(result.data);
         navigate("/dashboard");
       } else {
         setError(result.message || "Credenciales inválidas.");
@@ -182,10 +190,10 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => void }
               </Label>
               <Input
                 id="username"
+                ref={usernameRef}
                 placeholder="Tu nombre de usuario"
                 type="text"
                 autoComplete="username"
-                autoFocus
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="h-11"

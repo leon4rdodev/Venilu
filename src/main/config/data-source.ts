@@ -9,6 +9,7 @@ import { Sale } from "@main/modules/sales/entities/sale.entity";
 import { SaleItem } from "@main/modules/sales/entities/sale-item.entity";
 import { DebtPayment } from "@main/modules/sales/entities/debt-payment.entity";
 import { Shift } from "@main/modules/shifts/entities/shift.entity";
+import { ShiftExpense } from "@main/modules/shifts/entities/shift-expense.entity";
 import { Setting } from "@main/modules/settings/entities/setting.entity";
 import { Customer } from "@main/modules/customers/entities/customer.entity";
 import { Role } from "@main/modules/users/entities/role.entity";
@@ -31,6 +32,7 @@ export const AppDataSource = new DataSource({
         SaleItem,
         DebtPayment,
         Shift,
+        ShiftExpense,
         Setting,
         Customer,
         AuditLog,

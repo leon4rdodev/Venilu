@@ -1,12 +1,13 @@
-
 import { useState } from "react";
-import { CreditCard, ShoppingBag, Trash2 } from "lucide-react";
+import { CreditCard, ShoppingBag, Trash2, Lock } from "lucide-react";
 import { CartItem, CartItemType } from "./cart-item";
 import { PaymentDialog } from "./payment-dialog";
 import { formatCurrency, getCurrencySymbol } from "@lib/currency";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import { PaymentMethod, Customer } from "@shared/types/models";
+import { usePermission } from "@renderer/features/auth/hooks/use-permission";
+import { cn } from "@lib/utils";
 
 interface CartProps {
   cart: CartItemType[];
@@ -31,6 +32,7 @@ export default function Cart({
   onSelectCustomer,
   onProcessSale,
 }: CartProps) {
+  const canDiscount = usePermission('pos:apply_discount');
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const subtotal = cart.reduce((sum, item) => sum + item.sale_price * item.quantity, 0);
   const total = Math.max(0, subtotal - discountAmount);
@@ -100,14 +102,18 @@ export default function Cart({
               </span>
             </div>
             
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-muted-foreground mr-2">Descuento</span>
+            <div className={cn("flex justify-between items-center text-sm", !canDiscount && "opacity-60")}>
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">Descuento</span>
+                {!canDiscount && <Lock className="h-3 w-3 text-muted-foreground/50" />}
+              </div>
               <div className="flex items-center gap-1 w-24">
                 <span className="text-muted-foreground text-xs">{getCurrencySymbol()}</span>
                 <Input
                   type="number"
                   min="0"
                   max={subtotal}
+                  disabled={!canDiscount}
                   value={discountAmount === 0 ? "" : discountAmount}
                   onChange={(e) => {
                     const val = parseFloat(e.target.value);
@@ -119,8 +125,11 @@ export default function Cart({
                       setDiscountAmount(val);
                     }
                   }}
-                  className="h-7 text-right text-xs bg-muted/50 border-transparent hover:border-border focus:border-primary"
-                  placeholder="0.00"
+                  className={cn(
+                    "h-7 text-right text-xs bg-muted/50 border-transparent hover:border-border focus:border-primary",
+                    !canDiscount && "cursor-not-allowed"
+                  )}
+                  placeholder={canDiscount ? "0.00" : "Bloqueado"}
                 />
               </div>
             </div>

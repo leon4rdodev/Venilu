@@ -26,6 +26,7 @@ export function ReportsInterface() {
       <PageHeader
         title="Reportes"
         description="Análisis de ventas, márgenes y productos para el período seleccionado."
+        action={<ReportsHeader onDateRangeChange={setDateRange} onGeneratePDF={handleGeneratePDF} />}
       />
 
       <motion.div
@@ -34,7 +35,6 @@ export function ReportsInterface() {
         transition={{ duration: 0.5, delay: 0.2 }}
         className="space-y-6"
       >
-        <ReportsHeader onDateRangeChange={setDateRange} onGeneratePDF={handleGeneratePDF} />
 
         <SalesMetricsGrid salesMetrics={salesMetrics} loading={loading} />
 

@@ -21,8 +21,10 @@ import {
   Clock,
   LockKeyhole,
   HandCoins,
+  Eye,
 } from 'lucide-react';
 import { cn } from '@lib/utils';
+import { ViewExpensesDialog } from './view-expenses-dialog';
 
 interface CloseShiftDialogProps {
   isOpen: boolean;
@@ -32,8 +34,9 @@ interface CloseShiftDialogProps {
 export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
   const [finalCash, setFinalCash] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showExpensesList, setShowExpensesList] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { activeShift, shiftSales, shiftDebtPayments, closeShift } = useShift();
+  const { activeShift, shiftSales, shiftDebtPayments, shiftExpenses, closeShift } = useShift();
 
   // Focus the cash input when the dialog opens
   useEffect(() => {
@@ -43,11 +46,12 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
     }
   }, [isOpen]);
 
-  const { initialCash, cashSalesTotal, expectedCash, totalSales, otherSalesTotal, totalTransactions, cashDebtTotal, transferDebtTotal, totalDebtPayments } = useMemo(() => {
-    if (!activeShift) return { initialCash: 0, cashSalesTotal: 0, expectedCash: 0, totalSales: 0, otherSalesTotal: 0, totalTransactions: 0, cashDebtTotal: 0, transferDebtTotal: 0, totalDebtPayments: 0 };
+  const { initialCash, cashSalesTotal, expectedCash, totalSales, otherSalesTotal, totalTransactions, cashDebtTotal, transferDebtTotal, totalDebtPayments, totalExpenses } = useMemo(() => {
+    if (!activeShift) return { initialCash: 0, cashSalesTotal: 0, expectedCash: 0, totalSales: 0, otherSalesTotal: 0, totalTransactions: 0, cashDebtTotal: 0, transferDebtTotal: 0, totalDebtPayments: 0, totalExpenses: 0 };
 
-    const cashSales = shiftSales.filter(s => s.payment_method === 'cash');
-    const otherSales = shiftSales.filter(s => s.payment_method !== 'cash' && s.payment_method !== 'credit');
+    const activeSales = shiftSales.filter(s => s.status !== 'voided');
+    const cashSales = activeSales.filter(s => s.payment_method === 'cash');
+    const otherSales = activeSales.filter(s => s.payment_method !== 'cash' && s.payment_method !== 'credit');
 
     const cashSalesTotal = cashSales.reduce((sum, sale) => sum + sale.total_amount, 0);
     const otherSalesTotal = otherSales.reduce((sum, sale) => sum + sale.total_amount, 0);
@@ -58,19 +62,23 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
     const cashDebtTotal = cashDebtPayments.reduce((sum, p) => sum + Number(p.amount), 0);
     const transferDebtTotal = transferDebtPayments.reduce((sum, p) => sum + Number(p.amount), 0);
 
+    // Expenses
+    const totalExpenses = shiftExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+
     return {
       initialCash: activeShift.initial_cash,
       cashSalesTotal,
       otherSalesTotal,
       totalSales: cashSalesTotal + otherSalesTotal,
-      // Cash abonos count as cash received in the drawer
-      expectedCash: activeShift.initial_cash + cashSalesTotal + cashDebtTotal,
-      totalTransactions: shiftSales.length,
+      // Cash abonos count as cash received, expenses count as cash withdrawn
+      expectedCash: activeShift.initial_cash + cashSalesTotal + cashDebtTotal - totalExpenses,
+      totalTransactions: activeSales.length,
       cashDebtTotal,
       transferDebtTotal,
       totalDebtPayments: shiftDebtPayments.length,
+      totalExpenses,
     };
-  }, [activeShift, shiftSales, shiftDebtPayments]);
+  }, [activeShift, shiftSales, shiftDebtPayments, shiftExpenses]);
 
   const difference = useMemo(() => {
     const final = parseFloat(finalCash);
@@ -253,6 +261,22 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
                 <span className="text-sm font-medium tabular-nums truncate text-green-700 dark:text-green-400">+{formatCurrency(cashDebtTotal)}</span>
               </div>
             )}
+            {totalExpenses > 0 && (
+              <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 bg-red-500/5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-destructive font-medium">- Salidas de caja (Gastos)</span>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                    onClick={() => setShowExpensesList(true)}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <span className="text-sm font-bold tabular-nums truncate text-destructive">-{formatCurrency(totalExpenses)}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 bg-muted/40">
               <span className="text-sm font-semibold shrink-0">Efectivo esperado</span>
               <span className="text-sm font-bold tabular-nums truncate">{formatCurrency(expectedCash)}</span>
@@ -365,6 +389,11 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
           </Button>
         </div>
       </DialogContent>
+
+      <ViewExpensesDialog 
+        isOpen={showExpensesList}
+        onClose={() => setShowExpensesList(false)}
+      />
     </Dialog>
   );
 }

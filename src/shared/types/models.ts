@@ -1,6 +1,6 @@
 export type UserRole = "admin" | "employee";
 export type PaymentMethod = "cash" | "card" | "transfer" | "credit";
-export type SaleStatus = "paid" | "credit" | "partial";
+export type SaleStatus = "paid" | "credit" | "partial" | "voided";
 export type ShiftStatus = "open" | "closed";
 export type DebtPaymentMethod = "cash" | "transfer";
 
@@ -28,6 +28,8 @@ export interface User {
   role: UserRole;
   /** FK to the assigned Role entity */
   role_id?: string;
+  /** Eagerly loaded Role object from DB (optional in some payloads) */
+  role_entity?: Role;
   /** Flattened permission strings from the assigned Role — loaded from DB on login */
   permissions: string[];
   created_at: string | Date;

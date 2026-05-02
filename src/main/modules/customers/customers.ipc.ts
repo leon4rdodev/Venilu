@@ -1,14 +1,14 @@
 import { ipcMain } from "electron";
 import { CustomersService } from "@main/modules/customers/services/customers.service";
-import { requireRole, requireAuth } from "@main/shared/session";
+import { requirePermission, requireAuth } from "@main/shared/session";
 
 const customersService = new CustomersService();
 
 export function registerCustomersHandlers() {
-    // Any authenticated user can read and search customers
+    // Permission required to even see the list
     ipcMain.handle('get-customers', async () => {
         try {
-            requireAuth();
+            requirePermission('customers:view');
             const customers = await customersService.findAll();
             return { success: true, data: customers };
         } catch (error: any) {
@@ -16,9 +16,19 @@ export function registerCustomersHandlers() {
         }
     });
 
+    ipcMain.handle('get-customer', async (_event, id: string) => {
+        try {
+            requirePermission('customers:view');
+            const customer = await customersService.findOne(id);
+            return { success: true, data: customer };
+        } catch (error: any) {
+            return { success: false, message: error.message };
+        }
+    });
+
     ipcMain.handle('search-customers', async (_event, query: string) => {
         try {
-            requireAuth();
+            requirePermission('customers:view');
             const customers = await customersService.search(query);
             return { success: true, data: customers };
         } catch (error: any) {
@@ -26,10 +36,10 @@ export function registerCustomersHandlers() {
         }
     });
 
-    // Both roles can create/update customers (employees need to register clients at POS)
+    // Guarded by customers:create permission
     ipcMain.handle('create-customer', async (_event, customerData) => {
         try {
-            requireAuth();
+            requirePermission('customers:create');
             const customer = await customersService.create(customerData);
             return { success: true, data: customer };
         } catch (error: any) {
@@ -39,7 +49,7 @@ export function registerCustomersHandlers() {
 
     ipcMain.handle('update-customer', async (_event, { customerId, customerData }) => {
         try {
-            requireAuth();
+            requirePermission('customers:create');
             await customersService.update(customerId, customerData);
             return { success: true };
         } catch (error: any) {
@@ -47,10 +57,10 @@ export function registerCustomersHandlers() {
         }
     });
 
-    // Admin only for deletion
+    // Guarded by customers:delete permission
     ipcMain.handle('delete-customer', async (_event, customerId) => {
         try {
-            requireRole('admin');
+            requirePermission('customers:delete');
             await customersService.delete(customerId);
             return { success: true };
         } catch (error: any) {
@@ -60,7 +70,7 @@ export function registerCustomersHandlers() {
 
     ipcMain.handle('get-customer-stats', async () => {
         try {
-            requireAuth();
+            requirePermission('customers:view');
             const stats = await customersService.getStats();
             return { success: true, data: stats };
         } catch (error: any) {
@@ -70,7 +80,7 @@ export function registerCustomersHandlers() {
 
     ipcMain.handle('customers:getSales', async (_event, { customerId, page = 1, limit = 20 }) => {
         try {
-            requireAuth();
+            requirePermission('customers:view');
             const result = await customersService.getCustomerSales(customerId, page, limit);
             return { success: true, ...result };
         } catch (error: any) {
@@ -80,7 +90,7 @@ export function registerCustomersHandlers() {
 
     ipcMain.handle('customers:getPayments', async (_event, { customerId, page = 1, limit = 20 }) => {
         try {
-            requireAuth();
+            requirePermission('customers:view');
             const result = await customersService.getCustomerPayments(customerId, page, limit);
             return { success: true, ...result };
         } catch (error: any) {

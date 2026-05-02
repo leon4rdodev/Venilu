@@ -1,6 +1,6 @@
 import { AppDataSource } from "@main/config/data-source";
 import { Shift as ShiftEntity } from "@main/modules/shifts/entities/shift.entity";
-// import { User as UserEntity } from "@main/modules/users/entities/user.entity";
+import { ShiftExpense } from "@main/modules/shifts/entities/shift-expense.entity";
 import { Sale as SaleEntity } from "@main/modules/sales/entities/sale.entity";
 import { DebtPayment as DebtPaymentEntity } from "@main/modules/sales/entities/debt-payment.entity";
 import { Repository } from "typeorm";
@@ -29,6 +29,13 @@ export class ShiftsService {
     async getShiftSales(shiftId: string): Promise<SaleEntity[]> {
         return this.saleRepository.find({
             where: { shift_id: shiftId }
+        });
+    }
+
+    async getShiftWithExpenses(shiftId: string): Promise<ShiftEntity | null> {
+        return this.shiftRepository.findOne({
+            where: { id: shiftId },
+            relations: ['expenses']
         });
     }
 
@@ -78,7 +85,10 @@ export class ShiftsService {
     }
 
     async closeShift(shiftId: string, finalCash: number): Promise<ShiftEntity> {
-        const shift = await this.shiftRepository.findOneBy({ id: shiftId });
+        const shift = await this.shiftRepository.findOne({
+            where: { id: shiftId },
+            relations: ['expenses']
+        });
         if (!shift) {
             throw new Error("Shift not found");
         }
@@ -93,7 +103,7 @@ export class ShiftsService {
         });
 
         const totalSalesCash = sales
-            .filter(s => s.payment_method === 'cash')
+            .filter(s => s.payment_method === 'cash' && s.status !== 'voided')
             .reduce((sum, s) => sum + Number(s.total_amount), 0);
 
         // Also include cash debt payments received during this shift
@@ -104,7 +114,10 @@ export class ShiftsService {
             .filter(p => p.payment_method === 'cash')
             .reduce((sum, p) => sum + Number(p.amount), 0);
 
-        const expectedCash = Number(shift.initial_cash) + totalSalesCash + totalDebtCash;
+        // Subtract expenses
+        const totalExpenses = (shift.expenses || []).reduce((sum, e) => sum + Number(e.amount), 0);
+
+        const expectedCash = Number(shift.initial_cash) + totalSalesCash + totalDebtCash - totalExpenses;
         
         shift.final_cash = finalCash;
         shift.expected_cash = expectedCash;
@@ -112,8 +125,27 @@ export class ShiftsService {
         shift.end_time = new Date();
         shift.status = 'closed';
 
-
         return this.shiftRepository.save(shift);
+    }
+
+    async addExpense(shiftId: string, amount: number, reason: string): Promise<ShiftExpense> {
+        const shift = await this.shiftRepository.findOneBy({ id: shiftId });
+        if (!shift || shift.status !== 'open') {
+            throw new Error("No hay un turno abierto válido para registrar este gasto");
+        }
+
+        if (amount <= 0) {
+            throw new Error("El monto del gasto debe ser mayor a 0");
+        }
+
+        const expenseRepository = AppDataSource.getRepository(ShiftExpense);
+        const expense = expenseRepository.create({
+            shift_id: shiftId,
+            amount,
+            reason
+        });
+
+        return expenseRepository.save(expense);
     }
 
     async getShiftsHistory(userId?: string): Promise<any[]> {
@@ -121,6 +153,7 @@ export class ShiftsService {
             .leftJoinAndSelect("shift.user", "user")
             .leftJoinAndSelect("shift.sales", "sales")
             .leftJoinAndSelect("shift.debt_payments", "debt_payments")
+            .leftJoinAndSelect("shift.expenses", "expenses")
             .leftJoinAndSelect("debt_payments.customer", "dp_customer")
             .orderBy("shift.start_time", "DESC")
             .addOrderBy("sales.created_at", "DESC");
@@ -142,6 +175,7 @@ export class ShiftsService {
                 ...dp,
                 customer_name: dp.customer?.name || 'Cliente',
             })),
+            expenses: shift.expenses || [],
         }));
     }
 
@@ -159,13 +193,16 @@ export class ShiftsService {
         adminId: string,
         reason?: string
     ): Promise<ShiftEntity> {
-        const shift = await this.shiftRepository.findOneBy({ id: shiftId });
+        const shift = await this.shiftRepository.findOne({
+            where: { id: shiftId },
+            relations: ['expenses']
+        });
         if (!shift) throw new Error("Turno no encontrado");
         if (shift.status === 'closed') throw new Error("El turno ya está cerrado");
 
         const sales = await this.saleRepository.find({ where: { shift_id: shiftId } });
         const totalSalesCash = sales
-            .filter(s => s.payment_method === 'cash')
+            .filter(s => s.payment_method === 'cash' && s.status !== 'voided')
             .reduce((sum, s) => sum + Number(s.total_amount), 0);
 
         const debtPaymentsCash = await this.debtPaymentRepository.find({ where: { shift_id: shiftId } });
@@ -173,7 +210,9 @@ export class ShiftsService {
             .filter(p => p.payment_method === 'cash')
             .reduce((sum, p) => sum + Number(p.amount), 0);
 
-        const expectedCash = Number(shift.initial_cash) + totalSalesCash + totalDebtCash;
+        const totalExpenses = (shift.expenses || []).reduce((sum, e) => sum + Number(e.amount), 0);
+
+        const expectedCash = Number(shift.initial_cash) + totalSalesCash + totalDebtCash - totalExpenses;
 
         shift.final_cash = finalCash;
         shift.expected_cash = expectedCash;

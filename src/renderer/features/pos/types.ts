@@ -18,7 +18,7 @@ import type { Sale, DebtPaymentSummary } from '@shared/types/models';
  * Minimal sale shape stored in the shift context — avoids keeping full Sale
  * objects (with items, relations, etc.) in memory during an active session.
  */
-export type ShiftSale = Pick<Sale, 'total_amount' | 'payment_method'>;
+export type ShiftSale = Pick<Sale, 'total_amount' | 'payment_method' | 'status'>;
 
 // ---------------------------------------------------------------------------
 // Shift history (returned by `history:get`)
@@ -46,6 +46,8 @@ export interface ShiftHistoryEntry {
   sales: Array<Sale & { sale_date: string }>;
   /** Debt payments received during this shift */
   debt_payments: DebtPaymentSummary[];
+  /** Cash expenses recorded during this shift */
+  expenses?: any[];
 }
 
 // ---------------------------------------------------------------------------

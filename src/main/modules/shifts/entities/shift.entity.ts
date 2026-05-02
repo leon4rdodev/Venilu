@@ -2,6 +2,7 @@ import { Entity, PrimaryColumn, Column, CreateDateColumn, ManyToOne, JoinColumn,
 import { User } from "@main/modules/users/entities/user.entity";
 import { Sale } from "@main/modules/sales/entities/sale.entity";
 import { DebtPayment } from "@main/modules/sales/entities/debt-payment.entity";
+import { ShiftExpense } from "./shift-expense.entity";
 
 @Entity("shifts")
 export class Shift {
@@ -20,6 +21,9 @@ export class Shift {
 
     @OneToMany(() => DebtPayment, (dp) => dp.shift)
     debt_payments!: DebtPayment[];
+
+    @OneToMany(() => ShiftExpense, (expense) => expense.shift)
+    expenses!: ShiftExpense[];
 
     @CreateDateColumn()
     start_time!: Date;

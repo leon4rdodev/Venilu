@@ -10,7 +10,7 @@ export function MainLayout() {
   const { user } = useUser();
   const { isLoading: isShiftLoading } = useShift();
 
-  const role = user?.role || null;
+  const role = (user as unknown as { role_entity?: { name: string } })?.role_entity?.name || user?.role || null;
   const name = user?.name || null;
 
   if (isShiftLoading) {

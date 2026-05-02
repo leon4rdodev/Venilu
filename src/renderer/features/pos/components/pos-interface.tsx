@@ -12,9 +12,14 @@ import { PaymentMethod } from "@shared/types/models";
 import { useToast } from "@renderer/features/layout";
 import { useBarcodeScanner } from "../hooks/use-barcode-scanner";
 import { useCallback } from "react";
+import { AddExpenseDialog } from "./add-expense-dialog";
+import { ViewExpensesDialog } from "./view-expenses-dialog";
+
 export function POSInterface() {
   const [showSalesHistory, setShowSalesHistory] = useState(false);
   const [showOpenShiftDialog, setShowOpenShiftDialog] = useState(false);
+  const [showAddExpenseDialog, setShowAddExpenseDialog] = useState(false);
+  const [showViewExpensesDialog, setShowViewExpensesDialog] = useState(false);
 
   const { activeShift } = useShift();
   const { products, loadProducts: fetchProducts } = usePOSProducts();
@@ -88,6 +93,8 @@ export function POSInterface() {
                 onAddToCart={(product) => addToCart(product, products)}
                 showSalesHistory={showSalesHistory}
                 setShowSalesHistory={setShowSalesHistory}
+                onAddExpense={() => setShowAddExpenseDialog(true)}
+                onViewExpenses={() => setShowViewExpensesDialog(true)}
               />
               <Cart
                 cart={cart}
@@ -103,13 +110,22 @@ export function POSInterface() {
                 }
               />
             </motion.div>
-          )}
+          ) }
         </AnimatePresence>
       </div>
 
       <OpenShiftDialog
         isOpen={showOpenShiftDialog}
         onClose={() => setShowOpenShiftDialog(false)}
+      />
+
+      <AddExpenseDialog
+        isOpen={showAddExpenseDialog}
+        onClose={() => setShowAddExpenseDialog(false)}
+      />
+      <ViewExpensesDialog
+        isOpen={showViewExpensesDialog}
+        onClose={() => setShowViewExpensesDialog(false)}
       />
     </>
   );

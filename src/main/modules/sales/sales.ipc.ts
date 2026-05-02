@@ -38,8 +38,10 @@ export function registerSalesHandlers() {
 
   ipcMain.handle('get-sale-items', async (_event, saleId) => {
     try {
-      requirePermission('sales:view');
+      console.log(`[SalesIPC] Fetching items for sale: ${saleId}`);
+      requirePermission(['sales:view', 'pos:access']);
       const items = await salesService.getSaleItems(saleId);
+      console.log(`[SalesIPC] Found ${items.length} items`);
       return { success: true, data: items };
     } catch (err: any) {
       return { success: false, message: err.message };
@@ -62,6 +64,16 @@ export function registerSalesHandlers() {
       requirePermission('customers:view');
       const sales = await salesService.getCustomerSales(customerId);
       return { success: true, data: sales };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  ipcMain.handle('sales:void', async (_event, { saleId }) => {
+    try {
+      requirePermission('sales:void');
+      const result = await salesService.voidSale(saleId);
+      return result;
     } catch (err: any) {
       return { success: false, message: err.message };
     }

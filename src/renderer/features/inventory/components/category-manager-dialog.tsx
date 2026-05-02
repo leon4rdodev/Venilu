@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent } from "@components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -10,9 +16,8 @@ import {
 } from "@components/ui/table";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
-import { Label } from "@components/ui/label";
 import { Badge } from "@components/ui/badge";
-import { Tag, Pencil, Trash2, Check, X, Plus } from "lucide-react";
+import { Pencil, Trash2, Check, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { DeleteConfirmDialog } from "@renderer/shared/components/delete-confirm-dialog";
 import { useCategories } from "@renderer/features/settings";
@@ -35,16 +40,13 @@ export function CategoryManagerDialog({
   const { categories, createCategory, updateCategory, deleteCategory, loadCategories } =
     useCategories(true);
 
-  // New category state
   const [newName, setNewName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  // Inline edit state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const editInputRef = useRef<HTMLInputElement>(null);
 
-  // Delete state
   const [categoryToDelete, setCategoryToDelete] = useState<{
     id: string;
     name: string;
@@ -53,7 +55,6 @@ export function CategoryManagerDialog({
   const [alertOpen, setAlertOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Focus inline edit input when opened
   useEffect(() => {
     if (editingId) {
       setTimeout(() => editInputRef.current?.focus(), 50);
@@ -154,24 +155,17 @@ export function CategoryManagerDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden max-h-[580px] flex flex-col">
+        <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
           {/* Header */}
-          <div className="p-6 pb-4 border-b space-y-1 shrink-0">
-            <div className="flex items-center gap-2">
-              <Tag className="h-5 w-5 text-muted-foreground" />
-              <h2 className="text-xl font-semibold tracking-tight">Gestionar Categorías</h2>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Crea, edita o elimina categorías para organizar tu inventario
-            </p>
-          </div>
-
-          {/* Body */}
-          <div className="flex-1 overflow-y-auto min-h-0 p-6 space-y-4">
-            {/* New category input */}
-            <div className="space-y-2">
-              <Label htmlFor="new-category">Nueva Categoría</Label>
-              <div className="flex gap-2">
+          <div className="p-6 pb-4 border-b space-y-3 shrink-0">
+            <DialogHeader>
+              <DialogTitle>Gestionar Categorías</DialogTitle>
+              <DialogDescription>
+                Crea, edita o elimina categorías para organizar tu inventario
+              </DialogDescription>
+            </DialogHeader>
+            {/* New category input — fixed in header */}
+            <div className="flex gap-2">
                 <Input
                   id="new-category"
                   value={newName}
@@ -191,9 +185,11 @@ export function CategoryManagerDialog({
                   <Plus className="h-4 w-4" />
                   {isCreating ? "Creando..." : "Agregar"}
                 </Button>
-              </div>
             </div>
+          </div>
 
+          {/* Body — scrollable */}
+          <div className="flex-1 overflow-y-scroll min-h-0 p-6">
             {/* Categories table */}
             <div className="border rounded-lg overflow-hidden">
               <Table>
@@ -216,7 +212,6 @@ export function CategoryManagerDialog({
                       const isEditing = editingId === category.id;
                       return (
                         <TableRow key={category.id} className={isEditing ? "bg-muted/30" : undefined}>
-                          {/* Name cell — inline editable */}
                           <TableCell className="font-medium">
                             {isEditing ? (
                               <Input
@@ -234,7 +229,6 @@ export function CategoryManagerDialog({
                             )}
                           </TableCell>
 
-                          {/* Badge */}
                           <TableCell>
                             {!isEditing && (
                               <Badge variant="secondary">
@@ -244,7 +238,6 @@ export function CategoryManagerDialog({
                             )}
                           </TableCell>
 
-                          {/* Actions */}
                           <TableCell className="text-right">
                             {isEditing ? (
                               <div className="flex items-center justify-end gap-1">
@@ -301,8 +294,8 @@ export function CategoryManagerDialog({
           </div>
 
           {/* Footer */}
-          <div className="p-6 pt-4 border-t flex justify-end shrink-0">
-            <Button variant="outline" onClick={handleClose} className="h-11 px-8">
+          <div className="p-6 pt-4 border-t flex gap-3 shrink-0">
+            <Button variant="outline" onClick={handleClose} className="flex-1 h-11">
               Cerrar
             </Button>
           </div>

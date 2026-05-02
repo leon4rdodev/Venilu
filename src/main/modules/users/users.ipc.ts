@@ -25,6 +25,7 @@ export function registerUsersHandlers() {
         name: user.name,
         username: user.username,
         role_id: user.role_id,
+        role_entity: user.role_entity,
         // Permissions are included so the renderer can gate UI — the main process
         // always reloads them from DB via set-logged-in-user (never trusts this array).
         permissions: user.role_entity?.permissions ?? [],
@@ -46,8 +47,8 @@ export function registerUsersHandlers() {
       requirePermission('users:view');
       const users = await usersService.findAll();
       return { success: true, data: users };
-    } catch (err: any) {
-      return { success: false, message: err.message };
+    } catch (err: unknown) {
+      return { success: false, message: err instanceof Error ? err.message : String(err) };
     }
   });
 
@@ -58,8 +59,8 @@ export function registerUsersHandlers() {
       if (onboarding.completed) requirePermission('users:manage');
       const user = await usersService.create(userData);
       return { success: true, data: user };
-    } catch (err: any) {
-      return { success: false, message: err.message };
+    } catch (err: unknown) {
+      return { success: false, message: err instanceof Error ? err.message : String(err) };
     }
   });
 
@@ -68,8 +69,8 @@ export function registerUsersHandlers() {
       requirePermission('users:manage');
       await usersService.update(userId, userData);
       return { success: true };
-    } catch (err: any) {
-      return { success: false, message: err.message };
+    } catch (err: unknown) {
+      return { success: false, message: err instanceof Error ? err.message : String(err) };
     }
   });
 
@@ -80,8 +81,8 @@ export function registerUsersHandlers() {
       await usersService.delete(userId);
       auditService.log('users:delete', userId, user?.username);
       return { success: true };
-    } catch (err: any) {
-      return { success: false, message: err.message };
+    } catch (err: unknown) {
+      return { success: false, message: err instanceof Error ? err.message : String(err) };
     }
   });
 
@@ -102,8 +103,8 @@ export function registerUsersHandlers() {
       requirePermission('users:roles');
       const role = await rolesService.create(data);
       return { success: true, data: role };
-    } catch (err: any) {
-      return { success: false, message: err.message };
+    } catch (err: unknown) {
+      return { success: false, message: err instanceof Error ? err.message : String(err) };
     }
   });
 
@@ -112,8 +113,8 @@ export function registerUsersHandlers() {
       requirePermission('users:roles');
       const role = await rolesService.update(roleId, data);
       return { success: true, data: role };
-    } catch (err: any) {
-      return { success: false, message: err.message };
+    } catch (err: unknown) {
+      return { success: false, message: err instanceof Error ? err.message : String(err) };
     }
   });
 
@@ -124,8 +125,8 @@ export function registerUsersHandlers() {
       await rolesService.delete(roleId);
       auditService.log('roles:delete', roleId, role?.name);
       return { success: true };
-    } catch (err: any) {
-      return { success: false, message: err.message };
+    } catch (err: unknown) {
+      return { success: false, message: err instanceof Error ? err.message : String(err) };
     }
   });
 }

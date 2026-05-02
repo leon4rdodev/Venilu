@@ -38,6 +38,13 @@ export function useProducts() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Refresh category list whenever CategoryManagerDialog makes changes
+  useEffect(() => {
+    const handler = () => loadCategories();
+    window.addEventListener('categories-updated', handler);
+    return () => window.removeEventListener('categories-updated', handler);
+  }, [loadCategories]);
+
   const fetchProducts = useCallback(
     async (
       page: number = pagination.currentPage,
@@ -83,18 +90,19 @@ export function useProducts() {
   // Reset to page 1 when filters change
   useEffect(() => {
     fetchProducts(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch, selectedCategory]);
 
   const handleSave = async (productData: Product, editingProduct: Product | null) => {
     setIsSaving(true);
     try {
-      let result: any;
+      let result: { success: boolean; message?: string };
       if (editingProduct) {
         const productId = productData.id || editingProduct.id;
         if (!productId) throw new Error("No se pudo identificar el ID del producto");
-        result = await ipc.invoke("update-product", { productId, productData });
+        result = await ipc.invoke("update-product", { productId, productData }) as { success: boolean; message?: string };
       } else {
-        result = await ipc.invoke("create-product", productData);
+        result = await ipc.invoke("create-product", productData) as { success: boolean; message?: string };
       }
 
       if (result?.success) {
@@ -106,9 +114,9 @@ export function useProducts() {
       } else {
         throw new Error(result?.message || "Error en la operación");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error("Error al guardar producto", {
-        description: error.message || "Ha ocurrido un error inesperado",
+        description: (error as Error).message || "Ha ocurrido un error inesperado",
       });
       return false;
     } finally {

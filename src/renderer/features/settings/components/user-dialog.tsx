@@ -8,7 +8,8 @@ import { UserCheck, UserPlus } from 'lucide-react';
 import { capitalizeWords } from '@lib/utils';
 import { toast } from 'sonner';
 import { useUser } from '@renderer/features/auth';
-import { User, UserRole } from '@shared/types/models';
+import { User, UserRole, Role } from '@shared/types/models';
+import { ipc } from '@lib/ipc';
 
 interface LocalUser extends User {}
 
@@ -25,9 +26,21 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
     username: '',
     password: '',
     role: 'employee' as UserRole,
+    role_id: '',
   });
+  const [roles, setRoles] = useState<Role[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const { user: loggedInUser, setUser: setLoggedInUser } = useUser();
+
+  useEffect(() => {
+    if (isOpen) {
+      ipc.invoke('roles:list').then((res: any) => {
+        if (res.success && res.data) {
+          setRoles(res.data);
+        }
+      });
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (user) {
@@ -36,6 +49,7 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
         username: user.username,
         password: '',
         role: user.role,
+        role_id: user.role_id || '',
       });
     } else {
       setFormData({
@@ -43,6 +57,7 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
         username: '',
         password: '',
         role: 'employee' as UserRole,
+        role_id: '',
       });
     }
   }, [user, isOpen]);
@@ -56,7 +71,15 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
   };
 
   const handleRoleChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, role: value as UserRole }));
+    const selectedRole = roles.find(r => r.id === value);
+    // Legacy mapping: if the system role is "Administrador", string role is "admin"
+    const legacyRoleStr = selectedRole?.name === 'Administrador' ? 'admin' : 'employee';
+    
+    setFormData((prev) => ({ 
+      ...prev, 
+      role_id: value,
+      role: legacyRoleStr as UserRole 
+    }));
   };
 
   const validateForm = () => {
@@ -66,6 +89,10 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
     }
     if (!formData.username.trim()) {
       toast.error('El nombre de usuario es requerido');
+      return false;
+    }
+    if (!formData.role_id) {
+      toast.error('Debes asignar un rol al usuario');
       return false;
     }
     if (!user && !formData.password.trim()) {
@@ -182,13 +209,14 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="role">Rol *</Label>
-            <Select value={formData.role} onValueChange={handleRoleChange} disabled={isSaving}>
+            <Select value={formData.role_id} onValueChange={handleRoleChange} disabled={isSaving || roles.length === 0}>
               <SelectTrigger id="role">
-                <SelectValue />
+                <SelectValue placeholder="Selecciona un rol" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="employee">Vendedor</SelectItem>
+                {roles.map(r => (
+                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

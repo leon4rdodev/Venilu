@@ -53,7 +53,7 @@ export function requireAuth(): SessionUser {
  * Legacy admins (role='admin' with empty permissions array) bypass all checks —
  * this ensures backward compatibility during and after the migration.
  */
-export function requirePermission(permission: string): SessionUser {
+export function requirePermission(permission: string | string[]): SessionUser {
   if (!currentUser) throw new Error('No hay sesión activa.');
 
   // Legacy admin without role_entity → full access
@@ -61,8 +61,13 @@ export function requirePermission(permission: string): SessionUser {
     return currentUser;
   }
 
-  if (!currentUser.permissions.includes(permission)) {
-    throw new Error(`Sin permiso para realizar esta acción (${permission}).`);
+  const permissionsToCheck = Array.isArray(permission) ? permission : [permission];
+  
+  const hasAny = permissionsToCheck.some(p => currentUser!.permissions.includes(p));
+
+  if (!hasAny) {
+    console.error(`[Session] Permission Denied. Required: ${permissionsToCheck.join(' OR ')}. User has: ${currentUser.permissions.join(', ')}`);
+    throw new Error(`Sin permiso para realizar esta acción (${permissionsToCheck.join(' o ')}).`);
   }
 
   return currentUser;

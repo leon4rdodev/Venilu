@@ -38,6 +38,8 @@ export const PERMISSIONS = {
   INV_DELETE:        'inventory:delete',
   /** Create/edit/delete categories */
   INV_CATEGORIES:    'inventory:categories',
+  /** Configure minimum stock thresholds and alerts */
+  INV_STOCK_ALERTS:  'inventory:stock_alerts',
 
   // ─── Customers ────────────────────────────────────────────────────────────
   /** View customer list and details */
@@ -50,10 +52,16 @@ export const PERMISSIONS = {
   CUST_DELETE:       'customers:delete',
   /** Register debt payments */
   CUST_PAY_DEBT:     'customers:pay_debt',
+  /** Modify customer credit limits */
+  CUST_EDIT_LIMIT:   'customers:edit_limit',
 
   // ─── Sales ────────────────────────────────────────────────────────────────
   /** View all sales history */
   SALES_VIEW:        'sales:view',
+  /** Void/Cancel an existing sale and restore stock */
+  SALES_VOID:        'sales:void',
+  /** Process product returns */
+  SALES_RETURN:      'sales:return',
 
   // ─── Reports ──────────────────────────────────────────────────────────────
   /** View summary metrics on the dashboard (revenue, ticket avg, top products) */
@@ -72,6 +80,8 @@ export const PERMISSIONS = {
   SET_LOGO:          'settings:logo',
   /** Configure printer */
   SET_PRINTER:       'settings:printer',
+  /** Configure tax rates and currency */
+  SET_TAXES:         'settings:taxes',
 
   // ─── Users & Roles ────────────────────────────────────────────────────────
   /** View user list */
@@ -81,11 +91,19 @@ export const PERMISSIONS = {
   /** Create/edit/delete custom roles */
   USR_ROLES:         'users:roles',
 
-  // ─── System ───────────────────────────────────────────────────────────────
+  // ─── System & Advanced ───────────────────────────────────────────────────
   /** Create/restore/delete database backups */
   BACKUPS:           'backups:manage',
   /** Force-close another user's shift */
   SHIFTS_FORCE:      'shifts:force_close',
+  /** View shift history of other users */
+  SHIFTS_VIEW_OTHERS: 'shifts:view_others',
+  /** Manage cash expenses/withdrawals during a shift */
+  SHIFTS_EXPENSES:   'shifts:manage_expenses',
+  /** View system audit logs */
+  AUDIT_VIEW:        'audit:view',
+  /** Overwrite product prices at the moment of sale */
+  POS_PRICE_OVERRIDE: 'pos:price_override',
   /** Install app updates */
   SYS_UPDATE:        'system:update',
 } as const;

@@ -12,21 +12,26 @@ interface HeaderProps {
 
 export function Header({ userName, userRole }: HeaderProps) {
   const { theme, setTheme } = useTheme()
-  const { activeShift, shiftSales, shiftDebtPayments } = useShift();
+  const { activeShift, shiftSales, shiftDebtPayments, shiftExpenses } = useShift();
   const { logout } = useUser();
   const [isCloseShiftDialogOpen, setCloseShiftDialogOpen] = useState(false);
 
   const currentCashInDrawer = useMemo(() => {
     if (!activeShift) return 0;
-    const cashSalesTotal = (shiftSales || [])
+    const activeSales = shiftSales.filter(s => s.status !== 'voided');
+    const cashSalesTotal = activeSales
       .filter(sale => sale.payment_method === 'cash')
       .reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0);
     // Add cash debt payments received during this shift
     const cashDebtTotal = (shiftDebtPayments || [])
       .filter(p => p.payment_method === 'cash')
       .reduce((sum, p) => sum + Number(p.amount || 0), 0);
-    return Number(activeShift.initial_cash || 0) + cashSalesTotal + cashDebtTotal;
-  }, [activeShift, shiftSales, shiftDebtPayments]);
+    // Subtract expenses
+    const totalExpenses = (shiftExpenses || [])
+      .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+    return Number(activeShift.initial_cash || 0) + cashSalesTotal + cashDebtTotal - totalExpenses;
+  }, [activeShift, shiftSales, shiftDebtPayments, shiftExpenses]);
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark")
@@ -34,7 +39,7 @@ export function Header({ userName, userRole }: HeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 grid grid-cols-[1fr_auto_1fr] h-16 items-center border-b bg-card/95 backdrop-blur px-6">
+      <header className="sticky top-0 z-30 grid grid-cols-[1fr_auto_1fr] h-16 items-center border-b bg-sidebar px-6">
         {/* Left Section */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2.5 rounded-full border bg-card/80 backdrop-blur-sm px-4 py-2 shadow-sm">
