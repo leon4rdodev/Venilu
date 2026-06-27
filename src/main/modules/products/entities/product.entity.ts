@@ -38,6 +38,9 @@ export class Product {
     @Column({ nullable: true })
     image?: string; // Storing as base64 or path
 
+    @Column({ default: true })
+    taxable!: boolean;
+
     @Index()
     @Column({ nullable: true })
     category_id?: string;

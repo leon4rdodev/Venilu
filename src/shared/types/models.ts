@@ -44,6 +44,14 @@ export interface Category {
   product_count?: number;
 }
 
+export type TaxRegime =
+  | "general"
+  | "simplified"
+  | "special"
+  | "non_profit"
+  | "government"
+  | "foreign";
+
 export interface Customer {
   id: string;
   name: string;
@@ -51,6 +59,12 @@ export interface Customer {
   email?: string;
   address?: string;
   notes?: string;
+  /** RNC (Registro Nacional del Contribuyente) — 9 dígitos */
+  rnc?: string;
+  /** Razón social — nombre fiscal de la empresa */
+  business_name?: string;
+  /** Régimen de tributación DGII */
+  tax_regime?: TaxRegime;
   balance: number;
   /** Max credit allowed. null = unlimited. */
   credit_limit?: number | null;
@@ -70,6 +84,7 @@ export interface Product {
   barcode?: string;
   sku?: string;
   min_stock?: number;
+  taxable: boolean;
   created_at: string | Date;
   updated_at: string | Date;
   has_sales?: boolean;
@@ -87,6 +102,7 @@ export interface Sale {
   subtotal?: number;
   discount_amount?: number;
   total_amount: number;
+  itbis_total: number;
   amount_paid?: number;
   change_given?: number;
   payment_method: PaymentMethod;
@@ -104,6 +120,8 @@ export interface SaleItem {
   quantity: number;
   unit_price: number;
   total_price: number;
+  taxable: boolean;
+  itbis_amount: number;
   /** Legacy alias used by some frontend mappers */
   price_at_sale?: number;
 }
@@ -160,6 +178,59 @@ export interface Shift {
   force_close_reason?: string;
 }
 
+export type NcfType = "01" | "02" | "03" | "04" | "07" | "11" | "12" | "14" | "15";
+
+export type EcStatus =
+  | "pending"
+  | "sent"
+  | "authorized"
+  | "rejected"
+  | "voided";
+
+export interface NcfSequence {
+  id: string;
+  description: string;
+  ncf_type: NcfType;
+  branch_code: string;
+  current_number: string;
+  final_number: string;
+  valid_from: string | Date;
+  valid_to: string | Date;
+  active: boolean;
+  created_at: string | Date;
+  updated_at: string | Date;
+}
+
+export interface EcDocument {
+  id: string;
+  ecf_id: string;
+  ecf_type: NcfType;
+  ncf: string;
+  customer_id?: string;
+  customer?: Customer;
+  customer_name?: string;
+  customer_rnc?: string;
+  sale_id: string;
+  total_amount: number;
+  itbis_total: number;
+  status: EcStatus;
+  authorization_code?: string;
+  signed_xml?: string;
+  response_xml?: string;
+  sent_at?: string | Date;
+  authorized_at?: string | Date;
+  created_at: string | Date;
+  updated_at: string | Date;
+}
+
+export interface EcSettings {
+  enabled: boolean;
+  certificate_path?: string;
+  certificate_password?: string;
+  test_mode: boolean;
+  default_ncf_type: NcfType;
+}
+
 export interface Setting {
   id: number;
   business_name: string;
@@ -171,4 +242,9 @@ export interface Setting {
   printer_name: string | null;
   paper_size: string;
   currency: string;
+  ecf_enabled?: boolean;
+  ecf_certificate_path?: string;
+  ecf_certificate_password?: string;
+  ecf_test_mode?: boolean;
+  ecf_default_ncf_type?: string;
 }

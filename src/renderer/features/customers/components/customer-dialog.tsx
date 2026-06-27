@@ -4,9 +4,19 @@ import { Button } from "@components/ui/button"
 import { Input } from "@components/ui/input"
 import { Label } from "@components/ui/label"
 import { Textarea } from "@components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select"
 import { UserPlus, Save } from "lucide-react"
-import { Customer } from "@shared/types/models"
+import { Customer, TaxRegime } from "@shared/types/models"
 import { formatPhoneNumber, getDigitsOnly } from "@lib/formatters"
+
+const TAX_REGIMES: { value: TaxRegime; label: string }[] = [
+  { value: "general", label: "Régimen General" },
+  { value: "simplified", label: "Régimen Simplificado" },
+  { value: "special", label: "Régimen Especial" },
+  { value: "non_profit", label: "Sin Fines de Lucro" },
+  { value: "government", label: "Gobierno" },
+  { value: "foreign", label: "Extranjero" },
+]
 
 interface CustomerDialogProps {
   open: boolean
@@ -21,6 +31,9 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
   const [email, setEmail] = useState("")
   const [address, setAddress] = useState("")
   const [notes, setNotes] = useState("")
+  const [rnc, setRnc] = useState("")
+  const [businessName, setBusinessName] = useState("")
+  const [taxRegime, setTaxRegime] = useState<TaxRegime | "">("")
   const [creditLimit, setCreditLimit] = useState("")
   const [saving, setSaving] = useState(false)
 
@@ -33,6 +46,9 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
       setEmail(customer.email || "")
       setAddress(customer.address || "")
       setNotes(customer.notes || "")
+      setRnc(customer.rnc || "")
+      setBusinessName(customer.business_name || "")
+      setTaxRegime(customer.tax_regime || "")
       setCreditLimit(customer.credit_limit != null ? String(customer.credit_limit) : "")
     } else {
       setName("")
@@ -40,6 +56,9 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
       setEmail("")
       setAddress("")
       setNotes("")
+      setRnc("")
+      setBusinessName("")
+      setTaxRegime("")
       setCreditLimit("")
     }
   }, [customer, open])
@@ -56,6 +75,9 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
         email: email.trim() || undefined,
         address: address.trim() || undefined,
         notes: notes.trim() || undefined,
+        rnc: rnc.trim() || undefined,
+        business_name: businessName.trim() || undefined,
+        tax_regime: (taxRegime as TaxRegime) || undefined,
         credit_limit: creditLimit.trim() ? parseFloat(creditLimit) : null,
       })
       onOpenChange(false)
@@ -126,6 +148,47 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="Dirección del cliente"
               />
+            </div>
+
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-semibold text-muted-foreground mb-3">Datos Fiscales (DGII)</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="customer-rnc">RNC</Label>
+                  <Input
+                    id="customer-rnc"
+                    value={rnc}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, "").slice(0, 9)
+                      setRnc(v)
+                    }}
+                    placeholder="000000000"
+                    maxLength={9}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="customer-tax-regime">Régimen</Label>
+                  <Select value={taxRegime} onValueChange={(v) => setTaxRegime(v as TaxRegime)}>
+                    <SelectTrigger id="customer-tax-regime">
+                      <SelectValue placeholder="Seleccionar..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TAX_REGIMES.map((r) => (
+                        <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2 mt-4">
+                <Label htmlFor="customer-business-name">Razón Social</Label>
+                <Input
+                  id="customer-business-name"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  placeholder="Nombre o razón social (para facturación)"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">

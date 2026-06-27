@@ -12,6 +12,7 @@ import { registerReportsHandlers } from '@main/modules/reports/reports.ipc';
 import { registerBackupsHandlers } from '@main/modules/backups/backups.ipc';
 import { registerCustomersHandlers } from '@main/modules/customers/customers.ipc';
 import { registerPrinterHandlers } from '@main/shared/ipc/printer.ipc';
+import { registerEcfHandlers } from '@main/modules/ecf/ecf.ipc';
 import { registerSessionHandlers } from '@main/shared/session';
 import { setupAutoUpdater } from '@main/shared/ipc/updater.ipc';
 
@@ -74,6 +75,7 @@ async function initialize() {
         registerBackupsHandlers();
         registerCustomersHandlers();
         registerPrinterHandlers();
+        registerEcfHandlers();
 
         // 5. Create the browser window
         createWindow();

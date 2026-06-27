@@ -32,4 +32,10 @@ export class SaleItem {
 
     @Column("decimal", { precision: 10, scale: 2, nullable: true })
     total_price?: number;
+
+    @Column({ default: true })
+    taxable!: boolean;
+
+    @Column("decimal", { precision: 10, scale: 2, default: 0 })
+    itbis_amount!: number;
 }

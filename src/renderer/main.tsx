@@ -20,6 +20,7 @@ import PosPage from '@pages/pos/page';
 import ReportsPage from '@pages/reports/page';
 import CustomersPage from '@pages/customers/page';
 import SettingsPage from '@pages/settings/page';
+import EcfPage from '@pages/ecf/page';
 import OnboardingPage from '@pages/onboarding/page';
 
 import './index.css';
@@ -109,6 +110,11 @@ function AppRoutes() {
               <Route path="settings" element={
                 <PermissionGuard permission="settings:view">
                   <AnimatedPage><SettingsPage /></AnimatedPage>
+                </PermissionGuard>
+              } />
+              <Route path="ecf" element={
+                <PermissionGuard permission="ecf:view">
+                  <AnimatedPage><EcfPage /></AnimatedPage>
                 </PermissionGuard>
               } />
               <Route path="*" element={<Navigate to="/dashboard" />} />

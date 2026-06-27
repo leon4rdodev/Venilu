@@ -205,6 +205,18 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
               <MapPin className="h-4 w-4" />
               <span className="truncate">{localCustomer.address || 'Sin dirección'}</span>
             </div>
+            {localCustomer.rnc && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <FileText className="h-4 w-4" />
+                <span className="truncate">RNC: {localCustomer.rnc}</span>
+              </div>
+            )}
+            {localCustomer.business_name && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <FileText className="h-4 w-4" />
+                <span className="truncate">{localCustomer.business_name}</span>
+              </div>
+            )}
             <div className="flex items-center gap-2 text-muted-foreground">
               <FileText className="h-4 w-4" />
               <span className="truncate">{localCustomer.notes || 'Sin notas'}</span>

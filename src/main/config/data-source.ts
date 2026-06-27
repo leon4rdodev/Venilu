@@ -14,6 +14,8 @@ import { Setting } from "@main/modules/settings/entities/setting.entity";
 import { Customer } from "@main/modules/customers/entities/customer.entity";
 import { Role } from "@main/modules/users/entities/role.entity";
 import { AuditLog } from "@main/modules/audit/entities/audit-log.entity";
+import { NcfSequence } from "@main/modules/ecf/entities/ncf-sequence.entity";
+import { EcDocument } from "@main/modules/ecf/entities/ecf-document.entity";
 
 const isDev = process.env.NODE_ENV === 'development';
 const dbPath = path.join(app.getPath('userData'), 'database.sqlite');
@@ -36,6 +38,8 @@ export const AppDataSource = new DataSource({
         Setting,
         Customer,
         AuditLog,
+        NcfSequence,
+        EcDocument,
     ],
     migrations: [],
     subscribers: [],

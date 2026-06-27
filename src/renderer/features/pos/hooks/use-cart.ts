@@ -44,7 +44,7 @@ export function useCart() {
             return prev;
           }
         }
-        return [...prev, { ...product, quantity: 1, category: product.category || null }];
+        return [...prev, { ...product, quantity: 1, category: product.category || null, taxable: product.taxable }];
       });
     },
     [toast]

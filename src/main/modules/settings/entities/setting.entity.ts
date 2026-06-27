@@ -31,5 +31,20 @@ export class Setting {
 
     @Column({ default: 'DOP' })
     currency!: string;
+
+    @Column({ default: false })
+    ecf_enabled?: boolean;
+
+    @Column({ nullable: true })
+    ecf_certificate_path?: string;
+
+    @Column({ nullable: true })
+    ecf_certificate_password?: string;
+
+    @Column({ default: true })
+    ecf_test_mode?: boolean;
+
+    @Column({ default: '02' })
+    ecf_default_ncf_type?: string;
 }
 

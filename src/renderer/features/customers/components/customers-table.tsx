@@ -102,6 +102,7 @@ export function CustomersTable() {
                   <TableHead className="font-semibold">Nombre</TableHead>
                   <TableHead className="font-semibold">Teléfono</TableHead>
                   <TableHead className="font-semibold">Email</TableHead>
+                  <TableHead className="font-semibold">RNC</TableHead>
                   <TableHead className="font-semibold">Dirección</TableHead>
                   <TableHead className="font-semibold text-right">Deuda</TableHead>
                   <TableHead className="text-right font-semibold">Acciones</TableHead>
@@ -109,13 +110,13 @@ export function CustomersTable() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableSkeletonRows rows={5} cols={6} />
+                  <TableSkeletonRows rows={5} cols={7} />
                 ) : paginatedCustomers.length === 0 ? (
                   <EmptyStateRow
                     icon={Users}
                     title={searchQuery ? "No se encontraron clientes" : "No hay clientes registrados"}
                     description={searchQuery ? "Intenta con otro término de búsqueda" : "Agrega tu primer cliente para comenzar"}
-                    colSpan={6}
+                    colSpan={7}
                   />
                 ) : (
                   paginatedCustomers.map((customer) => {
@@ -147,6 +148,11 @@ export function CustomersTable() {
                               <Mail className="h-3.5 w-3.5 text-muted-foreground" />
                               {customer.email}
                             </span>
+                          ) : <span className="text-muted-foreground/50 text-sm">—</span>}
+                        </TableCell>
+                        <TableCell>
+                          {customer.rnc ? (
+                            <span className="text-sm font-mono">{customer.rnc}</span>
                           ) : <span className="text-muted-foreground/50 text-sm">—</span>}
                         </TableCell>
                         <TableCell>

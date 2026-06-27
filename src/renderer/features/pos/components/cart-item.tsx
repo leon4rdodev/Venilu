@@ -13,6 +13,7 @@ export type CartItemType = {
   sale_price: number
   quantity: number
   category: Category | null
+  taxable: boolean
 }
 
 interface CartItemProps {
@@ -24,6 +25,8 @@ interface CartItemProps {
 export function CartItem({ item, onUpdateQuantity, onRemoveFromCart }: CartItemProps) {
   const categoryIcon = getCategoryIcon(item.category?.name || "Otros");
   const colorClasses = getCategoryColor(item.category?.name || "Otros");
+
+  const lineTotal = item.sale_price * item.quantity;
 
   return (
     <div className="group relative flex gap-3 p-3 rounded-xl border bg-card hover:border-primary/40 transition-all duration-200">
@@ -51,7 +54,7 @@ export function CartItem({ item, onUpdateQuantity, onRemoveFromCart }: CartItemP
           </Button>
         </div>
 
-        {/* Bottom Row: Controls and Price */}
+        {/* Bottom Row: Controls and Price + ITBIS */}
         <div className="flex items-end justify-between gap-2">
           {/* Quantity Controls */}
           <div className="flex items-center gap-1 bg-muted/30 rounded-lg p-0.5 border border-border/50 shrink-0">
@@ -83,10 +86,13 @@ export function CartItem({ item, onUpdateQuantity, onRemoveFromCart }: CartItemP
             </p>
             <p 
               className="text-base font-bold text-primary truncate" 
-              title={formatCurrency(item.sale_price * item.quantity)}
+              title={formatCurrency(lineTotal)}
             >
-              {formatCurrency(item.sale_price * item.quantity)}
+              {formatCurrency(lineTotal)}
             </p>
+            {!item.taxable && (
+              <p className="text-[9px] text-green-600 dark:text-green-400 font-medium">Exento ITBIS</p>
+            )}
           </div>
         </div>
       </div>

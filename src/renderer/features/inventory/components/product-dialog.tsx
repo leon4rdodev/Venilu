@@ -4,10 +4,11 @@ import { Button } from "@components/ui/button"
 import { Input } from "@components/ui/input"
 import { Label } from "@components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select"
+import { Switch } from "@components/ui/switch"
 import { useCategories } from "@renderer/features/settings"
 import { Spinner } from "@components/ui/spinner"
 import { capitalizeWords } from "@lib/utils"
-import { PackagePlus, Save, Plus } from "lucide-react"
+import { PackagePlus, Save, Plus, Receipt } from "lucide-react"
 import { CategoryManagerDialog } from "./category-manager-dialog"
 
 import { Product } from "@shared/types/models";
@@ -33,6 +34,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
         stock: (product.stock || 0).toString(),
         sku: product.sku || "",
         min_stock: (product.min_stock || 5).toString(),
+        taxable: product.taxable ?? true,
       }
     }
     const defaultCategoryId = categories && categories.length > 0 ? categories[0].id.toString() : "";
@@ -44,6 +46,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
       stock: "",
       sku: "",
       min_stock: "2",
+      taxable: true,
     }
   })
 
@@ -85,6 +88,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
       stock: Number.parseInt(formData.stock) || 0,
       sku: formData.sku,
       min_stock: Number.parseInt(formData.min_stock) || 5,
+      taxable: formData.taxable,
     };
 
     if (product?.id) data.id = product.id;
@@ -128,6 +132,23 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
                 placeholder="Ej: COD-12345"
                 disabled={isSaving}
               />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="flex items-center gap-2">
+                  <Receipt className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <Label htmlFor="taxable" className="text-sm font-medium">Gravado con ITBIS (18%)</Label>
+                    <p className="text-xs text-muted-foreground">Desactivar si el producto está exento</p>
+                  </div>
+                </div>
+                <Switch
+                  id="taxable"
+                  checked={formData.taxable}
+                  onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, taxable: checked }))}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">

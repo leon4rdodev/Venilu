@@ -1,7 +1,8 @@
 import { BrowserWindow } from 'electron';
+import { AppDataSource } from '@main/config/data-source';
 import { SalesService } from '../../modules/sales/services/sales.service';
 import { SettingsService } from '../../modules/settings/services/settings.service';
-// import { UsersService } from '../../modules/users/services/users.service';
+import { EcDocument } from '../../modules/ecf/entities/ecf-document.entity';
 
 const salesService = new SalesService();
 const settingsService = new SettingsService();
@@ -63,10 +64,14 @@ export class PrinterService {
             subtotal,
             discountAmount,
             total,
+            itbisTotal,
             paymentMethod,
             amountPaid,
             changeGiven,
             userName,
+            ncf,
+            customerName,
+            customerRnc,
             // _shiftId // unused but kept for compatibility
         } = data;
 
@@ -112,13 +117,16 @@ export class PrinterService {
 
         const formatCurrency = (amount: number) => `$${(amount || 0).toFixed(2)}`;
 
-        const itemsHTML = items.map((item: any) => `
+        const itemsHTML = items.map((item: any) => {
+            const itemItbis = (item.taxable !== false) ? ((item.price_at_sale || item.price) * item.quantity * 0.18) : 0;
+            return `
             <tr>
                 <td class="qty">${item.quantity}</td>
-                <td class="desc">${item.product_name || item.name}</td>
+                <td class="desc">${item.product_name || item.name}${item.taxable === false ? ' *' : ''}</td>
                 <td class="price">${formatCurrency(item.price_at_sale || item.price)}</td>
             </tr>
-        `).join('');
+            `;
+        }).join('');
 
         return `<!DOCTYPE html>
 <html>
@@ -259,6 +267,21 @@ export class PrinterService {
             <span>Ticket:</span>
             <span style="font-weight: bold">#${saleId}</span>
         </div>
+        ${ncf ? `
+        <div class="ticket-row">
+            <span>NCF:</span>
+            <span style="font-weight: bold">${ncf}</span>
+        </div>` : ''}
+        ${customerName ? `
+        <div class="ticket-row">
+            <span>Cliente:</span>
+            <span>${customerName}</span>
+        </div>` : ''}
+        ${customerRnc ? `
+        <div class="ticket-row">
+            <span>RNC:</span>
+            <span>${customerRnc}</span>
+        </div>` : ''}
         <div class="ticket-row">
             <span>Fecha:</span>
             <span>${new Date(saleDate).toLocaleDateString('es-DO')} ${new Date(saleDate).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
@@ -286,17 +309,22 @@ export class PrinterService {
     </table>
 
     <div class="totals-section">
-        ${discountAmount > 0 ? `
         <div class="total-row">
             <span>Subtotal</span>
             <span>${formatCurrency(subtotal)}</span>
         </div>
+        ${(itbisTotal ?? 0) > 0 ? `
+        <div class="total-row">
+            <span>ITBIS 18%</span>
+            <span>${formatCurrency(itbisTotal)}</span>
+        </div>` : ''}
+        ${discountAmount > 0 ? `
         <div class="total-row">
             <span>Descuento</span>
             <span>-${formatCurrency(discountAmount)}</span>
         </div>
-        <div class="divider" style="margin: 4px 0;"></div>
         ` : ''}
+        <div class="divider" style="margin: 4px 0;"></div>
         <div class="total-row final">
             <span>TOTAL</span>
             <span>${formatCurrency(total)}</span>
@@ -324,6 +352,7 @@ export class PrinterService {
         <div class="thank-you">*** Gracias por su compra ***</div>
         <div>Revise su mercancía antes de salir.</div>
         <div>No se aceptan devoluciones después de 24h.</div>
+        <div style="margin-top: 5px; font-size: 8px;">* Productos exentos de ITBIS</div>
         <div class="pos-brand">Sistema POS Venilu</div>
     </div>
 </body>
@@ -343,6 +372,10 @@ export class PrinterService {
 
         const userName = sale.user?.name || sale.user?.username || 'Cajero';
 
+        // Find e-CF document for this sale to get NCF
+        const ecfRepo = AppDataSource.getRepository(EcDocument);
+        const ecfDoc = sale.id ? await ecfRepo.findOneBy({ sale_id: sale.id }) : null;
+
         const receiptData = {
             saleId: sale.id,
             saleDate: sale.created_at,
@@ -350,10 +383,14 @@ export class PrinterService {
             subtotal: sale.subtotal || sale.total_amount,
             discountAmount: sale.discount_amount || 0,
             total: sale.total_amount,
+            itbisTotal: sale.itbis_total || 0,
             paymentMethod: sale.payment_method,
             amountPaid: sale.amount_paid,
             changeGiven: sale.change_given,
             userName,
+            ncf: ecfDoc?.ncf,
+            customerName: sale.customer?.business_name || sale.customer_name,
+            customerRnc: sale.customer?.rnc,
             shiftId: sale.shift_id
         };
 

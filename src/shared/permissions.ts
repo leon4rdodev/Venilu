@@ -106,6 +106,14 @@ export const PERMISSIONS = {
   POS_PRICE_OVERRIDE: 'pos:price_override',
   /** Install app updates */
   SYS_UPDATE:        'system:update',
+
+  // ─── e-CF (Electronic Invoicing) ──────────────────────────────────────────
+  /** View e-CF documents and NCF sequences */
+  ECF_VIEW:          'ecf:view',
+  /** Generate and send electronic invoices */
+  ECF_EMIT:          'ecf:emit',
+  /** Configure NCF sequences */
+  ECF_CONFIG:        'ecf:config',
 } as const;
 
 /** Union type of all valid permission strings */

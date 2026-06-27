@@ -49,7 +49,9 @@ export function useCustomers() {
         c.name.toLowerCase().includes(q) ||
         (c.phone && c.phone.toLowerCase().includes(q)) ||
         (c.email && c.email.toLowerCase().includes(q)) ||
-        (c.address && c.address.toLowerCase().includes(q))
+        (c.address && c.address.toLowerCase().includes(q)) ||
+        (c.rnc && c.rnc.toLowerCase().includes(q)) ||
+        (c.business_name && c.business_name.toLowerCase().includes(q))
     );
   }, [customers, searchQuery]);
 

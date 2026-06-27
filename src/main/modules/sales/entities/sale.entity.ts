@@ -42,6 +42,9 @@ export class Sale {
     @Column("decimal", { precision: 10, scale: 2 })
     total_amount!: number;
 
+    @Column("decimal", { precision: 10, scale: 2, default: 0 })
+    itbis_total!: number;
+
     @Column("decimal", { precision: 10, scale: 2, nullable: true })
     amount_paid?: number;
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react"
 import { Dialog, DialogContent } from "@components/ui/dialog"
 import { Button } from "@components/ui/button"
 import { Input } from "@components/ui/input"
-import { CreditCard, Banknote, ArrowRightLeft, Printer, CheckCircle2, HandCoins, User2, Search, X, AlertCircle } from "lucide-react"
+import { CreditCard, Banknote, ArrowRightLeft, Printer, CheckCircle2, HandCoins, User2, Search, X, AlertCircle, FileText } from "lucide-react"
 import { formatCurrency, getCurrencySymbol } from "@lib/currency"
 import { cn } from "@lib/utils"
 import { toast } from "sonner"
@@ -166,6 +166,8 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
   const [showSuccess, setShowSuccess] = useState(false)
   const [saleId, setSaleId] = useState<string | undefined>(undefined)
   const [isPrinting, setIsPrinting] = useState(false)
+  const [isEmittingEcf, setIsEmittingEcf] = useState(false)
+  const [ecfEmitted, setEcfEmitted] = useState(false)
   const amountInputRef = useRef<HTMLInputElement>(null)
 
   // Focus the cash amount input when the dialog opens with cash selected,
@@ -195,6 +197,8 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
         setPaymentMethod("cash")
         setSaleId(undefined)
         setIsPrinting(false)
+        setIsEmittingEcf(false)
+        setEcfEmitted(false)
         setConfirmedDetails(null)
       }, 300)
       return () => clearTimeout(timer)
@@ -253,6 +257,30 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
       setIsLoading(false)
     }
   }
+
+  const handleEmitEcf = async () => {
+    if (!saleId) return;
+    setIsEmittingEcf(true);
+    try {
+      // Type 01 (Crédito Fiscal) if customer has RNC, otherwise 02 (Consumo)
+      const ecfType = selectedCustomer?.rnc ? "01" : "02";
+      const result = await ipc.invoke("ecf:generate", {
+        saleId,
+        ecfType,
+        customerId: selectedCustomer?.id
+      }) as { success: boolean; data?: { ncf: string }; message?: string };
+      if (result.success) {
+        toast.success(`e-CF generado: ${result.data?.ncf}`);
+        setEcfEmitted(true);
+      } else {
+        toast.error("Error al generar e-CF", { description: result.message });
+      }
+    } catch (err) {
+      toast.error("Error al generar e-CF");
+    } finally {
+      setIsEmittingEcf(false);
+    }
+  };
 
   const handlePrintTicket = async () => {
     if (!saleId || !window.ipcRenderer) {
@@ -578,6 +606,29 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                     <>
                       <Printer className="h-5 w-5" />
                       Imprimir Ticket
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={handleEmitEcf}
+                  disabled={isEmittingEcf || !saleId || ecfEmitted}
+                  variant={ecfEmitted ? "outline" : "secondary"}
+                  className="flex-1 h-12 text-base"
+                >
+                  {isEmittingEcf ? (
+                    <>
+                      <div className="h-5 w-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                      Emitiendo...
+                    </>
+                  ) : ecfEmitted ? (
+                    <>
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      e-CF Emitido
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-5 w-5" />
+                      Emitir e-CF
                     </>
                   )}
                 </Button>

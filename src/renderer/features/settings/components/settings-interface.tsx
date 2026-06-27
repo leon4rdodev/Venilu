@@ -1,10 +1,11 @@
-import { Building2, Users, Printer, Database, ShieldCheck } from "lucide-react"
+import { Building2, Users, Printer, Database, ShieldCheck, FileText } from "lucide-react"
 import { motion } from "framer-motion"
 import { BusinessSettings } from "./business-settings"
 import { UserSettings } from "./user-settings"
 import { PrinterSettings } from "./printer-settings"
 import { BackupSettings } from "./backup-settings"
 import { RolesSettings } from "./roles-settings"
+import { NcfSettings } from "./ncf-settings"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs"
 
 export function SettingsInterface() {
@@ -80,6 +81,13 @@ export function SettingsInterface() {
                 <Database className="h-4 w-4" />
                 Copias de Seguridad
               </TabsTrigger>
+              <TabsTrigger 
+                value="ecf" 
+                className="w-full justify-start gap-3 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none border-none rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors"
+              >
+                <FileText className="h-4 w-4" />
+                e-CF / NCF
+              </TabsTrigger>
             </TabsList>
           </motion.div>
 
@@ -131,6 +139,16 @@ export function SettingsInterface() {
                   <h2>Copias de Seguridad</h2>
                 </div>
                 <BackupSettings />
+              </motion.div>
+            </TabsContent>
+
+            <TabsContent value="ecf" className="m-0 mt-0 focus-visible:outline-none focus-visible:ring-0">
+              <motion.div variants={item} className="space-y-4">
+                <div className="flex items-center gap-2 text-lg font-semibold text-foreground border-b pb-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  <h2>e-CF / Facturación Electrónica</h2>
+                </div>
+                <NcfSettings />
               </motion.div>
             </TabsContent>
           </div>

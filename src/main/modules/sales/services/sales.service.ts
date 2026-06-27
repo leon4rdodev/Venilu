@@ -25,6 +25,8 @@ interface SaleItemInput {
     unit_price?: number;
 }
 
+const ITBIS_RATE = 0.18;
+
 export class SalesService {
     private saleRepository: Repository<SaleEntity>;
     private shiftRepository: Repository<ShiftEntity>;
@@ -87,6 +89,8 @@ export class SalesService {
 
         return await this.dataSource.transaction(async (transactionalEntityManager) => {
             let calculatedSubtotal = 0;
+            let taxableSubtotal = 0;
+            let totalItbis = 0;
             const saleItems: SaleItemEntity[] = [];
 
             for (const item of items) {
@@ -104,15 +108,21 @@ export class SalesService {
                 await transactionalEntityManager.save(product);
 
                 // Create Sale Item
+                const unitPrice = Number(item.unit_price) || Number(product.sale_price);
+                const totalPrice = item.quantity * unitPrice;
+
                 const saleItem = new SaleItemEntity();
                 saleItem.product_id = product.id;
                 saleItem.product_name = product.name;
                 saleItem.quantity = item.quantity;
-                saleItem.unit_price = Number(item.unit_price) || Number(product.sale_price);
-                saleItem.total_price = saleItem.quantity * saleItem.unit_price;
+                saleItem.unit_price = unitPrice;
+                saleItem.total_price = totalPrice;
+                saleItem.taxable = product.taxable;
+                saleItem.itbis_amount = 0;
 
                 saleItems.push(saleItem);
-                calculatedSubtotal += saleItem.total_price;
+                calculatedSubtotal += totalPrice;
+                if (product.taxable) taxableSubtotal += totalPrice;
             }
 
             const discountAmount = saleData.discount_amount || 0;
@@ -121,6 +131,21 @@ export class SalesService {
             }
             if (discountAmount > calculatedSubtotal) {
                 throw new Error("Discount cannot be greater than the subtotal");
+            }
+
+            // Prorate discount across items and recalculate ITBIS on discounted prices
+            const discountRatio = calculatedSubtotal > 0 ? discountAmount / calculatedSubtotal : 0;
+
+            for (const saleItem of saleItems) {
+                const discountedPrice = saleItem.total_price * (1 - discountRatio);
+                saleItem.total_price = discountedPrice;
+
+                if (saleItem.taxable) {
+                    // Extract ITBIS from ITBIS-inclusive price: base = price / 1.18, itbis = price - base
+                    const base = discountedPrice / (1 + ITBIS_RATE);
+                    saleItem.itbis_amount = Math.round((discountedPrice - base) * 100) / 100;
+                    totalItbis += saleItem.itbis_amount;
+                }
             }
 
             const finalTotal = calculatedSubtotal - discountAmount;
@@ -156,6 +181,7 @@ export class SalesService {
             sale.subtotal = calculatedSubtotal;
             sale.discount_amount = discountAmount;
             sale.total_amount = finalTotal;
+            sale.itbis_total = totalItbis;
             // For credit, default amount_paid is 0 if not provided
             sale.amount_paid = saleData.amount_paid ?? (isCredit ? 0 : finalTotal);
             sale.change_given = saleData.change_given || 0;

@@ -8,6 +8,7 @@ import {
   BarChart,
   Users,
   Settings,
+  FileText,
 } from 'lucide-react';
 import { usePermission } from '@renderer/features/auth/hooks/use-permission';
 
@@ -25,6 +26,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/inventory', icon: Package,         label: 'Inventario',     permission: 'inventory:view' },
   { to: '/customers', icon: Users,           label: 'Clientes',       permission: 'customers:view' },
   { to: '/reports',   icon: BarChart,        label: 'Reportes',       permission: 'reports:view_full' },
+  { to: '/ecf',       icon: FileText,        label: 'e-CF',           permission: 'ecf:view' },
   { to: '/settings',  icon: Settings,        label: 'Ajustes',        permission: 'settings:view' },
 ];
 
@@ -41,6 +43,7 @@ export function Sidebar() {
   const invView        = usePermission('inventory:view');
   const custView       = usePermission('customers:view');
   const rptFull        = usePermission('reports:view_full');
+  const ecfView        = usePermission('ecf:view');
   const settingsView   = usePermission('settings:view');
 
   const permMap: Record<string, boolean> = {
@@ -48,13 +51,14 @@ export function Sidebar() {
     'inventory:view':      invView,
     'customers:view':      custView,
     'reports:view_full':   rptFull,
+    'ecf:view':            ecfView,
     'settings:view':       settingsView,
   };
 
   const visibleItems = useMemo(
     () => NAV_ITEMS.filter((item) => item.permission === null || permMap[item.permission]),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [posAccess, invView, custView, rptFull, settingsView],
+    [posAccess, invView, custView, rptFull, ecfView, settingsView],
   );
 
   return (
