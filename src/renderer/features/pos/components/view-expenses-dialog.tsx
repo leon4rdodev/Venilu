@@ -2,9 +2,8 @@ import { Dialog, DialogContent } from '@components/ui/dialog';
 import { Button } from '@components/ui/button';
 import { formatCurrency } from '@lib/currency';
 import { formatTime } from '@lib/formatters';
-import { ReceiptPoundSterling, MinusCircle, Clock, Trash2, LayoutList } from 'lucide-react';
+import { ReceiptPoundSterling, LayoutList } from 'lucide-react';
 import { useShift } from '../hooks/use-shift';
-import { cn } from '@lib/utils';
 
 interface ViewExpensesDialogProps {
   isOpen: boolean;

@@ -24,7 +24,7 @@ const features = [
   { icon: Users, label: "Gestión de clientes" },
 ];
 
-export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promise<void> }) {
+export default function LoginPage({ onLogin }: { onLogin: (data: User) => void }) {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");

@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@components/ui/select"
-import { Search, History, Package, ChevronLeft, ChevronRight, LayoutGrid, X, MinusCircle, Eye } from "lucide-react"
+import { Search, History, Package, ChevronLeft, ChevronRight, LayoutGrid, X, MinusCircle } from "lucide-react"
 import { ProductCard } from "./product-card"
 import { Product } from "@shared/types/models"
 import { Button } from "@components/ui/button"
@@ -28,7 +28,7 @@ interface ProductGridProps {
 
 const ITEMS_PER_PAGE = 25;
 
-export function ProductGrid({ products, categories, onAddToCart, showSalesHistory, setShowSalesHistory, onAddExpense, onViewExpenses }: ProductGridProps) {
+export function ProductGrid({ products, categories, onAddToCart, showSalesHistory, setShowSalesHistory, onAddExpense }: ProductGridProps) {
   const [selectedCategory, setSelectedCategory] = useState("Todos")
   const [searchQuery, setSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
