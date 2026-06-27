@@ -17,7 +17,6 @@ export interface BusinessData {
     business_tax_id: string;
     logo_filename: string | null;
     logoPreview: string | null;
-    currency: string;
 }
 
 export interface PrinterData {

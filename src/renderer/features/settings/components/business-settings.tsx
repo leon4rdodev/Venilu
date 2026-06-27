@@ -3,15 +3,12 @@ import { Card, CardContent } from "@components/ui/card";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
 import { Button } from "@components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select";
-import { Separator } from "@components/ui/separator";
-import { Upload, X, Image as ImageIcon, Building2, Globe } from "lucide-react";
+import { Upload, X, Image as ImageIcon, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { useSettings } from "../hooks/use-settings";
 import { useLogoUpload } from "../hooks/use-logo-upload";
 import { Spinner } from "@components/ui/spinner";
 import { formatPhoneNumber, formatRNC } from "@lib/formatters";
-import { SUPPORTED_CURRENCIES } from "@lib/currency";
 
 export function BusinessSettings() {
   const { settings, isLoading, updateSettings } = useSettings();
@@ -31,7 +28,6 @@ export function BusinessSettings() {
     business_phone: "",
     business_email: "",
     business_tax_id: "",
-    currency: "DOP",
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -43,7 +39,6 @@ export function BusinessSettings() {
         business_phone: settings.business_phone || "",
         business_email: settings.business_email || "",
         business_tax_id: settings.business_tax_id || "",
-        currency: settings.currency || "DOP",
       });
       if (settings.logo_filename) {
         loadLogo(settings.logo_filename);
@@ -65,7 +60,6 @@ export function BusinessSettings() {
       const result = await updateSettings({ ...formData, logo_filename: logoFile });
       if (result.success) {
         toast.success("Configuración guardada");
-        window.dispatchEvent(new CustomEvent('currency-updated', { detail: formData.currency }));
       } else {
         toast.error("Error al guardar", { description: result.message });
       }
@@ -144,37 +138,6 @@ export function BusinessSettings() {
               </div>
             </div>
 
-            <Separator />
-
-            {/* Currency */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                <Globe className="h-3.5 w-3.5" />
-                Moneda
-              </div>
-              <div className="space-y-1.5">
-                <Select
-                  value={formData.currency}
-                  onValueChange={(v) => handleInputChange("currency", v)}
-                  disabled={isSaving}
-                >
-                  <SelectTrigger id="currency" className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SUPPORTED_CURRENCIES.map((c) => (
-                      <SelectItem key={c.code} value={c.code}>
-                        <span className="font-mono font-semibold text-xs mr-2">{c.symbol}</span>
-                        <span className="text-muted-foreground">{c.code}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-muted-foreground">
-                  Se aplica en todo el sistema
-                </p>
-              </div>
-            </div>
           </div>
 
           {/* RIGHT — Business Info */}

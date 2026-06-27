@@ -50,7 +50,6 @@ export function useOnboardingWizard(onComplete: () => void): UseOnboardingWizard
     const [businessData, setBusinessData] = useState<BusinessData>({
         business_name: '', business_address: '', business_phone: '',
         business_email: '', business_tax_id: '', logo_filename: null, logoPreview: null,
-        currency: 'DOP',
     });
     const [printerData, setPrinterData] = useState<PrinterData>({
         printer_name: null, paper_size: '80mm',
@@ -158,7 +157,6 @@ export function useOnboardingWizard(onComplete: () => void): UseOnboardingWizard
                 business_email: businessData.business_email,
                 business_tax_id: businessData.business_tax_id,
                 logo_filename: businessData.logo_filename,
-                currency: businessData.currency,
                 printer_name: printerData.printer_name === 'none' ? null : printerData.printer_name,
                 paper_size: printerData.paper_size,
             }) as { success: boolean; message?: string };
@@ -167,14 +165,6 @@ export function useOnboardingWizard(onComplete: () => void): UseOnboardingWizard
                 toast.error(settingsResult.message || 'Error al guardar configuración');
                 return;
             }
-
-            // Persist the selected currency so CurrencyProvider reads it instantly
-            // from localStorage on the next mount (login page → main app), without
-            // having to wait for a settings:get round-trip.
-            localStorage.setItem('venilu_currency', businessData.currency);
-            window.dispatchEvent(
-                new CustomEvent('currency-updated', { detail: businessData.currency })
-            );
 
             toast.success('¡Configuración completada!');
             setTimeout(() => onComplete(), 1000);

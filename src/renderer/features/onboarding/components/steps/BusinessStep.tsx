@@ -1,13 +1,6 @@
 import { Upload, X } from 'lucide-react';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@components/ui/select';
 import { formatPhoneNumber, formatRNC } from '@lib/formatters';
 import { capitalizeWords } from '@lib/utils';
 import type { BusinessData } from '@renderer/features/onboarding/types/onboarding.types';
@@ -18,29 +11,6 @@ interface BusinessStepProps {
     handleLogoUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
     removeLogo: () => void;
 }
-
-const CURRENCIES = [
-    { code: 'DOP', label: 'DOP — Peso Dominicano', symbol: 'RD$' },
-    { code: 'USD', label: 'USD — Dólar Estadounidense', symbol: '$' },
-    { code: 'EUR', label: 'EUR — Euro', symbol: '€' },
-    { code: 'MXN', label: 'MXN — Peso Mexicano', symbol: '$' },
-    { code: 'COP', label: 'COP — Peso Colombiano', symbol: '$' },
-    { code: 'ARS', label: 'ARS — Peso Argentino', symbol: '$' },
-    { code: 'CLP', label: 'CLP — Peso Chileno', symbol: '$' },
-    { code: 'PEN', label: 'PEN — Sol Peruano', symbol: 'S/' },
-    { code: 'BRL', label: 'BRL — Real Brasileño', symbol: 'R$' },
-    { code: 'GTQ', label: 'GTQ — Quetzal Guatemalteco', symbol: 'Q' },
-    { code: 'HNL', label: 'HNL — Lempira Hondureño', symbol: 'L' },
-    { code: 'NIO', label: 'NIO — Córdoba Nicaragüense', symbol: 'C$' },
-    { code: 'CRC', label: 'CRC — Colón Costarricense', symbol: '₡' },
-    { code: 'PAB', label: 'PAB — Balboa Panameño', symbol: 'B/.' },
-    { code: 'VES', label: 'VES — Bolívar Venezolano', symbol: 'Bs.S' },
-    { code: 'BOB', label: 'BOB — Boliviano', symbol: 'Bs.' },
-    { code: 'PYG', label: 'PYG — Guaraní Paraguayo', symbol: '₲' },
-    { code: 'UYU', label: 'UYU — Peso Uruguayo', symbol: '$U' },
-    { code: 'GBP', label: 'GBP — Libra Esterlina', symbol: '£' },
-    { code: 'CAD', label: 'CAD — Dólar Canadiense', symbol: 'CA$' },
-] as const;
 
 export function BusinessStep({
     businessData,
@@ -111,27 +81,6 @@ export function BusinessStep({
                             setBusinessData(p => ({ ...p, business_email: e.target.value }))
                         }
                     />
-                </div>
-                <div className="space-y-1.5">
-                    <Label htmlFor="currency" className="text-sm">Moneda</Label>
-                    <Select
-                        value={businessData.currency}
-                        onValueChange={(v) => setBusinessData(p => ({ ...p, currency: v }))}
-                    >
-                        <SelectTrigger id="currency" className="h-10">
-                            <SelectValue placeholder="Selecciona una moneda" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {CURRENCIES.map(({ code, symbol }) => (
-                                <SelectItem key={code} value={code}>
-                                    <span className="font-mono text-xs text-muted-foreground w-8 inline-block">
-                                        {symbol}
-                                    </span>
-                                    {code}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
                 </div>
             </div>
 
