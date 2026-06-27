@@ -14,8 +14,6 @@ export class EcService {
     private customerRepository: Repository<Customer>;
     private ncfService: NcfService;
 
-    private readonly ITBIS_RATE = 0.18;
-
     constructor() {
         this.repository = AppDataSource.getRepository(EcDocument);
         this.saleRepository = AppDataSource.getRepository(Sale);
@@ -54,7 +52,7 @@ export class EcService {
         if (!sale) throw new Error("Venta no encontrada");
 
         const ncf = await this.ncfService.getNextNcf(ecfType);
-        const itbisTotal = sale.total_amount * this.ITBIS_RATE;
+        const itbisTotal = Number(sale.itbis_total) || 0;
 
         let customerName: string | undefined;
         let customerRnc: string | undefined;
@@ -128,13 +126,13 @@ export class EcService {
         rejected: number;
         voided: number;
     }> {
-        const all = await this.repository.find();
-        return {
-            total: all.length,
-            authorized: all.filter((d) => d.status === "authorized").length,
-            pending: all.filter((d) => d.status === "pending" || d.status === "sent").length,
-            rejected: all.filter((d) => d.status === "rejected").length,
-            voided: all.filter((d) => d.status === "voided").length,
-        };
+        const [total, authorized, pending, rejected, voided] = await Promise.all([
+            this.repository.count(),
+            this.repository.count({ where: { status: "authorized" } }),
+            this.repository.count({ where: [{ status: "pending" }, { status: "sent" }] }),
+            this.repository.count({ where: { status: "rejected" } }),
+            this.repository.count({ where: { status: "voided" } }),
+        ]);
+        return { total, authorized, pending, rejected, voided };
     }
 }
