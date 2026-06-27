@@ -39,7 +39,7 @@ export class EcService {
         customerId?: string
     ): Promise<EcDocument> {
         return await AppDataSource.transaction(async (manager) => {
-            const existing = await manager.getRepository(EcDocument).findOneBy({ sale_id: saleId });
+            const existing = await manager.findOneBy(EcDocument, { sale_id: saleId });
             if (existing) throw new Error("Esta venta ya tiene un documento e-CF generado");
 
             const sale = await manager.findOne(Sale, {
