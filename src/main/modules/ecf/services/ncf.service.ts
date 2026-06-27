@@ -34,9 +34,13 @@ export class NcfService {
         if (result.affected === 0) throw new Error("Secuencia NCF no encontrada");
     }
 
-    async getNextNcf(ncfType: NcfType): Promise<string> {
+    async getNextNcf(
+        ncfType: NcfType,
+        ncfSequenceRepo?: Repository<NcfSequence>
+    ): Promise<string> {
+        const repo = ncfSequenceRepo || this.repository;
         const now = new Date();
-        const seq = await this.repository.findOne({
+        const seq = await repo.findOne({
             where: { ncf_type: ncfType, active: true },
         });
         if (!seq) throw new Error(`No hay secuencia activa para tipo ${ncfType}`);
@@ -56,7 +60,7 @@ export class NcfService {
 
         const next = String(current).padStart(8, "0");
         seq.current_number = String(current + 1).padStart(8, "0");
-        await this.repository.save(seq);
+        await repo.save(seq);
 
         return `${seq.branch_code}${ncfType}${next}`;
     }

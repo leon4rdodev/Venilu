@@ -1,24 +1,17 @@
 import { AppDataSource } from "@main/config/data-source";
 import { EcDocument, EcType, EcStatus } from "@main/modules/ecf/entities/ecf-document.entity";
 import { NcfService } from "@main/modules/ecf/services/ncf.service";
+import { NcfSequence } from "@main/modules/ecf/entities/ncf-sequence.entity";
 import { Customer } from "@main/modules/customers/entities/customer.entity";
 import { Sale } from "@main/modules/sales/entities/sale.entity";
-import { SaleItem } from "@main/modules/sales/entities/sale-item.entity";
 import { Repository } from "typeorm";
-import { randomUUID } from "crypto";
 
 export class EcService {
     private repository: Repository<EcDocument>;
-    private saleRepository: Repository<Sale>;
-    private saleItemRepository: Repository<SaleItem>;
-    private customerRepository: Repository<Customer>;
     private ncfService: NcfService;
 
     constructor() {
         this.repository = AppDataSource.getRepository(EcDocument);
-        this.saleRepository = AppDataSource.getRepository(Sale);
-        this.saleItemRepository = AppDataSource.getRepository(SaleItem);
-        this.customerRepository = AppDataSource.getRepository(Customer);
         this.ncfService = new NcfService();
     }
 
@@ -45,40 +38,44 @@ export class EcService {
         ecfType: EcType,
         customerId?: string
     ): Promise<EcDocument> {
-        const sale = await this.saleRepository.findOne({
-            where: { id: saleId },
-            relations: ["items", "customer"],
-        });
-        if (!sale) throw new Error("Venta no encontrada");
+        const existing = await this.repository.findOneBy({ sale_id: saleId });
+        if (existing) throw new Error("Esta venta ya tiene un documento e-CF generado");
 
-        const ncf = await this.ncfService.getNextNcf(ecfType);
-        const itbisTotal = Number(sale.itbis_total) || 0;
+        return await AppDataSource.transaction(async (manager) => {
+            const sale = await manager.findOne(Sale, {
+                where: { id: saleId },
+                relations: ["items", "customer"],
+            });
+            if (!sale) throw new Error("Venta no encontrada");
 
-        let customerName: string | undefined;
-        let customerRnc: string | undefined;
+            const ncfSequenceRepo = manager.getRepository(NcfSequence);
+            const ncf = await new NcfService().getNextNcf(ecfType, ncfSequenceRepo);
 
-        if (customerId) {
-            const customer = await this.customerRepository.findOneBy({ id: customerId });
-            if (customer) {
-                customerName = customer.business_name || customer.name;
-                customerRnc = customer.rnc;
+            let customerName: string | undefined;
+            let customerRnc: string | undefined;
+
+            if (customerId) {
+                const customer = await manager.findOne(Customer, { where: { id: customerId } });
+                if (customer) {
+                    customerName = customer.business_name || customer.name;
+                    customerRnc = customer.rnc;
+                }
             }
-        }
 
-        const doc = this.repository.create({
-            ecf_id: randomUUID(),
-            ecf_type: ecfType,
-            ncf,
-            customer_id: customerId,
-            customer_name: customerName || sale.customer_name,
-            customer_rnc: customerRnc,
-            sale_id: saleId,
-            total_amount: sale.total_amount,
-            itbis_total: itbisTotal,
-            status: "pending",
+            const doc = manager.getRepository(EcDocument).create({
+                ecf_type: ecfType,
+                ncf,
+                customer_id: customerId,
+                customer_name: customerName || sale.customer_name,
+                customer_rnc: customerRnc,
+                sale_id: saleId,
+                total_amount: sale.total_amount,
+                itbis_total: Number(sale.itbis_total) || 0,
+                status: "pending",
+            });
+
+            return manager.getRepository(EcDocument).save(doc);
         });
-
-        return this.repository.save(doc);
     }
 
     async markSent(id: string): Promise<EcDocument> {

@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, BeforeInsert } from "typeorm";
 import { Customer } from "@main/modules/customers/entities/customer.entity";
+import { randomUUID } from "crypto";
 
 export type EcStatus =
   | "pending"
@@ -26,6 +27,11 @@ export class EcDocument {
 
     @Column({ unique: true })
     ecf_id!: string;
+
+    @BeforeInsert()
+    generateEcfId() {
+        if (!this.ecf_id) this.ecf_id = randomUUID();
+    }
 
     @Column({ length: 2 })
     ecf_type!: EcType;
