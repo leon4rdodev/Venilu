@@ -38,10 +38,10 @@ export class EcService {
         ecfType: EcType,
         customerId?: string
     ): Promise<EcDocument> {
-        const existing = await this.repository.findOneBy({ sale_id: saleId });
-        if (existing) throw new Error("Esta venta ya tiene un documento e-CF generado");
-
         return await AppDataSource.transaction(async (manager) => {
+            const existing = await manager.getRepository(EcDocument).findOneBy({ sale_id: saleId });
+            if (existing) throw new Error("Esta venta ya tiene un documento e-CF generado");
+
             const sale = await manager.findOne(Sale, {
                 where: { id: saleId },
                 relations: ["items", "customer"],
@@ -49,7 +49,7 @@ export class EcService {
             if (!sale) throw new Error("Venta no encontrada");
 
             const ncfSequenceRepo = manager.getRepository(NcfSequence);
-            const ncf = await new NcfService().getNextNcf(ecfType, ncfSequenceRepo);
+            const ncf = await this.ncfService.getNextNcf(ecfType, ncfSequenceRepo);
 
             let customerName: string | undefined;
             let customerRnc: string | undefined;

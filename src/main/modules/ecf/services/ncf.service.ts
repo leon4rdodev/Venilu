@@ -41,10 +41,12 @@ export class NcfService {
         const repo = ncfSequenceRepo || this.repository;
         const now = new Date();
 
-        // First validate the sequence exists and is within validity period
-        const seq = await repo.findOne({
-            where: { ncf_type: ncfType, active: true },
-        });
+        const seq = await repo
+            .createQueryBuilder("seq")
+            .setLock("pessimistic_write")
+            .where("seq.ncf_type = :ncfType AND seq.active = :active", { ncfType, active: true })
+            .getOne();
+
         if (!seq) throw new Error(`No hay secuencia activa para tipo ${ncfType}`);
 
         if (seq.valid_from && new Date(seq.valid_from) > now) {
@@ -54,36 +56,31 @@ export class NcfService {
             throw new Error(`La secuencia ${ncfType} ha vencido (válida hasta ${seq.valid_to.toISOString().split('T')[0]})`);
         }
 
-        // Atomic increment: advance the counter in a single SQL statement.
-        // This avoids race conditions where two callers read the same current_number.
-        // The WHERE clause ensures we only increment if the sequence isn't exhausted.
         const currentNum = parseInt(seq.current_number, 10);
-        if (isNaN(currentNum)) {
-            throw new Error(`Secuencia ${ncfType} tiene un valor inválido: ${seq.current_number}`);
-        }
-
         const finalNum = parseInt(seq.final_number, 10);
-        if (isNaN(finalNum)) {
-            throw new Error(`Secuencia ${ncfType} tiene un valor final inválido: ${seq.final_number}`);
+
+        if (isNaN(currentNum) || isNaN(finalNum)) {
+            throw new Error(`Secuencia NCF corrupta: números no válidos`);
         }
 
         if (currentNum > finalNum) {
             throw new Error(`Secuencia ${ncfType} agotada`);
         }
 
+        const remaining = finalNum - currentNum;
+        if (remaining <= 50) {
+            console.warn(`ALERTA: Secuencia ${ncfType} próxima a agotarse (${remaining} restantes)`);
+        }
+
         const nextNum = currentNum + 1;
         const nextPadded = String(nextNum).padStart(8, "0");
 
-        // Atomically update — if two callers read the same current_number,
-        // only the first UPDATE will match. The second will affect 0 rows
-        // because current_number no longer matches.
         const updateResult = await repo.update(
             { ncf_type: ncfType, active: true, current_number: seq.current_number },
             { current_number: nextPadded }
         );
 
         if (updateResult.affected === 0) {
-            // Another caller already consumed this NCF — retry once
             return this.getNextNcf(ncfType, repo);
         }
 
