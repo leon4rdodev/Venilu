@@ -13,7 +13,17 @@ export class BackupsService {
         return backupsDir;
     }
 
+    /** Rejects any path components — backups are addressed by bare file name only. */
+    private sanitizeFileName(fileName: unknown): string {
+        const name = path.basename(String(fileName ?? ''));
+        if (!/^[A-Za-z0-9._-]+\.sqlite$/.test(name)) {
+            throw new Error('Nombre de archivo de backup inválido.');
+        }
+        return name;
+    }
+
     async createBackup(type: 'manual' | 'auto' = 'manual'): Promise<any> {
+        if (type !== 'manual' && type !== 'auto') type = 'manual';
         try {
             const backupsDir = this.getBackupsDir();
             const now = new Date();
@@ -65,12 +75,24 @@ export class BackupsService {
     }
 
     async restoreBackup(fileName: string) {
-        // Build path
+        // Build path — fileName is sanitized to a bare file name (no traversal)
         const backupsDir = this.getBackupsDir();
-        const backupPath = path.join(backupsDir, fileName);
+        const backupPath = path.join(backupsDir, this.sanitizeFileName(fileName));
 
         if (!fs.existsSync(backupPath)) {
              return { success: false, message: "Backup file not found" };
+        }
+
+        // Verify the file is actually a SQLite database before overwriting the live DB
+        const header = Buffer.alloc(16);
+        const fd = fs.openSync(backupPath, 'r');
+        try {
+            fs.readSync(fd, header, 0, 16, 0);
+        } finally {
+            fs.closeSync(fd);
+        }
+        if (!header.toString('utf8').startsWith('SQLite format 3')) {
+            return { success: false, message: "El archivo no es una base de datos SQLite válida." };
         }
 
         // Ideally, we should close the connection, copy file, and reopen.
@@ -109,7 +131,7 @@ export class BackupsService {
     async deleteBackup(fileName: string) {
         try {
             const backupsDir = this.getBackupsDir();
-            const filePath = path.join(backupsDir, fileName);
+            const filePath = path.join(backupsDir, this.sanitizeFileName(fileName));
             if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
                 return { success: true, message: "Backup deleted" };

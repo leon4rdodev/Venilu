@@ -33,13 +33,14 @@ export function registerPrinterHandlers() {
   });
 
   /** Allowed during onboarding to test the printer before first login */
-  ipcMain.handle('test-print', async (_event, { printerName: _printerName }) => {
+  ipcMain.handle('test-print', async (_event, payload) => {
     try {
       const usersService = new UsersService();
       const onboarding = await usersService.checkOnboardingStatus();
       if (onboarding.completed) requirePermission('settings:printer');
-      // TODO: send a test page to the selected printer
-      return { success: true };
+
+      const printerName = typeof payload?.printerName === 'string' ? payload.printerName : null;
+      return await printerService.printTest(printerName);
     } catch (err: any) {
       return { success: false, message: err.message };
     }

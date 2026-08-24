@@ -48,6 +48,13 @@ export class User {
   @JoinColumn({ name: 'role_id' })
   role_entity?: Role;
 
+  /**
+   * SHA-256 hash of the session token issued at login.
+   * Used to validate session restoration from the renderer — never exposed to it.
+   */
+  @Column({ type: 'varchar', nullable: true })
+  session_token?: string | null;
+
   @CreateDateColumn()
   created_at!: Date;
 

@@ -34,9 +34,32 @@ export function registerReportsHandlers() {
     } catch (err: any) {
       console.error('[reports.ipc] get-dashboard-stats:', err);
       return {
-        today: { totalSales: 0, totalTransactions: 0, averageTicket: 0, totalItemsSold: 0 },
-        yesterday: { totalSales: 0, totalTransactions: 0, averageTicket: 0, totalItemsSold: 0 },
+        today: { totalSales: 0, totalTransactions: 0, averageTicket: 0, totalItemsSold: 0, averageMargin: 0, netProfit: 0 },
+        yesterday: { totalSales: 0, totalTransactions: 0, averageTicket: 0, totalItemsSold: 0, averageMargin: 0, netProfit: 0 },
       };
+    }
+  });
+
+  /** Hourly sales for the dashboard chart. Payload: { day?: 'today' | 'yesterday' } */
+  ipcMain.handle('get-sales-by-hour', async (_event, payload) => {
+    try {
+      requirePermission('reports:view_summary');
+      const offset = payload?.day === 'yesterday' ? -1 : 0;
+      const data = await reportsService.getSalesByHour(offset as 0 | -1);
+      return { success: true, data };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  /** Today's revenue split by payment method (dashboard widget). */
+  ipcMain.handle('get-payment-method-totals', async () => {
+    try {
+      requirePermission('reports:view_summary');
+      const data = await reportsService.getPaymentMethodTotals();
+      return { success: true, data };
+    } catch (err: any) {
+      return { success: false, message: err.message };
     }
   });
 

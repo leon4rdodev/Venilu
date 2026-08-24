@@ -1,5 +1,7 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, protocol, net } from 'electron';
 import path from 'path';
+import { pathToFileURL } from 'url';
+import { imagesService, migrateLegacyProductImages } from '@main/shared/services/images.service';
 import { AppDataSource } from '@main/config/data-source';
 import { RolesService } from '@main/modules/users/services/roles.service';
 import { registerUsersHandlers } from '@main/modules/users/users.ipc';
@@ -16,6 +18,29 @@ import { registerSessionHandlers } from '@main/shared/session';
 import { setupAutoUpdater } from '@main/shared/ipc/updater.ipc';
 
 const isDev = process.env.NODE_ENV === 'development';
+
+// Must run before app 'ready': allows the venilu:// scheme to be used for
+// <img> tags (product images served straight from disk, never through the DB).
+protocol.registerSchemesAsPrivileged([
+    { scheme: 'venilu', privileges: { standard: true, secure: true, supportFetchAPI: true } },
+]);
+
+/** Serves userData/product-images/<file> as venilu://product-images/<file>. */
+function registerImageProtocol() {
+    protocol.handle('venilu', (request) => {
+        try {
+            const url = new URL(request.url);
+            if (url.host === 'product-images') {
+                const fileName = path.basename(decodeURIComponent(url.pathname));
+                const filePath = imagesService.resolveImagePath(fileName);
+                if (filePath) return net.fetch(pathToFileURL(filePath).toString());
+            }
+        } catch (err) {
+            console.error('[Protocol] venilu:// error:', err);
+        }
+        return new Response('Not found', { status: 404 });
+    });
+}
 
 async function createWindow() {
     const preloadPath = isDev
@@ -45,7 +70,6 @@ async function createWindow() {
         mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
     }
 
-    setupAutoUpdater(mainWindow);
     return mainWindow;
 }
 
@@ -55,12 +79,23 @@ async function initialize() {
         await AppDataSource.initialize();
         console.log('[App] Database initialized.');
 
+        // Performance: WAL journaling avoids writer-blocks-reader stalls and
+        // makes commits much cheaper; NORMAL sync is safe with WAL.
+        await AppDataSource.query('PRAGMA journal_mode = WAL');
+        await AppDataSource.query('PRAGMA synchronous = NORMAL');
+
         // 2. Seed system roles (idempotent — safe to run on every boot)
         const rolesService = new RolesService();
         await rolesService.seedSystemRoles();
 
         // 3. Assign role_id to existing users who don't have one yet
         await rolesService.migrateExistingUsers();
+
+        // 3b. Move legacy base64 product images out of the DB into files
+        await migrateLegacyProductImages();
+
+        // 3c. Serve product images via venilu:// (filesystem, not IPC/DB)
+        registerImageProtocol();
 
         // 4. Register IPC handlers — must happen after DB is ready
         registerSessionHandlers(); // first — establishes auth context
@@ -75,8 +110,10 @@ async function initialize() {
         registerCustomersHandlers();
         registerPrinterHandlers();
 
-        // 5. Create the browser window
-        createWindow();
+        // 5. Create the browser window and wire the auto-updater ONCE
+        // (registering it per-window duplicated IPC handlers on macOS 'activate')
+        const mainWindow = await createWindow();
+        setupAutoUpdater(mainWindow);
     } catch (err) {
         console.error('[App] Initialization error:', err);
         app.quit();

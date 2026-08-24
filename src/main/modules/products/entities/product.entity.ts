@@ -36,7 +36,7 @@ export class Product {
     min_stock!: number;
 
     @Column({ nullable: true })
-    image?: string; // Storing as base64 or path
+    image?: string; // Managed file name (prod_*.webp) served via venilu://product-images/ — never raw bytes
 
     @Index()
     @Column({ nullable: true })

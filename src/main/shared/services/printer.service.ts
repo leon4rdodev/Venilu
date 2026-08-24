@@ -23,7 +23,7 @@ export class PrinterService {
         return defaultPrinter ? defaultPrinter.name : (printers.length > 0 ? printers[0].name : null);
     }
 
-    async printHTML(html: string, printerName: string | null) {
+    async printHTML(html: string, printerName: string | null, widthMicrons: number = 80000) {
         const printWindow = new BrowserWindow({
             show: false,
             webPreferences: { nodeIntegration: false, contextIsolation: true }
@@ -41,7 +41,7 @@ export class PrinterService {
                     deviceName: printerName || '',
                     printBackground: true,
                     margins: { marginType: 'none' },
-                    pageSize: { width: 80000, height: 297000 } // 80mm width in microns
+                    pageSize: { width: widthMicrons, height: 297000 } // paper width in microns
                 },
                 (success, failureReason) => {
                     printWindow.close();
@@ -92,7 +92,7 @@ export class PrinterService {
                 const fs = require('fs');
                 const path = require('path');
                 const { app } = require('electron');
-                const filePath = path.join(app.getPath('userData'), logo_filename);
+                const filePath = path.join(app.getPath('userData'), path.basename(logo_filename));
                 if (fs.existsSync(filePath)) {
                     const buffer = fs.readFileSync(filePath);
                     const ext = path.extname(logo_filename).substring(1) || 'png';
@@ -107,16 +107,28 @@ export class PrinterService {
             'cash': 'Efectivo',
             'card': 'Tarjeta',
             'transfer': 'Transferencia',
+            'credit': 'Credito',
             'other': 'Otro'
         };
 
-        const formatCurrency = (amount: number) => `$${(amount || 0).toFixed(2)}`;
+        const CURRENCY_SYMBOLS: { [key: string]: string } = {
+            DOP: 'RD$', USD: '$', EUR: '€', MXN: '$', COP: '$', PEN: 'S/',
+            CLP: '$', ARS: '$', VES: 'Bs.', GTQ: 'Q', HNL: 'L', NIO: 'C$',
+            CRC: '₡', PAB: 'B/.', BOB: 'Bs', UYU: '$U', PYG: '₲',
+        };
+        const symbol = CURRENCY_SYMBOLS[settings.currency] ?? `${settings.currency ?? '$'} `;
+        const formatCurrency = (amount: number) => `${symbol}${(Number(amount) || 0).toFixed(2)}`;
+
+        // Escape user-controlled strings so a product/business name with HTML
+        // characters can't break (or inject into) the ticket markup.
+        const esc = (v: unknown) => String(v ?? '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
         const itemsHTML = items.map((item: any) => `
             <tr>
-                <td class="qty">${item.quantity}</td>
-                <td class="desc">${item.product_name || item.name}</td>
-                <td class="price">${formatCurrency(item.price_at_sale || item.price)}</td>
+                <td class="qty">${Number(item.quantity) || 0}</td>
+                <td class="desc">${esc(item.product_name || item.name)}</td>
+                <td class="price">${formatCurrency(item.total_price ?? (Number(item.unit_price) || 0) * (Number(item.quantity) || 0))}</td>
             </tr>
         `).join('');
 
@@ -246,10 +258,10 @@ export class PrinterService {
 <body>
     <div class="header">
         ${logoBase64 ? `<img src="${logoBase64}" class="logo-img" alt="Logo">` : ''}
-        <div class="business-name">${bName}</div>
-        ${bAddress ? `<div class="info-row">${bAddress}</div>` : ''}
-        ${bPhone ? `<div class="info-row">Tel: ${bPhone}</div>` : ''}
-        ${bTaxId ? `<div class="info-row">RNC: ${bTaxId}</div>` : ''}
+        <div class="business-name">${esc(bName)}</div>
+        ${bAddress ? `<div class="info-row">${esc(bAddress)}</div>` : ''}
+        ${bPhone ? `<div class="info-row">Tel: ${esc(bPhone)}</div>` : ''}
+        ${bTaxId ? `<div class="info-row">RNC: ${esc(bTaxId)}</div>` : ''}
     </div>
 
     <div class="divider"></div>
@@ -266,7 +278,7 @@ export class PrinterService {
         ${userName ? `
         <div class="ticket-row">
             <span>Cajero:</span>
-            <span>${userName}</span>
+            <span>${esc(userName)}</span>
         </div>` : ''}
     </div>
 
@@ -359,7 +371,30 @@ export class PrinterService {
 
         const html = this.generateReceiptHTML(receiptData, settings);
         const printerName = settings.printer_name || await this.getDefaultPrinter();
-        
-        return await this.printHTML(html, printerName);
+        const widthMicrons = settings.paper_size === '58mm' ? 58000 : 80000;
+
+        return await this.printHTML(html, printerName, widthMicrons);
+    }
+
+    /** Prints a small test page so the user can verify the printer setup. */
+    async printTest(printerName?: string | null) {
+        const settings = await settingsService.get();
+        const paper = settings.paper_size || '80mm';
+        const widthMicrons = paper === '58mm' ? 58000 : 80000;
+        const targetName = printerName || settings.printer_name || await this.getDefaultPrinter();
+
+        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+            @page { size: ${paper} auto; margin: 0; }
+            body { font-family: sans-serif; width: ${paper}; margin: 0; padding: 4mm; text-align: center; font-size: 11px; color: #000; }
+            h1 { font-size: 14px; margin: 0 0 6px; }
+        </style></head><body>
+            <h1>VENILU</h1>
+            <div>✓ Prueba de impresión correcta</div>
+            <div>${new Date().toLocaleString('es-DO')}</div>
+            <div style="margin-top:6px">Impresora: ${String(targetName || 'predeterminada').replace(/</g, '&lt;')}</div>
+            <div>Papel: ${paper}</div>
+        </body></html>`;
+
+        return await this.printHTML(html, targetName, widthMicrons);
     }
 }

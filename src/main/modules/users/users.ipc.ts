@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 import { UsersService } from '@main/modules/users/services/users.service';
 import { RolesService } from '@main/modules/users/services/roles.service';
-import { requirePermission, requireAuth, getSessionUser } from '@main/shared/session';
+import { requirePermission, requireAuth, establishSession } from '@main/shared/session';
 import { auditService } from '@main/modules/audit/services/audit.service';
 import { IPCResponse } from '@shared/types/ipc';
 import { User } from '@shared/types/models';
@@ -12,27 +12,49 @@ const rolesService = new RolesService();
 export function registerUsersHandlers() {
   // ─── Auth ──────────────────────────────────────────────────────────────────
 
-  /** Public — no session required */
-  ipcMain.handle('login-request', async (_event, { username, password }): Promise<IPCResponse<User>> => {
-    const user = await usersService.verifyCredentials(username, password);
-    if (!user) return { success: false, message: 'Usuario o contraseña incorrectos.' };
+  /**
+   * Public — no session required.
+   * On success the main-process session is established here (the renderer can
+   * never set a session by itself) and a session token is issued so the
+   * renderer can restore the session across app restarts.
+   */
+  ipcMain.handle('login-request', async (_event, payload): Promise<IPCResponse<{ user: User; token: string }>> => {
+    try {
+      const username = payload?.username;
+      const password = payload?.password;
+      if (typeof username !== 'string' || typeof password !== 'string' || !username || !password) {
+        return { success: false, message: 'Usuario o contraseña incorrectos.' };
+      }
 
-    return {
-      success: true,
-      data: {
-        id: user.id,
-        role: user.role,
-        name: user.name,
-        username: user.username,
-        role_id: user.role_id,
-        role_entity: user.role_entity,
-        // Permissions are included so the renderer can gate UI — the main process
-        // always reloads them from DB via set-logged-in-user (never trusts this array).
-        permissions: user.role_entity?.permissions ?? [],
-        created_at: user.created_at,
-        updated_at: user.updated_at,
-      },
-    };
+      const user = await usersService.verifyCredentials(username, password);
+      if (!user) return { success: false, message: 'Usuario o contraseña incorrectos.' };
+
+      const token = await usersService.issueSessionToken(user.id);
+      await establishSession(user.id);
+
+      return {
+        success: true,
+        data: {
+          user: {
+            id: user.id,
+            role: user.role,
+            name: user.name,
+            username: user.username,
+            role_id: user.role_id,
+            role_entity: user.role_entity,
+            // Permissions are included so the renderer can gate UI — the main
+            // process only ever trusts its own session store.
+            permissions: user.role_entity?.permissions ?? [],
+            created_at: user.created_at,
+            updated_at: user.updated_at,
+          } as User,
+          token,
+        },
+      };
+    } catch (err: unknown) {
+      console.error('[users.ipc] login-request:', err);
+      return { success: false, message: 'Ocurrió un error durante el inicio de sesión.' };
+    }
   });
 
   /** Public — needed before login to detect onboarding state */
@@ -57,8 +79,16 @@ export function registerUsersHandlers() {
     try {
       const onboarding = await usersService.checkOnboardingStatus();
       if (onboarding.completed) requirePermission('users:manage');
+
       const user = await usersService.create(userData);
-      return { success: true, data: user };
+
+      // Onboarding: establish the session for the just-created first admin so
+      // the wizard can finish the initial configuration (settings:update).
+      if (!onboarding.completed) {
+        await establishSession(user.id);
+      }
+
+      return { success: true, data: UsersService.toSafeUser(user) };
     } catch (err: unknown) {
       return { success: false, message: err instanceof Error ? err.message : String(err) };
     }
@@ -66,8 +96,8 @@ export function registerUsersHandlers() {
 
   ipcMain.handle('update-user', async (_event, { userId, userData }) => {
     try {
-      requirePermission('users:manage');
-      await usersService.update(userId, userData);
+      const actor = requirePermission('users:manage');
+      await usersService.update(userId, userData, actor.id);
       return { success: true };
     } catch (err: unknown) {
       return { success: false, message: err instanceof Error ? err.message : String(err) };
@@ -76,9 +106,9 @@ export function registerUsersHandlers() {
 
   ipcMain.handle('delete-user', async (_event, userId) => {
     try {
-      requirePermission('users:manage');
+      const actor = requirePermission('users:manage');
       const user = await usersService.findOne(userId);
-      await usersService.delete(userId);
+      await usersService.delete(userId, actor.id);
       auditService.log('users:delete', userId, user?.username);
       return { success: true };
     } catch (err: unknown) {
@@ -93,8 +123,8 @@ export function registerUsersHandlers() {
       requireAuth();
       const roles = await rolesService.findAll();
       return { success: true, data: roles };
-    } catch (err: any) {
-      return { success: false, message: err.message };
+    } catch (err: unknown) {
+      return { success: false, message: err instanceof Error ? err.message : String(err) };
     }
   });
 

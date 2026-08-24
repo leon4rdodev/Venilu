@@ -37,9 +37,6 @@
       "!node_modules/*.d.ts",
       "!node_modules/.bin"
     ],
-    "extraResources": [
-      "data/database.sqlite"
-    ],
     "directories": {
       "buildResources": "public/assets",
       "output": "release"
@@ -86,6 +83,7 @@
     "@radix-ui/react-switch": "1.1.2",
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-toggle-group": "^1.1.11",
+    "@tanstack/react-query": "^5.102.2",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "date-fns": "^4.1.0",

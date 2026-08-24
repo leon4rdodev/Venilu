@@ -38,12 +38,14 @@ export class ReportsService {
 
     private async calculateMetrics(startDate: Date | null, endDate: Date | null) {
         // Query 1: Sales aggregates (no joins to avoid row duplication)
-        const saleQuery = AppDataSource.getRepository(SaleEntity).createQueryBuilder("sale");
-        
+        // Voided sales must never count toward revenue/metrics
+        const saleQuery = AppDataSource.getRepository(SaleEntity).createQueryBuilder("sale")
+            .where("sale.status != 'voided'");
+
         if (startDate && endDate) {
-            saleQuery.where("sale.created_at BETWEEN :start AND :end", { 
-                start: this.formatDate(startDate), 
-                end: this.formatDate(endDate) 
+            saleQuery.andWhere("sale.created_at BETWEEN :start AND :end", {
+                start: this.formatDate(startDate),
+                end: this.formatDate(endDate)
             });
         }
 
@@ -56,10 +58,11 @@ export class ReportsService {
         const itemQuery = AppDataSource.getRepository(SaleItemEntity)
             .createQueryBuilder("item")
             .leftJoin("item.sale", "sale")
-            .leftJoin("item.product", "product");
+            .leftJoin("item.product", "product")
+            .where("sale.status != 'voided'");
 
         if (startDate && endDate) {
-            itemQuery.where("sale.created_at BETWEEN :start AND :end", { 
+            itemQuery.andWhere("sale.created_at BETWEEN :start AND :end", {
                 start: this.formatDate(startDate), 
                 end: this.formatDate(endDate) 
             });
@@ -97,12 +100,13 @@ export class ReportsService {
             .select("product.name", "productName")
             .addSelect("SUM(item.quantity)", "totalSold")
             .addSelect("SUM(item.total_price)", "totalRevenue")
+            .where("sale.status != 'voided'")
             .groupBy("item.product_id")
             .orderBy("totalSold", "DESC")
             .limit(limit);
 
         if (startDate && endDate) {
-            query.where("sale.created_at BETWEEN :start AND :end", { 
+            query.andWhere("sale.created_at BETWEEN :start AND :end", {
                 start: this.formatDate(startDate), 
                 end: this.formatDate(endDate) 
             });
@@ -124,11 +128,12 @@ export class ReportsService {
              .select(`STRFTIME('${dateFormat}', sale.created_at)`, "period")
              .addSelect("SUM(sale.total_amount)", "totalSales")
              .addSelect("COUNT(sale.id)", "totalTransactions")
+             .where("sale.status != 'voided'")
              .groupBy("period")
              .orderBy("period", "ASC");
 
          if (startDate && endDate) {
-             query.where("sale.created_at BETWEEN :start AND :end", {
+             query.andWhere("sale.created_at BETWEEN :start AND :end", {
                  start: this.formatDate(startDate),
                  end: this.formatDate(endDate)
              });
@@ -150,12 +155,13 @@ export class ReportsService {
              .select("product.name", "productName")
              .addSelect("SUM(item.quantity)", "totalSold")
              .addSelect("SUM(item.total_price)", "totalRevenue")
+             .where("sale.status != 'voided'")
              .groupBy("item.product_id")
-             .orderBy("totalSold", "ASC") 
+             .orderBy("totalSold", "ASC")
              .limit(limit);
 
          if (startDate && endDate) {
-            query.where("sale.created_at BETWEEN :start AND :end", {
+            query.andWhere("sale.created_at BETWEEN :start AND :end", {
                 start: this.formatDate(startDate),
                 end: this.formatDate(endDate)
             });
@@ -191,15 +197,75 @@ export class ReportsService {
                 totalSales: todayMetrics.totalAmount,
                 totalTransactions: todayMetrics.totalSalesCount,
                 averageTicket: todayMetrics.averageTicket,
-                totalItemsSold: todayMetrics.totalItemsSold
+                totalItemsSold: todayMetrics.totalItemsSold,
+                averageMargin: todayMetrics.averageMargin,
+                netProfit: todayMetrics.netProfit
             },
             yesterday: {
                 totalSales: yesterdayMetrics.totalAmount,
                 totalTransactions: yesterdayMetrics.totalSalesCount,
                 averageTicket: yesterdayMetrics.averageTicket,
-                totalItemsSold: yesterdayMetrics.totalItemsSold
+                totalItemsSold: yesterdayMetrics.totalItemsSold,
+                averageMargin: yesterdayMetrics.averageMargin,
+                netProfit: yesterdayMetrics.netProfit
             }
         };
+    }
+
+    /**
+     * Sales grouped by hour for a single day (dashboard "Ventas por Hora").
+     * @param dayOffset 0 = today, -1 = yesterday (local time).
+     */
+    async getSalesByHour(dayOffset: 0 | -1 = 0) {
+        const day = new Date();
+        day.setDate(day.getDate() + dayOffset);
+        const start = new Date(day); start.setHours(0, 0, 0, 0);
+        const end = new Date(day); end.setHours(23, 59, 59, 999);
+
+        const rows = await AppDataSource.getRepository(SaleEntity)
+            .createQueryBuilder("sale")
+            .select("STRFTIME('%H', sale.created_at, 'localtime')", "hour")
+            .addSelect("SUM(sale.total_amount)", "total")
+            .addSelect("COUNT(sale.id)", "transactions")
+            .where("sale.status != 'voided'")
+            .andWhere("sale.created_at BETWEEN :start AND :end", {
+                start: this.formatDate(start),
+                end: this.formatDate(end),
+            })
+            .groupBy("hour")
+            .orderBy("hour", "ASC")
+            .getRawMany();
+
+        return rows.map(r => ({
+            hour: Number(r.hour),
+            total: Number(r.total) || 0,
+            transactions: Number(r.transactions) || 0,
+        }));
+    }
+
+    /** Revenue totals per payment method for today (dashboard "Métodos de Pago"). */
+    async getPaymentMethodTotals() {
+        const start = new Date(); start.setHours(0, 0, 0, 0);
+        const end = new Date(); end.setHours(23, 59, 59, 999);
+
+        const rows = await AppDataSource.getRepository(SaleEntity)
+            .createQueryBuilder("sale")
+            .select("sale.payment_method", "method")
+            .addSelect("SUM(sale.total_amount)", "total")
+            .addSelect("COUNT(sale.id)", "transactions")
+            .where("sale.status != 'voided'")
+            .andWhere("sale.created_at BETWEEN :start AND :end", {
+                start: this.formatDate(start),
+                end: this.formatDate(end),
+            })
+            .groupBy("sale.payment_method")
+            .getRawMany();
+
+        return rows.map(r => ({
+            method: String(r.method),
+            total: Number(r.total) || 0,
+            transactions: Number(r.transactions) || 0,
+        }));
     }
 
     /**
@@ -226,6 +292,7 @@ export class ReportsService {
             .select('COUNT(sale.id)', 'totalTransactions')
             .addSelect('SUM(sale.total_amount)', 'totalAmount')
             .where('sale.shift_id = :shiftId', { shiftId: shift.id })
+            .andWhere("sale.status != 'voided'")
             .getRawOne();
 
         return {

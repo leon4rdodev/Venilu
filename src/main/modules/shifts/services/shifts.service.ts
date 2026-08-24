@@ -4,7 +4,7 @@ import { ShiftExpense } from "@main/modules/shifts/entities/shift-expense.entity
 import { Sale as SaleEntity } from "@main/modules/sales/entities/sale.entity";
 import { DebtPayment as DebtPaymentEntity } from "@main/modules/sales/entities/debt-payment.entity";
 import { Repository } from "typeorm";
-// import { Shift as SharedShift } from "@shared/types/models";
+import { round2 } from "@shared/money";
 
 export class ShiftsService {
     private shiftRepository: Repository<ShiftEntity>;
@@ -24,6 +24,17 @@ export class ShiftsService {
                 status: 'open'
             }
         });
+    }
+
+    /**
+     * Throws unless the shift belongs to the given user or the caller may view
+     * other users' shifts.
+     */
+    async assertShiftAccess(shiftId: string, userId: string, canViewOthers: boolean): Promise<void> {
+        if (canViewOthers) return;
+        const shift = await this.shiftRepository.findOneBy({ id: shiftId });
+        if (!shift) throw new Error("Turno no encontrado");
+        if (shift.user_id !== userId) throw new Error("No tienes acceso a este turno");
     }
 
     async getShiftSales(shiftId: string): Promise<SaleEntity[]> {
@@ -49,6 +60,11 @@ export class ShiftsService {
     }
 
     async createShift(userId: string, initialCash: number): Promise<ShiftEntity> {
+        const cash = round2(Number(initialCash));
+        if (!Number.isFinite(cash) || cash < 0) {
+            throw new Error("El monto inicial de caja es inválido");
+        }
+
         // Check if user already has an open shift
         const existingShift = await this.getActiveShift(userId);
         if (existingShift) {
@@ -76,7 +92,7 @@ export class ShiftsService {
         const shift = this.shiftRepository.create({
             id: shiftId,
             user_id: userId,
-            initial_cash: initialCash,
+            initial_cash: cash,
             start_time: new Date(),
             status: 'open'
         });
@@ -84,13 +100,22 @@ export class ShiftsService {
         return this.shiftRepository.save(shift);
     }
 
-    async closeShift(shiftId: string, finalCash: number): Promise<ShiftEntity> {
+    async closeShift(shiftId: string, finalCash: number, expectedUserId?: string): Promise<ShiftEntity> {
+        const cash = round2(Number(finalCash));
+        if (!Number.isFinite(cash) || cash < 0) {
+            throw new Error("El monto final de caja es inválido");
+        }
+
         const shift = await this.shiftRepository.findOne({
             where: { id: shiftId },
             relations: ['expenses']
         });
         if (!shift) {
             throw new Error("Shift not found");
+        }
+
+        if (expectedUserId && shift.user_id !== expectedUserId) {
+            throw new Error("Solo puedes cerrar tu propio turno");
         }
 
         if (shift.status === 'closed') {
@@ -117,32 +142,42 @@ export class ShiftsService {
         // Subtract expenses
         const totalExpenses = (shift.expenses || []).reduce((sum, e) => sum + Number(e.amount), 0);
 
-        const expectedCash = Number(shift.initial_cash) + totalSalesCash + totalDebtCash - totalExpenses;
-        
-        shift.final_cash = finalCash;
+        const expectedCash = round2(Number(shift.initial_cash) + totalSalesCash + totalDebtCash - totalExpenses);
+
+        shift.final_cash = cash;
         shift.expected_cash = expectedCash;
-        shift.difference = finalCash - expectedCash;
+        shift.difference = round2(cash - expectedCash);
         shift.end_time = new Date();
         shift.status = 'closed';
 
         return this.shiftRepository.save(shift);
     }
 
-    async addExpense(shiftId: string, amount: number, reason: string): Promise<ShiftExpense> {
+    async addExpense(shiftId: string, amount: number, reason: string, expectedUserId?: string): Promise<ShiftExpense> {
         const shift = await this.shiftRepository.findOneBy({ id: shiftId });
         if (!shift || shift.status !== 'open') {
             throw new Error("No hay un turno abierto válido para registrar este gasto");
         }
 
-        if (amount <= 0) {
-            throw new Error("El monto del gasto debe ser mayor a 0");
+        if (expectedUserId && shift.user_id !== expectedUserId) {
+            throw new Error("Solo puedes registrar gastos en tu propio turno");
+        }
+
+        const amt = round2(Number(amount));
+        if (!Number.isFinite(amt) || amt <= 0) {
+            throw new Error("El monto del gasto debe ser un número mayor a 0");
+        }
+
+        const cleanReason = typeof reason === 'string' ? reason.trim() : '';
+        if (!cleanReason) {
+            throw new Error("Debes indicar el motivo del gasto");
         }
 
         const expenseRepository = AppDataSource.getRepository(ShiftExpense);
         const expense = expenseRepository.create({
             shift_id: shiftId,
-            amount,
-            reason
+            amount: amt,
+            reason: cleanReason
         });
 
         return expenseRepository.save(expense);
@@ -156,7 +191,10 @@ export class ShiftsService {
             .leftJoinAndSelect("shift.expenses", "expenses")
             .leftJoinAndSelect("debt_payments.customer", "dp_customer")
             .orderBy("shift.start_time", "DESC")
-            .addOrderBy("sales.created_at", "DESC");
+            .addOrderBy("sales.created_at", "DESC")
+            // Performance: unbounded history grew linearly with app lifetime —
+            // 50 most recent shifts is plenty for the POS history view.
+            .take(50);
 
         if (userId) {
             query.where("shift.user_id = :userId", { userId });
@@ -164,9 +202,11 @@ export class ShiftsService {
 
         const shifts = await query.getMany();
 
-        return shifts.map(shift => ({
+        // Drop the joined user entity (contains the password hash) — expose
+        // only the display name.
+        return shifts.map(({ user, ...shift }) => ({
             ...shift,
-            user_name: shift.user?.name || 'Unknown',
+            user_name: user?.name || 'Unknown',
             sales: (shift.sales || []).map(sale => ({
                 ...sale,
                 sale_date: sale.created_at
@@ -193,6 +233,11 @@ export class ShiftsService {
         adminId: string,
         reason?: string
     ): Promise<ShiftEntity> {
+        const cash = round2(Number(finalCash));
+        if (!Number.isFinite(cash) || cash < 0) {
+            throw new Error("El monto final de caja es inválido");
+        }
+
         const shift = await this.shiftRepository.findOne({
             where: { id: shiftId },
             relations: ['expenses']
@@ -212,11 +257,11 @@ export class ShiftsService {
 
         const totalExpenses = (shift.expenses || []).reduce((sum, e) => sum + Number(e.amount), 0);
 
-        const expectedCash = Number(shift.initial_cash) + totalSalesCash + totalDebtCash - totalExpenses;
+        const expectedCash = round2(Number(shift.initial_cash) + totalSalesCash + totalDebtCash - totalExpenses);
 
-        shift.final_cash = finalCash;
+        shift.final_cash = cash;
         shift.expected_cash = expectedCash;
-        shift.difference = finalCash - expectedCash;
+        shift.difference = round2(cash - expectedCash);
         shift.end_time = new Date();
         shift.status = 'closed';
         shift.force_closed = true;

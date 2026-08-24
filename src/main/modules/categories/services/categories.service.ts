@@ -19,9 +19,10 @@ export class CategoriesService {
     }
 
     async findAllWithCount(): Promise<any[]> {
-        // Using QueryBuilder to match the original raw SQL logic efficiently
+        // Performance: NO join here — loadRelationCountAndMap issues its own
+        // COUNT query. The previous leftJoinAndSelect dragged every product row
+        // (legacy images included) across IPC just to count them.
         return this.categoryRepository.createQueryBuilder("category")
-            .leftJoinAndSelect("category.products", "product")
             .loadRelationCountAndMap("category.product_count", "category.products")
             .orderBy("category.name", "ASC")
             .getMany();

@@ -4,8 +4,10 @@
  * This is the single source of truth for the authenticated user and their
  * permissions. The renderer process CANNOT forge or escalate permissions because:
  *
- *   1. set-logged-in-user only accepts a userId string.
- *   2. restoreSession() re-fetches the user + role from the database.
+ *   1. The session is only established by a successful `login-request` (or by
+ *      `session:restore` presenting the session token issued at login).
+ *   2. Permissions are ALWAYS re-fetched from the database — never trusted
+ *      from any renderer payload.
  *   3. requirePermission() reads from this in-memory store, never from the renderer.
  */
 
@@ -20,11 +22,14 @@ export interface SessionUser {
   role: 'admin' | 'employee';
   username: string;
   name: string;
-  /**
-   * Granular permissions loaded from the user's Role entity in the DB.
-   * Empty array on a legacy admin means "no restrictions" (full access).
-   */
+  /** Granular permissions loaded from the user's Role entity in the DB. */
   permissions: string[];
+  /**
+   * True when the user has a Role entity assigned. Only a legacy admin
+   * WITHOUT a role entity bypasses granular checks — an assigned role with an
+   * empty permissions array grants nothing.
+   */
+  hasRoleEntity: boolean;
 }
 
 let currentUser: SessionUser | null = null;
@@ -48,25 +53,24 @@ export function requireAuth(): SessionUser {
 }
 
 /**
- * Asserts that the current user has the given granular permission.
- *
- * Legacy admins (role='admin' with empty permissions array) bypass all checks —
- * this ensures backward compatibility during and after the migration.
+ * Legacy admins (role='admin' with NO role entity) bypass granular checks —
+ * backward compatibility for installs created before the RBAC migration.
+ * A user with an assigned role — even one with zero permissions — never bypasses.
  */
+function isLegacyAdmin(user: SessionUser): boolean {
+  return user.role === 'admin' && !user.hasRoleEntity;
+}
+
+/** Asserts that the current user has (at least one of) the given permission(s). */
 export function requirePermission(permission: string | string[]): SessionUser {
   if (!currentUser) throw new Error('No hay sesión activa.');
-
-  // Legacy admin without role_entity → full access
-  if (currentUser.role === 'admin' && currentUser.permissions.length === 0) {
-    return currentUser;
-  }
+  if (isLegacyAdmin(currentUser)) return currentUser;
 
   const permissionsToCheck = Array.isArray(permission) ? permission : [permission];
-  
   const hasAny = permissionsToCheck.some(p => currentUser!.permissions.includes(p));
 
   if (!hasAny) {
-    console.error(`[Session] Permission Denied. Required: ${permissionsToCheck.join(' OR ')}. User has: ${currentUser.permissions.join(', ')}`);
+    console.error(`[Session] Permission Denied. Required: ${permissionsToCheck.join(' OR ')}.`);
     throw new Error(`Sin permiso para realizar esta acción (${permissionsToCheck.join(' o ')}).`);
   }
 
@@ -79,19 +83,17 @@ export function requirePermission(permission: string | string[]): SessionUser {
  */
 export function hasPermission(permission: string): boolean {
   if (!currentUser) return false;
-  if (currentUser.role === 'admin' && currentUser.permissions.length === 0) return true;
+  if (isLegacyAdmin(currentUser)) return true;
   return currentUser.permissions.includes(permission);
 }
 
 /**
- * Legacy guard kept for the onboarding flow where role is still the authority.
- * Prefer requirePermission() for all new code.
+ * Legacy guard kept for old call sites. Prefer requirePermission().
  * @deprecated Use requirePermission() instead.
  */
 export function requireRole(role: 'admin' | 'employee'): SessionUser {
   if (!currentUser) throw new Error('No hay sesión activa.');
   if (role === 'admin' && currentUser.role !== 'admin') {
-    // Also check if user has any admin-level permissions as a fallback
     throw new Error('Se requiere rol de administrador.');
   }
   return currentUser;
@@ -100,19 +102,18 @@ export function requireRole(role: 'admin' | 'employee'): SessionUser {
 // ─── Session operations ───────────────────────────────────────────────────────
 
 /**
- * Restores the session from the database by user ID.
- * Called by set-logged-in-user — permissions are ALWAYS loaded from DB, never
- * trusted from the renderer payload.
+ * Loads the user + role from the database and sets the in-memory session.
+ * Only callable from the main process (login, onboarding first-admin, restore).
  *
- * @returns true if session was successfully restored, false if user not found.
+ * @returns true if the session was established, false if user not found.
  */
-async function restoreSession(userId: string): Promise<boolean> {
+export async function establishSession(userId: string): Promise<boolean> {
   try {
     const usersService = new UsersService();
     const user = await usersService.findOneWithRole(userId);
 
     if (!user) {
-      console.warn(`[Session] restoreSession: user ${userId} not found in DB.`);
+      console.warn(`[Session] establishSession: user ${userId} not found in DB.`);
       return false;
     }
 
@@ -121,19 +122,21 @@ async function restoreSession(userId: string): Promise<boolean> {
       role: user.role,
       username: user.username,
       name: user.name,
-      // role_entity is eagerly loaded; empty array → legacy admin full-access path
       permissions: user.role_entity?.permissions ?? [],
+      hasRoleEntity: !!user.role_entity,
     };
 
-    console.log(
-      `[Session] Restored: ${user.username} (${user.role}) — ` +
-      `${currentUser.permissions.length === 0 ? 'full access (legacy admin)' : `${currentUser.permissions.length} permissions`}`
-    );
+    console.log(`[Session] Established: ${user.username} (${user.role})`);
     return true;
   } catch (err) {
-    console.error('[Session] restoreSession error:', err);
+    console.error('[Session] establishSession error:', err);
     return false;
   }
+}
+
+/** Clears the in-memory session (does not touch the DB token). */
+export function clearSession(): void {
+  currentUser = null;
 }
 
 // ─── IPC handlers ─────────────────────────────────────────────────────────────
@@ -141,22 +144,60 @@ async function restoreSession(userId: string): Promise<boolean> {
 /** Registers the session IPC handlers. Must be called before other handlers. */
 export function registerSessionHandlers() {
   /**
-   * Renderer sends either:
-   *   - A plain userId string (new behaviour after my refactor)
-   *   - A legacy object { id, role, ... } (onboarding wizard still sends this)
-   *
-   * In both cases we extract the id and re-fetch everything from the database.
+   * Restores a session persisted by the renderer across app restarts.
+   * Requires the session token issued by `login-request` — a bare userId is
+   * NOT enough to obtain a session.
    */
-  ipcMain.handle('set-logged-in-user', async (_event, payload: string | { id: string }) => {
-    const userId = typeof payload === 'string' ? payload : payload?.id;
-    if (!userId || typeof userId !== 'string') {
-      return { success: false, message: 'Invalid session payload.' };
+  ipcMain.handle('session:restore', async (_event, payload: { userId?: string; token?: string }) => {
+    try {
+      const userId = payload?.userId;
+      const token = payload?.token;
+      if (typeof userId !== 'string' || !userId || typeof token !== 'string' || !token) {
+        return { success: false, message: 'Sesión inválida. Inicia sesión de nuevo.' };
+      }
+
+      const usersService = new UsersService();
+      const valid = await usersService.verifySessionToken(userId, token);
+      if (!valid) {
+        return { success: false, message: 'La sesión ha expirado. Inicia sesión de nuevo.' };
+      }
+
+      const ok = await establishSession(userId);
+      return { success: ok, message: ok ? undefined : 'Usuario no encontrado.' };
+    } catch (err) {
+      console.error('[Session] session:restore error:', err);
+      return { success: false, message: 'Error al restaurar la sesión.' };
     }
-    const ok = await restoreSession(userId);
-    return { success: ok, message: ok ? undefined : 'User not found.' };
   });
 
-  ipcMain.handle('logout', () => {
+  /**
+   * Re-loads the current user from the DB (e.g. after editing your own account)
+   * and returns the sanitized user so the renderer can update its local copy.
+   */
+  ipcMain.handle('session:refresh', async () => {
+    try {
+      const session = requireAuth();
+      const usersService = new UsersService();
+      const user = await usersService.findOneWithRole(session.id);
+      if (!user) {
+        currentUser = null;
+        return { success: false, message: 'Usuario no encontrado.' };
+      }
+      await establishSession(user.id);
+      return { success: true, data: UsersService.toSafeUser(user) };
+    } catch (err: unknown) {
+      return { success: false, message: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  ipcMain.handle('logout', async () => {
+    try {
+      if (currentUser) {
+        await new UsersService().clearSessionToken(currentUser.id);
+      }
+    } catch (err) {
+      console.error('[Session] logout token cleanup error:', err);
+    }
     console.log(`[Session] Logged out: ${currentUser?.username ?? 'unknown'}`);
     currentUser = null;
     return { success: true };

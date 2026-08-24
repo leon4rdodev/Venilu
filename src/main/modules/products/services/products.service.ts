@@ -1,6 +1,7 @@
 import { AppDataSource } from "@main/config/data-source";
 import { Product as ProductEntity } from "@main/modules/products/entities/product.entity";
 import { SaleItem as SaleItemEntity } from "@main/modules/sales/entities/sale-item.entity";
+import { imagesService } from "@main/shared/services/images.service";
 import { Repository } from "typeorm";
 
 interface ProductQueryOptions {
@@ -10,6 +11,8 @@ interface ProductQueryOptions {
     category?: string;
     sortBy?: string;
     sortOrder?: 'ASC' | 'DESC';
+    /** 'low' = stock <= min_stock (and > 0), 'out' = stock 0 */
+    stockFilter?: 'all' | 'low' | 'out';
 }
 
 export class ProductsService {
@@ -46,6 +49,12 @@ export class ProductsService {
 
         if (category && category !== 'all') {
             queryBuilder.andWhere("product.category_id = :category", { category });
+        }
+
+        if (options.stockFilter === 'out') {
+            queryBuilder.andWhere("product.stock = 0");
+        } else if (options.stockFilter === 'low') {
+            queryBuilder.andWhere("product.stock > 0 AND product.stock <= product.min_stock");
         }
 
         // Validate Sort By to prevent SQL injection or errors (allowlist)
@@ -86,7 +95,7 @@ export class ProductsService {
 
     async getForPOS(options: ProductQueryOptions = {}) {
         // Similar to findAll but might return a simplified object or include stock status
-        const result = await this.findAll({ ...options, pageSize: options.pageSize || 20 });
+        const result = await this.findAll({ ...options, pageSize: options.pageSize || 40 });
         
         const productsWithStatus = result.products.map(p => {
              let stockStatus = 'in_stock';
@@ -105,42 +114,133 @@ export class ProductsService {
         };
     }
 
-    async create(productData: Partial<ProductEntity>): Promise<ProductEntity> {
-        // Ensure we don't save with an empty or provided ID so DB generates a UUID
-        const { id, category, ...data } = productData as any;
-        
+    /** Coerces and validates numeric product fields from an untrusted payload. */
+    private validateNumericFields(data: any): void {
+        if (data.sale_price !== undefined) {
+            data.sale_price = Number(data.sale_price);
+            if (!Number.isFinite(data.sale_price) || data.sale_price < 0) throw new Error("Precio de venta inválido");
+        }
+        if (data.cost_price !== undefined) {
+            data.cost_price = Number(data.cost_price);
+            if (!Number.isFinite(data.cost_price) || data.cost_price < 0) throw new Error("Precio de compra inválido");
+        }
+        if (data.stock !== undefined) {
+            data.stock = Number(data.stock);
+            if (!Number.isInteger(data.stock) || data.stock < 0) throw new Error("Stock inválido");
+        }
+        if (data.min_stock !== undefined) {
+            data.min_stock = Number(data.min_stock);
+            if (!Number.isInteger(data.min_stock) || data.min_stock < 0) throw new Error("Stock mínimo inválido");
+        }
+    }
+
+    /** Whitelists editable fields — never accepts id/timestamps/relations. */
+    private pickEditableFields(productData: Partial<ProductEntity>): any {
+        const { name, description, sale_price, cost_price, stock, min_stock, barcode, sku, image, category_id } =
+            productData as any;
+        const data: any = { name, description, sale_price, cost_price, stock, min_stock, barcode, sku, image, category_id };
+        Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
+
         // Convert empty string category_id to null to satisfy foreign key constraint
         if (data.category_id === "") {
             data.category_id = null;
+        }
+        return data;
+    }
+
+    /**
+     * Turns an incoming image value into a stored file name.
+     * - data URL (already WebP-compressed by the renderer) → saved to disk
+     * - existing managed file name → kept as-is
+     * - null/'' → cleared (old file deleted)
+     * The DB only ever stores the file name — never image bytes.
+     */
+    private processIncomingImage(value: unknown, currentFileName: string | null): string | null {
+        if (value === null || value === '') {
+            imagesService.deleteImage(currentFileName);
+            return null;
+        }
+        if (typeof value === 'string' && value.startsWith('data:image/')) {
+            const fileName = imagesService.saveFromDataUrl(value);
+            if (currentFileName && currentFileName !== fileName) {
+                imagesService.deleteImage(currentFileName);
+            }
+            return fileName;
+        }
+        if (imagesService.isManagedFileName(value)) {
+            return value;
+        }
+        throw new Error("Imagen de producto inválida");
+    }
+
+    async create(productData: Partial<ProductEntity>): Promise<ProductEntity> {
+        const data = this.pickEditableFields(productData);
+
+        if (typeof data.name !== 'string' || !data.name.trim()) {
+            throw new Error("El nombre del producto es requerido");
+        }
+        data.name = data.name.trim();
+        this.validateNumericFields(data);
+
+        if (data.image !== undefined) {
+            data.image = this.processIncomingImage(data.image, null);
         }
 
         const product = this.productRepository.create(data as Partial<ProductEntity>);
         return this.productRepository.save(product);
     }
 
-    async update(id: string, productData: Partial<ProductEntity>): Promise<ProductEntity> {
-        console.log(`ProductsService.update: ID parameter: "${id}"`);
-        
-        // Ensure we have an ID
-        if (id === undefined || id === null) {
-            id = (productData as any).id;
-        }
-
-        if (id === undefined || id === null) {
+    async update(
+        id: string,
+        productData: Partial<ProductEntity>,
+        opts: { canEditPrice?: boolean; canAdjustStock?: boolean } = { canEditPrice: true, canAdjustStock: true }
+    ): Promise<ProductEntity> {
+        if (!id) {
             throw new Error("Se requiere un ID de producto para actualizar");
         }
-        
-        // Remove properties that shouldn't be in a partial update
-        const { category, id: _id, created_at, updated_at, ...dataToUpdate } = productData as any;
-        
-        // Convert empty string category_id to null to satisfy foreign key constraint
-        if (dataToUpdate.category_id === "") {
-            dataToUpdate.category_id = null;
+
+        const current = await this.productRepository.findOneBy({ id });
+        if (!current) throw new Error("Producto no encontrado");
+
+        const dataToUpdate = this.pickEditableFields(productData);
+
+        if (dataToUpdate.name !== undefined) {
+            if (typeof dataToUpdate.name !== 'string' || !dataToUpdate.name.trim()) {
+                throw new Error("El nombre del producto es requerido");
+            }
+            dataToUpdate.name = dataToUpdate.name.trim();
         }
-        
-        // Use object criteria { id } to allow even empty strings as IDs in SQLite
-        await this.productRepository.update({ id: id }, dataToUpdate);
-        const updated = await this.productRepository.findOneBy({ id: id } as any);
+        this.validateNumericFields(dataToUpdate);
+
+        if (dataToUpdate.image !== undefined) {
+            dataToUpdate.image = this.processIncomingImage(dataToUpdate.image, current.image ?? null);
+        }
+
+        // Permission-gated fields: only enforced when the value actually
+        // changes, so edit dialogs may resend unchanged values freely.
+        const changedPrice =
+            (dataToUpdate.sale_price !== undefined && dataToUpdate.sale_price !== Number(current.sale_price)) ||
+            (dataToUpdate.cost_price !== undefined && dataToUpdate.cost_price !== Number(current.cost_price));
+        if (changedPrice && !opts.canEditPrice) {
+            throw new Error("Sin permiso para modificar precios");
+        }
+        if (!opts.canEditPrice) {
+            delete dataToUpdate.sale_price;
+            delete dataToUpdate.cost_price;
+        }
+
+        const changedStock = dataToUpdate.stock !== undefined && dataToUpdate.stock !== Number(current.stock);
+        if (changedStock && !opts.canAdjustStock) {
+            throw new Error("Sin permiso para ajustar el stock");
+        }
+        if (!opts.canAdjustStock) {
+            delete dataToUpdate.stock;
+        }
+
+        if (Object.keys(dataToUpdate).length === 0) return current;
+
+        await this.productRepository.update({ id }, dataToUpdate);
+        const updated = await this.productRepository.findOneBy({ id });
         if (!updated) throw new Error("Producto no encontrado después de la actualización");
         return updated;
     }
@@ -151,14 +251,27 @@ export class ProductsService {
         // Check for sales dependencies
         const salesCount = await this.saleItemRepository.count({ where: { product_id: id } });
         if (salesCount > 0) {
-            throw new Error("Cannot delete product because it has associated sales. usage: " + salesCount);
+            throw new Error("No se puede eliminar: el producto tiene ventas asociadas");
         }
 
-        // Use object criteria to allow empty strings
+        const product = await this.productRepository.findOneBy({ id });
         const result = await this.productRepository.delete({ id: id });
         if (result.affected === 0) {
-            throw new Error("Product not found");
+            throw new Error("Producto no encontrado");
         }
+
+        // Clean up the image file on disk (no-op for legacy/absent images)
+        if (product?.image) imagesService.deleteImage(product.image);
+    }
+
+    /** Exact barcode/SKU lookup for the POS scanner. */
+    async findByCode(code: string): Promise<ProductEntity | null> {
+        const trimmed = String(code ?? '').trim();
+        if (!trimmed) return null;
+        return this.productRepository.createQueryBuilder('product')
+            .leftJoinAndSelect('product.category', 'category')
+            .where('product.barcode = :code OR product.sku = :code', { code: trimmed })
+            .getOne();
     }
 
     async getLowStock(limit: number = 5): Promise<ProductEntity[]> {
@@ -173,14 +286,18 @@ export class ProductsService {
     async getInventoryStats() {
         const stats = await this.productRepository.createQueryBuilder("p")
             .select("COUNT(p.id)", "totalProducts")
+            .addSelect("SUM(p.stock)", "totalStockUnits")
             .addSelect("SUM(p.cost_price * p.stock)", "totalStockValue")
+            .addSelect("SUM(p.sale_price * p.stock)", "totalRetailValue")
             .addSelect("COUNT(CASE WHEN p.stock = 0 THEN 1 END)", "outOfStockProducts")
             .addSelect("COUNT(CASE WHEN p.stock <= p.min_stock AND p.stock > 0 THEN 1 END)", "lowStockProducts")
             .getRawOne();
-        
+
         return {
             totalProducts: Number(stats.totalProducts) || 0,
+            totalStockUnits: Number(stats.totalStockUnits) || 0,
             totalStockValue: Number(stats.totalStockValue) || 0,
+            totalRetailValue: Number(stats.totalRetailValue) || 0,
             outOfStockProducts: Number(stats.outOfStockProducts) || 0,
             lowStockProducts: Number(stats.lowStockProducts) || 0
         };

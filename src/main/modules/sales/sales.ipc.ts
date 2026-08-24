@@ -1,14 +1,25 @@
 import { ipcMain } from 'electron';
 import { SalesService } from '@main/modules/sales/services/sales.service';
-import { requirePermission } from '@main/shared/session';
+import { requirePermission, hasPermission } from '@main/shared/session';
 
 const salesService = new SalesService();
 
 export function registerSalesHandlers() {
   ipcMain.handle('process-sale', async (_event, { saleData, saleItems }) => {
     try {
-      requirePermission('pos:access');
-      const result = await salesService.processSale(saleData, saleItems);
+      const session = requirePermission('pos:access');
+
+      // Granular POS permissions
+      if (Number(saleData?.discount_amount) > 0) requirePermission('pos:apply_discount');
+      if (saleData?.payment_method === 'credit') requirePermission('pos:credit_sale');
+
+      // The sale is ALWAYS attributed to the session user — never to a
+      // renderer-supplied user_id.
+      const data = { ...saleData, user_id: session.id };
+
+      const result = await salesService.processSale(data, saleItems, {
+        allowPriceOverride: hasPermission('pos:price_override'),
+      });
       return result;
     } catch (err: any) {
       console.error('[sales.ipc] process-sale:', err);
@@ -16,11 +27,15 @@ export function registerSalesHandlers() {
     }
   });
 
-  ipcMain.handle('get-sales', async () => {
+  /**
+   * Filtered + paginated transaction history.
+   * Payload: { page, pageSize, search, method, status, startDate, endDate } (all optional).
+   */
+  ipcMain.handle('get-sales', async (_event, options) => {
     try {
       requirePermission('sales:view');
-      const sales = await salesService.getSales();
-      return { success: true, data: sales };
+      const result = await salesService.listSales(options ?? {});
+      return { success: true, data: result };
     } catch (err: any) {
       return { success: false, message: err.message };
     }
@@ -38,10 +53,8 @@ export function registerSalesHandlers() {
 
   ipcMain.handle('get-sale-items', async (_event, saleId) => {
     try {
-      console.log(`[SalesIPC] Fetching items for sale: ${saleId}`);
       requirePermission(['sales:view', 'pos:access']);
       const items = await salesService.getSaleItems(saleId);
-      console.log(`[SalesIPC] Found ${items.length} items`);
       return { success: true, data: items };
     } catch (err: any) {
       return { success: false, message: err.message };
@@ -50,8 +63,14 @@ export function registerSalesHandlers() {
 
   ipcMain.handle('pay-customer-debt', async (_event, { customerId, amount, shiftId, paymentMethod }) => {
     try {
-      requirePermission('customers:pay_debt');
-      const result = await salesService.payDebt(customerId, amount, shiftId, paymentMethod || 'cash');
+      const session = requirePermission('customers:pay_debt');
+
+      const method = paymentMethod ?? 'cash';
+      if (method !== 'cash' && method !== 'transfer') {
+        throw new Error('Método de pago inválido.');
+      }
+
+      const result = await salesService.payDebt(customerId, amount, shiftId, method, session.id);
       return { success: true, data: result };
     } catch (err: any) {
       console.error('[sales.ipc] pay-customer-debt:', err);

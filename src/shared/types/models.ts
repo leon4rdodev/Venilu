@@ -70,6 +70,11 @@ export interface Product {
   barcode?: string;
   sku?: string;
   min_stock?: number;
+  /**
+   * Product photo. Stored as a managed file name (e.g. "prod_ab12.webp") served
+   * via venilu://product-images/. Legacy rows may still hold a data URL.
+   */
+  image?: string | null;
   created_at: string | Date;
   updated_at: string | Date;
   has_sales?: boolean;

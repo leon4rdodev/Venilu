@@ -21,6 +21,18 @@ import { DataSource } from 'typeorm';
 
 import { Category } from '@main/modules/categories/entities/category.entity';
 import { Product } from '@main/modules/products/entities/product.entity';
+import { Customer } from '@main/modules/customers/entities/customer.entity';
+// El grafo de entidades debe estar completo para construir metadatos
+// (Customer→Sale→User/Shift/… encadenan al resto):
+import { User } from '@main/modules/users/entities/user.entity';
+import { Role } from '@main/modules/users/entities/role.entity';
+import { Sale } from '@main/modules/sales/entities/sale.entity';
+import { SaleItem } from '@main/modules/sales/entities/sale-item.entity';
+import { DebtPayment } from '@main/modules/sales/entities/debt-payment.entity';
+import { Shift } from '@main/modules/shifts/entities/shift.entity';
+import { ShiftExpense } from '@main/modules/shifts/entities/shift-expense.entity';
+import { Setting } from '@main/modules/settings/entities/setting.entity';
+import { AuditLog } from '@main/modules/audit/entities/audit-log.entity';
 
 // ─── Ruta a la DB de desarrollo ────────────────────────────────────────────
 function getDevDbPath(): string {
@@ -42,7 +54,7 @@ const SeedDataSource = new DataSource({
   database: getDevDbPath(),
   synchronize: true,
   logging: false,
-  entities: [Category, Product],
+  entities: [Category, Product, Customer, User, Role, Sale, SaleItem, DebtPayment, Shift, ShiftExpense, Setting, AuditLog],
 });
 
 // ─── Datos de Categorías ───────────────────────────────────────────────────
@@ -193,6 +205,38 @@ const productData: ProductSeed[] = [
   { name: 'Orégano Seco 30g', description: 'Orégano molido seco para sazón criolla, sobre de 30g', sale_price: 30.00, cost_price: 18.00, stock: 25, min_stock: 8, sku: 'CON-ORE-30', categoryIndex: 9 },
 ];
 
+// ─── Datos de Clientes ──────────────────────────────────────────────────────
+interface CustomerSeed {
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  credit_limit?: number | null;
+}
+
+const customerData: CustomerSeed[] = [
+  { name: 'Aníbal Rodríguez', phone: '809-555-0101', email: 'anibal.rodriguez@gmail.com', address: 'C/ Duarte #45, Villa Consuelo', credit_limit: 3000 },
+  { name: 'María Altagracia Peña', phone: '829-555-0102', address: 'Av. Independencia #120', credit_limit: 1500 },
+  { name: 'José Miguel Santana', phone: '809-555-0103', email: 'jm.santana@hotmail.com', address: 'C/ Sánchez #8, Los Mina' },
+  { name: 'Carmen Yolanda De la Cruz', phone: '849-555-0104', address: 'Respaldo 4, Villa Mella', credit_limit: 2000 },
+  { name: 'Ramón Emilio Guzmán', phone: '809-555-0105', address: 'C/ Primera #22, Herrera' },
+  { name: 'Yudelka Martínez', phone: '829-555-0106', email: 'yudelka.mtz@gmail.com', address: 'Av. Charles de Gaulle #310', credit_limit: 5000 },
+  { name: 'Francisco Javier Reyes', phone: '809-555-0107', address: 'C/ Central #15, Sabana Perdida' },
+  { name: 'Rosa Iris Fernández', phone: '849-555-0108', address: 'C/ Duarte esq. Mella', credit_limit: 1000 },
+  { name: 'Pedro Antonio Jiménez', phone: '809-555-0109', email: 'pjimenez@outlook.com', address: 'Av. Venezuela #78' },
+  { name: 'Luz Divina Rosario', phone: '829-555-0110', address: 'C/ 30 de Mayo #5, Cristo Rey' },
+  { name: 'Miguel Ángel Torres', phone: '809-555-0111', address: 'Prol. Independencia Km 9', credit_limit: 2500 },
+  { name: 'Ana Delia Vásquez', phone: '849-555-0112', email: 'anadelia.v@gmail.com', address: 'C/ Respaldo Los Ríos #14' },
+  { name: 'Julio César Medina', phone: '809-555-0113', address: 'C/ Club Rotario #33, Los Trinitarios' },
+  { name: 'Milagros Del Carmen Núñez', phone: '829-555-0114', address: 'Av. Sabana Larga #201', credit_limit: 1200 },
+  { name: 'Rafael Augusto Castillo', phone: '809-555-0115', email: 'r.castillo@gmail.com', address: 'C/ Paraguay #9, Alma Rosa' },
+  { name: 'Yokasta Hernández', phone: '849-555-0116', address: 'C/ Costa Rica #56' },
+  { name: 'Domingo Sánchez', phone: '809-555-0117', address: 'Km 12 Autopista Duarte', credit_limit: 800 },
+  { name: 'Esperanza Morel', phone: '829-555-0118', address: 'C/ Josefa Brea #102' },
+  { name: 'Víctor Manuel Almonte', phone: '809-555-0119', email: 'valmonte@hotmail.com', address: 'Av. San Vicente de Paúl #67', credit_limit: 4000 },
+  { name: 'Dulce María Paulino', phone: '849-555-0120', address: 'C/ 27 de Febrero #340' },
+];
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 async function seed() {
   console.log('🌱  Iniciando seed de base de datos...');
@@ -204,27 +248,30 @@ async function seed() {
   const categoryRepo = SeedDataSource.getRepository(Category);
   const productRepo = SeedDataSource.getRepository(Product);
 
-  // ── Limpiar datos previos ─────────────────────────────────────────────────
+  // ── Modo seguro: NUNCA borra datos existentes ─────────────────────────────
+  // (el borrado con FKs apagadas dejaba sale_items huérfanos). Solo se
+  // insertan las categorías/productos del catálogo que aún no existan.
   const existingProducts = await productRepo.count();
   const existingCategories = await categoryRepo.count();
+  console.log(`ℹ️  DB actual: ${existingCategories} categorías, ${existingProducts} productos. Se insertará solo lo que falte.\n`);
 
-  if (existingCategories > 0 || existingProducts > 0) {
-    console.log(`⚠️  La DB ya contiene ${existingCategories} categorías y ${existingProducts} productos.`);
-    await SeedDataSource.query('PRAGMA foreign_keys = OFF;');
-    await productRepo.clear();
-    await categoryRepo.clear();
-    await SeedDataSource.query('PRAGMA foreign_keys = ON;');
-  }
+  const existingProductNames = new Set(
+    (await productRepo.find({ select: { name: true } })).map((p) => p.name)
+  );
 
   // ── Insertar Categorías ────────────────────────────────────────────────────
   console.log('📂  Insertando categorías...');
   const categories: Category[] = [];
 
   for (const name of categoryData) {
-    const cat = categoryRepo.create({ name });
-    const saved = await categoryRepo.save(cat);
+    let saved = await categoryRepo.findOneBy({ name });
+    if (!saved) {
+      saved = await categoryRepo.save(categoryRepo.create({ name }));
+      console.log(`   ✔  ${saved.name}`);
+    } else {
+      console.log(`   ↺  ${saved.name} (ya existía)`);
+    }
     categories.push(saved);
-    console.log(`   ✔  ${saved.name} (${saved.id})`);
   }
 
   console.log(`\n✅  ${categories.length} categorías insertadas.\n`);
@@ -234,6 +281,7 @@ async function seed() {
   let productCount = 0;
 
   for (const p of productData) {
+    if (existingProductNames.has(p.name)) continue; // ya existe — no tocar
     const category = categories[p.categoryIndex];
     const product = productRepo.create({
       name: p.name,
@@ -250,7 +298,30 @@ async function seed() {
     process.stdout.write(`\r   Productos insertados: ${productCount}/${productData.length}`);
   }
 
-  console.log(`\n\n✅  ${productCount} productos insertados exitosamente.`);
+  console.log(`\n\n✅  ${productCount} productos insertados exitosamente.\n`);
+
+  // ── Insertar Clientes (modo seguro: solo los que falten por nombre) ────────
+  console.log('👥  Insertando clientes...');
+  const customerRepo = SeedDataSource.getRepository(Customer);
+  const existingCustomerNames = new Set(
+    (await customerRepo.find({ select: { name: true } })).map((c) => c.name)
+  );
+
+  let customerCount = 0;
+  for (const c of customerData) {
+    if (existingCustomerNames.has(c.name)) continue; // ya existe — no tocar
+    await customerRepo.save(customerRepo.create({
+      name: c.name,
+      phone: c.phone,
+      email: c.email,
+      address: c.address,
+      credit_limit: c.credit_limit ?? undefined,
+      balance: 0,
+    }));
+    customerCount++;
+  }
+  console.log(`✅  ${customerCount} clientes insertados.`);
+
   console.log('\n🎉  Seed completado!\n');
 
   await SeedDataSource.destroy();

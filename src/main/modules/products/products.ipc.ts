@@ -44,6 +44,19 @@ export function registerProductsHandlers() {
     }
   });
 
+  /** Exact barcode/SKU lookup for the POS scanner. Strips cost_price. */
+  ipcMain.handle('get-product-by-code', async (_event, code) => {
+    try {
+      requirePermission('pos:access');
+      const product = await productsService.findByCode(code);
+      if (!product) return { success: false, message: 'Producto no encontrado' };
+      const { cost_price: _stripped, ...rest } = product as any;
+      return { success: true, data: rest };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
   ipcMain.handle('create-product', async (_event, productData) => {
     try {
       requirePermission('inventory:create');
@@ -56,14 +69,14 @@ export function registerProductsHandlers() {
 
   ipcMain.handle('update-product', async (_event, { productId, productData }) => {
     try {
-      // Always require inventory:edit; additionally check edit_price if price changed
+      // Always require inventory:edit; price/stock changes are additionally
+      // gated inside the service (only when the value actually changes).
       requirePermission('inventory:edit');
 
-      const hasPriceChange =
-        productData.sale_price !== undefined || productData.cost_price !== undefined;
-      if (hasPriceChange) requirePermission('inventory:edit_price');
-
-      const product = await productsService.update(productId, productData);
+      const product = await productsService.update(productId, productData, {
+        canEditPrice: hasPermission('inventory:edit_price'),
+        canAdjustStock: hasPermission('inventory:adjust_stock'),
+      });
       return { success: true, data: product };
     } catch (err: any) {
       return { success: false, message: err.message };

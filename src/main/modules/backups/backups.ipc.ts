@@ -7,6 +7,13 @@ import { auditService } from '@main/modules/audit/services/audit.service';
 
 const backupsService = new BackupsService();
 
+/**
+ * Export destinations approved via the native save dialog in THIS session.
+ * backup:export refuses any destination the user did not pick in the dialog —
+ * this prevents the renderer from writing to arbitrary paths.
+ */
+const approvedExportDestinations = new Set<string>();
+
 export function registerBackupsHandlers() {
   ipcMain.handle('backup:create', async (_event, type) => {
     try {
@@ -65,6 +72,7 @@ export function registerBackupsHandlers() {
         return { success: false, canceled: true };
       }
 
+      approvedExportDestinations.add(path.resolve(rawResult.filePath));
       return { success: true, filePath: rawResult.filePath };
     } catch (err: any) {
       return { success: false, message: err.message };
@@ -90,8 +98,13 @@ export function registerBackupsHandlers() {
         throw new Error('El archivo de backup no existe.');
       }
 
-      // Validate destination is not inside userData (avoid accidental overwrite)
+      // Only allow destinations the user explicitly chose in the save dialog
       const resolvedDest = path.resolve(destinationPath);
+      if (!approvedExportDestinations.has(resolvedDest)) {
+        throw new Error('Destino no autorizado. Selecciona la ubicación con el diálogo de exportación.');
+      }
+      approvedExportDestinations.delete(resolvedDest);
+
       fs.copyFileSync(sourcePath, resolvedDest);
 
       auditService.log('backup:export', undefined, fileName, { destination: resolvedDest });

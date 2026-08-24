@@ -24,13 +24,19 @@ export class RolesService {
   }
 
   async create(data: { name: string; permissions: string[] }): Promise<Role> {
-    const existing = await this.roleRepo.findOneBy({ name: data.name });
-    if (existing) throw new Error(`Ya existe un rol llamado "${data.name}".`);
+    const name = typeof data?.name === 'string' ? data.name.trim() : '';
+    if (!name) throw new Error('El nombre del rol es requerido.');
+    if (!Array.isArray(data.permissions) || data.permissions.length === 0) {
+      throw new Error('El rol debe tener al menos un permiso.');
+    }
+
+    const existing = await this.roleRepo.findOneBy({ name });
+    if (existing) throw new Error(`Ya existe un rol llamado "${name}".`);
 
     this.validatePermissions(data.permissions);
 
     const role = this.roleRepo.create({
-      name: data.name.trim(),
+      name,
       is_system: false,
       permissions: data.permissions,
     });
@@ -52,7 +58,10 @@ export class RolesService {
       role.name = data.name.trim();
     }
 
-    if (data.permissions) {
+    if (data.permissions !== undefined) {
+      if (!Array.isArray(data.permissions) || data.permissions.length === 0) {
+        throw new Error('El rol debe tener al menos un permiso.');
+      }
       this.validatePermissions(data.permissions);
       role.permissions = data.permissions;
     }

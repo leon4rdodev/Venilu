@@ -1,37 +1,38 @@
 import { ipcMain } from "electron";
 import { ShiftsService } from "@main/modules/shifts/services/shifts.service";
-import { requireAuth, requirePermission, getSessionUser } from "@main/shared/session";
+import { requireAuth, requirePermission, hasPermission } from "@main/shared/session";
 
 const shiftsService = new ShiftsService();
 
 export function registerShiftsHandlers() {
-    // Any authenticated user can query their own active shift
-    ipcMain.handle('shifts:getActive', async (_event, { userId }) => {
+    // Any authenticated user can query THEIR OWN active shift.
+    // The identity always comes from the session — never from the payload.
+    ipcMain.handle('shifts:getActive', async () => {
         try {
-            requireAuth();
-            const shift = await shiftsService.getActiveShift(userId);
+            const session = requireAuth();
+            const shift = await shiftsService.getActiveShift(session.id);
             return { success: true, data: shift };
         } catch (error: any) {
             return { success: false, message: error.message };
         }
     });
 
-    // Guarded by pos:open_shift permission
-    ipcMain.handle('shifts:open', async (_event, { initialCash, user }) => {
+    // Guarded by pos:open_shift permission — opens a shift for the session user
+    ipcMain.handle('shifts:open', async (_event, { initialCash }) => {
         try {
-            requirePermission('pos:open_shift');
-            const shift = await shiftsService.createShift(user.id, initialCash);
+            const session = requirePermission('pos:open_shift');
+            const shift = await shiftsService.createShift(session.id, initialCash);
             return { success: true, data: shift };
         } catch (error: any) {
             return { success: false, message: error.message };
         }
     });
 
-    // Guarded by pos:close_shift permission
+    // Guarded by pos:close_shift permission — only the shift owner can close it
     ipcMain.handle('shifts:close', async (_event, { shiftId, finalCash }) => {
         try {
-            requirePermission('pos:close_shift');
-            const shift = await shiftsService.closeShift(shiftId, finalCash);
+            const session = requirePermission('pos:close_shift');
+            const shift = await shiftsService.closeShift(shiftId, finalCash, session.id);
             return { success: true, message: 'Shift closed successfully', data: shift };
         } catch (error: any) {
             return { success: false, message: error.message };
@@ -40,7 +41,8 @@ export function registerShiftsHandlers() {
 
     ipcMain.handle('shifts:getSales', async (_event, { shiftId }) => {
         try {
-            requireAuth();
+            const session = requireAuth();
+            await shiftsService.assertShiftAccess(shiftId, session.id, hasPermission('shifts:view_others'));
             const sales = await shiftsService.getShiftSales(shiftId);
             return { success: true, data: sales };
         } catch (error: any) {
@@ -48,15 +50,13 @@ export function registerShiftsHandlers() {
         }
     });
 
-    // Full history: admin/supervisor sees all, employee sees their own
-    ipcMain.handle('history:get', async (_event, { user }) => {
+    // Full history: users with shifts:view_others (or legacy admins) see all,
+    // everyone else sees only their own shifts — filtered by the SESSION id.
+    ipcMain.handle('history:get', async () => {
         try {
-            requireAuth();
-            const session = getSessionUser();
-            const hasPermission = session?.permissions.includes('shifts:view_others');
-            const isAdmin = session?.role === 'admin';
-            
-            const shifts = await shiftsService.getShiftsHistory((isAdmin || hasPermission) ? undefined : user.id);
+            const session = requireAuth();
+            const canViewOthers = hasPermission('shifts:view_others');
+            const shifts = await shiftsService.getShiftsHistory(canViewOthers ? undefined : session.id);
             return { success: true, data: shifts };
         } catch (error: any) {
             return { success: false, message: error.message };
@@ -66,7 +66,8 @@ export function registerShiftsHandlers() {
     // Debt payments for a given shift (for close-shift summary)
     ipcMain.handle('shifts:getDebtPayments', async (_event, { shiftId }) => {
         try {
-            requireAuth();
+            const session = requireAuth();
+            await shiftsService.assertShiftAccess(shiftId, session.id, hasPermission('shifts:view_others'));
             const payments = await shiftsService.getDebtPayments(shiftId);
             return { success: true, data: payments };
         } catch (error: any) {
@@ -76,7 +77,8 @@ export function registerShiftsHandlers() {
 
     ipcMain.handle('shifts:getExpenses', async (_event, { shiftId }) => {
         try {
-            requireAuth();
+            const session = requireAuth();
+            await shiftsService.assertShiftAccess(shiftId, session.id, hasPermission('shifts:view_others'));
             const shift = await shiftsService.getShiftWithExpenses(shiftId);
             return { success: true, data: shift?.expenses || [] };
         } catch (error: any) {
@@ -86,8 +88,8 @@ export function registerShiftsHandlers() {
 
     ipcMain.handle('shifts:add-expense', async (_event, { shiftId, amount, reason }) => {
         try {
-            requirePermission('shifts:manage_expenses');
-            const expense = await shiftsService.addExpense(shiftId, amount, reason);
+            const session = requirePermission('shifts:manage_expenses');
+            const expense = await shiftsService.addExpense(shiftId, amount, reason, session.id);
             return { success: true, data: expense };
         } catch (error: any) {
             return { success: false, message: error.message };
