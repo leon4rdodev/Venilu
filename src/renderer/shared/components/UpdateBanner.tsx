@@ -1,4 +1,5 @@
-import { Download, RefreshCw, Rocket, X, Sparkles } from 'lucide-react';
+import { Download, Rocket, X, Sparkles } from 'lucide-react';
+import { Skeleton } from '@components/ui/skeleton';
 import { useState } from 'react';
 import { useUpdater } from '@renderer/shared/hooks/use-updater';
 
@@ -133,10 +134,7 @@ export function UpdateBanner() {
 
         {isAvailable && (
           <div className="mt-3 flex items-center gap-2">
-            <RefreshCw
-              className="h-3.5 w-3.5 text-muted-foreground animate-spin"
-              style={{ animationDuration: '3s' }}
-            />
+            <Skeleton className="h-3.5 w-3.5 rounded-full" />
             <span className="text-xs text-muted-foreground">
               Descargando en segundo plano…
             </span>

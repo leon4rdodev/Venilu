@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@components/ui/card";
 import { Button } from "@components/ui/button";
 import { Download, RefreshCw, Database, AlertTriangle, Trash2, Upload } from "lucide-react";
+import { WidgetHeader } from "@renderer/shared/components/widget-header";
 import { toast } from "sonner";
 import {
     AlertDialog,
@@ -21,7 +21,6 @@ import {
     TableHeader,
     TableRow,
 } from "@components/ui/table";
-import { Badge } from "@components/ui/badge";
 
 interface BackupInfo {
     fileName: string;
@@ -195,26 +194,23 @@ export function BackupSettings() {
     const getBackupTypeBadge = (type: string) => {
         switch (type) {
             case 'manual':
-                return <Badge variant="default">Manual</Badge>;
+                return <span className="inline-flex items-center rounded-full bg-foreground px-2 py-1 text-xs font-medium text-background whitespace-nowrap">Manual</span>;
             case 'auto':
-                return <Badge variant="secondary">Automático</Badge>;
+                return <span className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium text-foreground whitespace-nowrap">Automático</span>;
             case 'pre-restore':
-                return <Badge variant="outline">Pre-restauración</Badge>;
+                return <span className="inline-flex items-center rounded-full border border-border px-2 py-1 text-xs font-medium text-muted-foreground whitespace-nowrap">Pre-restauración</span>;
             default:
-                return <Badge variant="outline">{type}</Badge>;
+                return <span className="inline-flex items-center rounded-full border border-border px-2 py-1 text-xs font-medium text-muted-foreground whitespace-nowrap">{type}</span>;
         }
     };
 
     return (
-        <Card className="border-border/50 shadow-sm bg-card/50 backdrop-blur-sm">
-            <CardHeader>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <CardTitle>Copias de Seguridad</CardTitle>
-                        <CardDescription>
-                            Gestiona las copias de seguridad de tu base de datos
-                        </CardDescription>
-                    </div>
+        <div className="bg-card border border-border rounded-lg p-6">
+            <WidgetHeader
+                icon={Database}
+                title="Copias de Seguridad"
+                subtitle="Gestiona las copias de seguridad de tu base de datos"
+                action={
                     <div className="flex gap-2">
                         <Button
                             variant="outline"
@@ -222,7 +218,7 @@ export function BackupSettings() {
                             onClick={loadBackups}
                             disabled={loading}
                         >
-                            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                            <RefreshCw className="h-4 w-4 mr-2" strokeWidth={1.75} />
                             Actualizar
                         </Button>
                         <Button
@@ -230,37 +226,39 @@ export function BackupSettings() {
                             disabled={loading}
                             size="sm"
                         >
-                            <Database className="h-4 w-4 mr-2" />
+                            <Database className="h-4 w-4 mr-2" strokeWidth={1.75} />
                             Crear Copia de Seguridad
                         </Button>
                     </div>
-                </div>
-            </CardHeader>
-            <CardContent>
+                }
+            />
+            <div className="mt-4">
                 {backups.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground">
-                        <Database className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p>No hay copias de seguridad disponibles</p>
-                        <p className="text-sm mt-2">Crea tu primera copia de seguridad para proteger tus datos</p>
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <div className="w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-3">
+                            <Database className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} />
+                        </div>
+                        <p className="text-sm font-medium text-muted-foreground">No hay copias de seguridad disponibles</p>
+                        <p className="text-sm text-muted-foreground mt-1">Crea tu primera copia de seguridad para proteger tus datos</p>
                     </div>
                 ) : (
                     <Table>
                         <TableHeader>
-                            <TableRow>
-                                <TableHead>Fecha</TableHead>
-                                <TableHead>Tipo</TableHead>
-                                <TableHead>Tamaño</TableHead>
-                                <TableHead className="text-right">Acciones</TableHead>
+                            <TableRow className="border-b border-border hover:bg-transparent">
+                                <TableHead className="text-xs text-muted-foreground font-medium">Fecha</TableHead>
+                                <TableHead className="text-xs text-muted-foreground font-medium">Tipo</TableHead>
+                                <TableHead className="text-xs text-muted-foreground font-medium">Tamaño</TableHead>
+                                <TableHead className="text-xs text-muted-foreground font-medium text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
-                        <TableBody>
+                        <TableBody className="divide-y divide-border [&_tr]:border-0">
                             {backups.map((backup) => (
                                 <TableRow key={backup.fileName}>
                                     <TableCell className="font-medium">
                                         {formatDate(backup.createdAt)}
                                     </TableCell>
                                     <TableCell>{getBackupTypeBadge(backup.type)}</TableCell>
-                                    <TableCell>{formatFileSize(backup.size)}</TableCell>
+                                    <TableCell className="text-muted-foreground tabular-nums">{formatFileSize(backup.size)}</TableCell>
                                     <TableCell>
                                         <div className="flex justify-end gap-2">
                                             <Button
@@ -269,7 +267,7 @@ export function BackupSettings() {
                                                 onClick={() => handleExportBackup(backup)}
                                                 disabled={loading}
                                             >
-                                                <Upload className="h-4 w-4 mr-1" />
+                                                <Upload className="h-4 w-4 mr-1" strokeWidth={1.75} />
                                                 Exportar
                                             </Button>
                                             <Button
@@ -281,7 +279,7 @@ export function BackupSettings() {
                                                 }}
                                                 disabled={loading}
                                             >
-                                                <Download className="h-4 w-4 mr-1" />
+                                                <Download className="h-4 w-4 mr-1" strokeWidth={1.75} />
                                                 Restaurar
                                             </Button>
                                             <Button
@@ -293,7 +291,7 @@ export function BackupSettings() {
                                                 }}
                                                 disabled={loading}
                                             >
-                                                <Trash2 className="h-4 w-4" />
+                                                <Trash2 className="h-4 w-4" strokeWidth={1.75} />
                                             </Button>
                                         </div>
                                     </TableCell>
@@ -378,7 +376,7 @@ export function BackupSettings() {
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 }

@@ -4,7 +4,7 @@ import { Button } from "@components/ui/button"
 import { startOfDay, endOfDay, subMonths } from "date-fns"
 import { useState } from "react"
 import type { DateRange } from "react-day-picker"
-import { FileDown, Loader2 } from "lucide-react"
+import { FileDown } from "lucide-react"
 
 interface ReportsHeaderProps {
   onDateRangeChange: (range: DateRange) => void;
@@ -58,10 +58,7 @@ export function ReportsHeader({ onDateRangeChange, onGeneratePDF }: ReportsHeade
           variant="default"
         >
           {isGeneratingPDF ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Generando...
-            </>
+            <>Generando...</>
           ) : (
             <>
               <FileDown className="mr-2 h-4 w-4" />

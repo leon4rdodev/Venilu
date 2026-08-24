@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@components/ui/card"
 import { Button } from "@components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@components/ui/table"
-import { Badge } from "@components/ui/badge"
 import { useUser } from "@renderer/features/auth"
+import { WidgetHeader } from "@renderer/shared/components/widget-header"
 import { RoleDialog } from './role-dialog';
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@components/ui/alert-dialog';
 import { ipc } from '@lib/ipc';
 import { Role } from '@shared/types/models';
-import { Shield, Settings, AlertCircle } from 'lucide-react';
+import { Shield, ShieldCheck, Settings, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface RolesResponse {
@@ -19,7 +18,7 @@ interface RolesResponse {
 
 export function RolesSettings() {
   const { user } = useUser();
-  // Only system admins should really manage roles, we check role === 'admin' 
+  // Only system admins should really manage roles, we check role === 'admin'
   // or maybe better, permissions, but role === 'admin' is safe here since this is the settings UI
   const isAdmin = user?.role === 'admin';
   const [roles, setRoles] = useState<Role[]>([]);
@@ -40,7 +39,7 @@ export function RolesSettings() {
         toast.error('Error al cargar roles');
       }
     }
-    
+
     loadRoles();
   }, [refreshTrigger]);
 
@@ -75,40 +74,39 @@ export function RolesSettings() {
 
   return (
     <>
-      <Card className="border-border/50 shadow-sm bg-card/50 backdrop-blur-sm">
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <div>
-            <CardTitle className="text-base">Roles y Permisos</CardTitle>
-            <CardDescription className="text-xs">Configura roles personalizados y asigna permisos específicos</CardDescription>
-          </div>
-          {isAdmin && (
+      <div className="bg-card border border-border rounded-lg p-6">
+        <WidgetHeader
+          icon={ShieldCheck}
+          title="Roles y Permisos"
+          subtitle="Configura roles personalizados y asigna permisos específicos"
+          action={isAdmin && (
             <Button size="sm" onClick={() => { setSelectedRole(null); setIsDialogOpen(true); }}>
               Crear Nuevo Rol
             </Button>
           )}
-        </CardHeader>
-        <CardContent>
+        />
+        <div className="mt-4 overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Nombre del Rol</TableHead>
-                <TableHead>Nivel de Acceso</TableHead>
-                <TableHead>Permisos</TableHead>
-                {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
+              <TableRow className="border-b border-border hover:bg-transparent">
+                <TableHead className="text-xs text-muted-foreground font-medium">Nombre del Rol</TableHead>
+                <TableHead className="text-xs text-muted-foreground font-medium">Nivel de Acceso</TableHead>
+                <TableHead className="text-xs text-muted-foreground font-medium">Permisos</TableHead>
+                {isAdmin && <TableHead className="text-xs text-muted-foreground font-medium text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="divide-y divide-border [&_tr]:border-0">
               {roles.map((role) => (
                 <TableRow key={role.id}>
                   <TableCell className="font-medium flex items-center gap-2">
-                    {role.is_system ? <Shield className="h-4 w-4 text-primary" /> : <Settings className="h-4 w-4 text-muted-foreground" />}
+                    {role.is_system ? <Shield className="h-4 w-4 text-foreground" strokeWidth={1.75} /> : <Settings className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />}
                     {role.name}
                   </TableCell>
                   <TableCell>
                     {role.is_system ? (
-                      <Badge variant="default" className="bg-primary/20 text-primary hover:bg-primary/30">Sistema</Badge>
+                      <span className="inline-flex items-center rounded-full bg-foreground px-2 py-1 text-xs font-medium text-background whitespace-nowrap">Sistema</span>
                     ) : (
-                      <Badge variant="secondary">Personalizado</Badge>
+                      <span className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium text-foreground whitespace-nowrap">Personalizado</span>
                     )}
                   </TableCell>
                   <TableCell>
@@ -124,13 +122,13 @@ export function RolesSettings() {
                         </div>
                       ) : (
                         <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedRole(role); setIsDialogOpen(true); }}>
+                          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => { setSelectedRole(role); setIsDialogOpen(true); }}>
                             Editar
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-destructive" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive"
                             onClick={() => { setSelectedRole(role); setIsAlertOpen(true); }}
                             disabled={role.is_system}
                             title={role.is_system ? "Los roles del sistema no se pueden eliminar" : ""}
@@ -152,8 +150,8 @@ export function RolesSettings() {
               )}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <RoleDialog
         role={selectedRole}
@@ -166,7 +164,7 @@ export function RolesSettings() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-destructive" />
+              <AlertCircle className="h-5 w-5 text-destructive" strokeWidth={1.75} />
               ¿Eliminar rol personalizado?
             </AlertDialogTitle>
             <AlertDialogDescription>

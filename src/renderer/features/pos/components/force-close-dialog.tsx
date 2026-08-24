@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@components/ui/dialog";
+import { Dialog, DialogContent } from "@components/ui/dialog";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
@@ -29,7 +29,7 @@ export function ForceCloseDialog({ open, onOpenChange, shiftId, onSuccess }: For
 
   const handleForceClose = async () => {
     if (!shiftId) return;
-    
+
     const parsedCash = parseFloat(finalCash);
     if (isNaN(parsedCash) || parsedCash < 0) {
       toast.error("Monto inválido", { description: "Por favor, ingresa un monto válido para el efectivo contado." });
@@ -66,18 +66,21 @@ export function ForceCloseDialog({ open, onOpenChange, shiftId, onSuccess }: For
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="h-5 w-5" />
-            Cerrar Turno Forzosamente
-          </DialogTitle>
-          <DialogDescription>
+      <DialogContent className="sm:max-w-[425px] p-0 gap-0 overflow-hidden">
+        {/* Header */}
+        <div className="p-5 pb-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-destructive/10 text-destructive flex items-center justify-center shrink-0">
+              <AlertTriangle className="h-4 w-4" strokeWidth={1.75} />
+            </div>
+            <h2 className="text-lg font-semibold tracking-tight">Cerrar Turno Forzosamente</h2>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1 ml-[42px]">
             Estás a punto de cerrar el turno de otro usuario. Esta acción quedará registrada en el historial.
-          </DialogDescription>
-        </DialogHeader>
+          </p>
+        </div>
 
-        <div className="grid gap-4 py-4">
+        <div className="p-5 grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="finalCash">Efectivo Físico en Caja</Label>
             <Input
@@ -91,6 +94,7 @@ export function ForceCloseDialog({ open, onOpenChange, shiftId, onSuccess }: For
               }}
               placeholder="0.00"
               autoComplete="off"
+              className="h-10 bg-background text-right font-mono tabular-nums"
             />
           </div>
 
@@ -102,18 +106,20 @@ export function ForceCloseDialog({ open, onOpenChange, shiftId, onSuccess }: For
               onChange={(e) => setReason(e.target.value)}
               placeholder="Ej: El cajero tuvo que salir de emergencia..."
               rows={3}
+              className="bg-background resize-none"
             />
           </div>
         </div>
 
-        <DialogFooter>
+        {/* Actions */}
+        <div className="p-5 pt-4 border-t border-border flex justify-end gap-3">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
             Cancelar
           </Button>
           <Button variant="destructive" onClick={handleForceClose} disabled={isLoading || !finalCash || !reason.trim()}>
             {isLoading ? "Cerrando..." : "Cerrar Turno"}
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { LogOut, Sun, Moon } from "lucide-react"
+import { LogOut, Sun, Moon, ChevronRight } from "lucide-react"
 import { useTheme } from "@hooks/use-theme"
 import { CloseShiftDialog, useShift } from "@renderer/features/pos"
 import { useUser } from "@renderer/features/auth"
@@ -10,6 +10,11 @@ interface HeaderProps {
   userRole: string | null;
 }
 
+/**
+ * Vercel-style top navigation: brand + breadcrumb-like shift chip on the left,
+ * round icon buttons + user pill on the right. Full-width, hairline border,
+ * no shadows.
+ */
 export function Header({ userName, userRole }: HeaderProps) {
   const { theme, setTheme } = useTheme()
   const { activeShift, shiftSales, shiftDebtPayments, shiftExpenses } = useShift();
@@ -22,11 +27,9 @@ export function Header({ userName, userRole }: HeaderProps) {
     const cashSalesTotal = activeSales
       .filter(sale => sale.payment_method === 'cash')
       .reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0);
-    // Add cash debt payments received during this shift
     const cashDebtTotal = (shiftDebtPayments || [])
       .filter(p => p.payment_method === 'cash')
       .reduce((sum, p) => sum + Number(p.amount || 0), 0);
-    // Subtract expenses
     const totalExpenses = (shiftExpenses || [])
       .reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
@@ -37,71 +40,79 @@ export function Header({ userName, userRole }: HeaderProps) {
     setTheme(theme === "dark" ? "light" : "dark")
   }
 
+  const initial = (userName || "?").charAt(0).toUpperCase();
+
   return (
     <>
-      <header className="sticky top-0 z-30 grid grid-cols-[1fr_auto_1fr] h-16 items-center border-b bg-sidebar px-6">
-        {/* Left Section */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2.5 rounded-full border bg-card/80 backdrop-blur-sm px-4 py-2 shadow-sm">
-            <span className="text-sm font-semibold whitespace-nowrap">
-              {userName || 'Invitado'}
-            </span>
-            {userRole && (
-              <>
-                <span className="h-4 w-px bg-border" />
-                <span className="text-xs text-muted-foreground capitalize">{userRole}</span>
-              </>
-            )}
-          </div>
-        </div>
+      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-background px-5">
+        {/* Left: brand + shift status chip */}
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-xl font-bold tracking-tight select-none">Venilu</span>
 
-        {/* Center Section - Shift Indicator (perfectly centered via grid) */}
-        <div className="flex items-center justify-center">
           {activeShift && (
-            <button
-              onClick={() => setCloseShiftDialogOpen(true)}
-              className="flex items-center gap-3 rounded-full border bg-card/80 backdrop-blur-sm pl-3 pr-4 py-2 hover:bg-muted/60 transition-all duration-200 shadow-sm"
-            >
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
-              </span>
-              <span className="text-sm text-muted-foreground">Caja abierta</span>
-              <span className="h-4 w-px bg-border" />
-              <span className="text-sm font-semibold tabular-nums">{formatCurrency(currentCashInDrawer)}</span>
-            </button>
+            <>
+              <ChevronRight className="h-4 w-4 text-muted-foreground/60 shrink-0" strokeWidth={1.75} />
+              <button
+                onClick={() => setCloseShiftDialogOpen(true)}
+                title="Ver / cerrar turno"
+                className="flex items-center gap-2 rounded-full border border-border pl-1.5 pr-3 py-1 hover:bg-muted transition-colors min-w-0"
+              >
+                <span className="flex h-6 w-6 items-center justify-center shrink-0">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                  </span>
+                </span>
+                <div className="flex items-baseline gap-1.5 text-sm min-w-0">
+                  <span className="font-medium whitespace-nowrap">Caja abierta</span>
+                  <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+                    {formatCurrency(currentCashInDrawer)}
+                  </span>
+                </div>
+              </button>
+            </>
           )}
         </div>
 
-        {/* Right Section */}
-        <div className="flex items-center justify-end gap-1.5">
-          <div className="flex items-center rounded-full border bg-card/80 backdrop-blur-sm shadow-sm">
-            <button
-              onClick={toggleTheme}
-              className="flex items-center justify-center h-9 w-9 rounded-full hover:bg-muted/60 transition-colors"
-            >
-              {theme === "dark" ? (
-                <Moon className="h-4 w-4" />
-              ) : (
-                <Sun className="h-4 w-4" />
+        {/* Right: icon buttons + user pill */}
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={toggleTheme}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            {theme === "dark" ? (
+              <Moon className="h-4 w-4" strokeWidth={1.75} />
+            ) : (
+              <Sun className="h-4 w-4" strokeWidth={1.75} />
+            )}
+            <span className="sr-only">Cambiar tema</span>
+          </button>
+
+          <button
+            onClick={logout}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors"
+          >
+            <LogOut className="h-4 w-4" strokeWidth={1.75} />
+            <span className="sr-only">Cerrar sesión</span>
+          </button>
+
+          <div className="flex items-center gap-2 rounded-full border border-border pl-1.5 pr-3 py-1">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-[11px] font-bold select-none">
+              {initial}
+            </div>
+            <div className="hidden sm:flex items-baseline gap-1.5 text-sm min-w-0">
+              <span className="font-medium truncate">{userName || "Invitado"}</span>
+              {userRole && (
+                <span className="text-xs text-muted-foreground capitalize truncate">{userRole}</span>
               )}
-              <span className="sr-only">Cambiar tema</span>
-            </button>
-            <span className="h-4 w-px bg-border" />
-            <button
-              onClick={logout}
-              className="flex items-center justify-center h-9 w-9 rounded-full text-destructive hover:bg-destructive/10 transition-colors"
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="sr-only">Cerrar sesión</span>
-            </button>
+            </div>
           </div>
         </div>
       </header>
 
-      <CloseShiftDialog 
-        isOpen={isCloseShiftDialogOpen} 
-        onClose={() => setCloseShiftDialogOpen(false)} 
+      <CloseShiftDialog
+        isOpen={isCloseShiftDialogOpen}
+        onClose={() => setCloseShiftDialogOpen(false)}
       />
     </>
   )

@@ -1,94 +1,102 @@
-import { useState, useEffect, useCallback } from "react"
-import { Package, DollarSign, AlertTriangle, XCircle } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
+import { Package, DollarSign, AlertTriangle, XCircle, Layers, Percent, Tag } from "lucide-react"
 import { formatCurrency } from "@lib/currency"
 import { InventoryMetricCard } from "./inventory-metric-card"
 import { ipc } from "@lib/ipc"
 
 interface InventoryStatsData {
   totalProducts: number
+  totalStockUnits: number
   totalStockValue: number
+  totalRetailValue: number
   lowStockProducts: number
   outOfStockProducts: number
 }
 
-export function InventoryStats() {
-  const [isLoading, setIsLoading] = useState(true)
-  const [statsData, setStatsData] = useState<InventoryStatsData>({
-    totalProducts: 0,
-    totalStockValue: 0,
-    lowStockProducts: 0,
-    outOfStockProducts: 0,
-  })
+const EMPTY_STATS: InventoryStatsData = {
+  totalProducts: 0,
+  totalStockUnits: 0,
+  totalStockValue: 0,
+  totalRetailValue: 0,
+  lowStockProducts: 0,
+  outOfStockProducts: 0,
+}
 
-  const fetchStats = useCallback(async () => {
-    setIsLoading(true)
-    try {
+export function InventoryStats() {
+  // Cached — the CacheBridge invalidates on 'inventory-updated'/'categories-updated'
+  const { data, isPending } = useQuery({
+    queryKey: ['inventory-stats'],
+    queryFn: async () => {
       const result = await ipc.invoke('get-inventory-stats') as {
         success: boolean
         data?: InventoryStatsData
         message?: string
       }
-      if (result.success && result.data) {
-        setStatsData(result.data)
+      if (!result.success || !result.data) {
+        throw new Error(result.message || 'Error al cargar estadísticas de inventario')
       }
-    } catch (error) {
-      console.error('Error fetching inventory stats:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+      return { ...EMPTY_STATS, ...result.data }
+    },
+  })
 
-  useEffect(() => {
-    fetchStats()
+  const statsData = data ?? EMPTY_STATS
 
-    // Re-fetch when products change (listen for custom events)
-    const handleProductsChanged = () => fetchStats()
-    window.addEventListener('inventory-updated', handleProductsChanged)
-    window.addEventListener('categories-updated', handleProductsChanged)
-
-    return () => {
-      window.removeEventListener('inventory-updated', handleProductsChanged)
-      window.removeEventListener('categories-updated', handleProductsChanged)
-    }
-  }, [fetchStats])
+  // Potential gross margin if the whole stock sold at current prices
+  const potentialMargin = statsData.totalRetailValue > 0
+    ? ((statsData.totalRetailValue - statsData.totalStockValue) / statsData.totalRetailValue) * 100
+    : 0
 
   const stats = [
     {
       title: "Total de Productos",
       value: statsData.totalProducts,
       icon: Package,
-
     },
     {
-      title: "Valor del Inventario",
+      title: "Unidades en Stock",
+      value: statsData.totalStockUnits.toLocaleString("es-DO"),
+      icon: Layers,
+    },
+    {
+      title: "Inversión (Costo)",
       value: formatCurrency(statsData.totalStockValue),
       icon: DollarSign,
-
+    },
+    {
+      title: "Valor de Venta",
+      value: formatCurrency(statsData.totalRetailValue),
+      icon: Tag,
+    },
+    {
+      title: "Margen Potencial",
+      value: `${potentialMargin.toFixed(1)}%`,
+      icon: Percent,
+      trend: (potentialMargin > 0 ? "up" : "neutral") as "up" | "neutral" | "down",
+      change: potentialMargin > 0 ? "Ganancia" : "—",
     },
     {
       title: "Bajo Stock",
       value: statsData.lowStockProducts,
       icon: AlertTriangle,
-
-      trend: statsData.lowStockProducts > 0 ? "down" : "neutral" as "down" | "neutral" | "up",
-      change: statsData.lowStockProducts > 0 ? "Atención" : "Normal"
+      trend: (statsData.lowStockProducts > 0 ? "down" : "neutral") as "down" | "neutral" | "up",
+      change: statsData.lowStockProducts > 0 ? "Atención" : "Normal",
     },
     {
       title: "Agotados",
       value: statsData.outOfStockProducts,
       icon: XCircle,
-      trend: statsData.outOfStockProducts > 0 ? "down" : "neutral" as "down" | "neutral" | "up",
-      change: statsData.outOfStockProducts > 0 ? "Crítico" : "Óptimo"
-    }
+      trend: (statsData.outOfStockProducts > 0 ? "down" : "neutral") as "down" | "neutral" | "up",
+      change: statsData.outOfStockProducts > 0 ? "Crítico" : "Óptimo",
+    },
   ]
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
       {stats.map((stat, index) => (
         <InventoryMetricCard
-          key={index}
+          key={stat.title}
           index={index}
-          isLoading={isLoading}
+          isLoading={isPending}
           {...stat}
         />
       ))}

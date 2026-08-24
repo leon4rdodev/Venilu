@@ -6,7 +6,12 @@ export function useOnboarding() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Runs ONCE at app start — the onboarding state can only change through the
+  // wizard itself, so re-checking on every navigation was pure IPC noise.
   useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
     const checkOnboarding = async () => {
       try {
         if (!window.ipcRenderer) {
@@ -20,23 +25,30 @@ export function useOnboarding() {
           completed: boolean
         };
 
+        if (cancelled) return;
+
         if (result.success) {
           setOnboardingCompleted(result.completed);
 
           if (!result.completed && location.pathname !== '/onboarding') {
-            setTimeout(() => {
+            timer = setTimeout(() => {
               navigate('/onboarding', { replace: true });
-            }, 1500);
+            }, 300);
           }
         }
       } catch (error) {
         console.error('Error checking onboarding:', error);
-        setOnboardingCompleted(false);
+        if (!cancelled) setOnboardingCompleted(false);
       }
     };
 
     checkOnboarding();
-  }, [location.pathname, navigate]);
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const completeOnboarding = () => {
     setOnboardingCompleted(true);

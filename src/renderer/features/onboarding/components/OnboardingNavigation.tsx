@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { STEPS } from '@renderer/features/onboarding/types/onboarding.types';
@@ -42,11 +41,7 @@ export function OnboardingNavigation({
                     className="gap-2 min-w-[120px]"
                 >
                     {isLoading ? (
-                        <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ repeat: Infinity, duration: 0.8, ease: 'linear' }}
-                            className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full"
-                        />
+                        "Guardando..."
                     ) : isLastStep ? (
                         <><CheckCircle2 className="w-4 h-4" />Finalizar</>
                     ) : (

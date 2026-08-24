@@ -144,8 +144,8 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="p-5 pb-3 space-y-1 shrink-0 border-b">
-          <h2 className="text-xl font-semibold tracking-tight">Cerrar Caja</h2>
+        <div className="p-5 pb-3 space-y-1 shrink-0 border-b border-border">
+          <h2 className="text-lg font-semibold tracking-tight">Cerrar Caja</h2>
           <p className="text-sm text-muted-foreground">
             Realiza el arqueo y cierra el turno actual
           </p>
@@ -156,32 +156,32 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
 
         {/* Shift Duration Badge */}
         <div className="px-5 pt-4 pb-3">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/60 text-xs font-medium text-muted-foreground">
-            <Clock className="h-3 w-3" />
+          <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-muted text-xs font-medium text-muted-foreground">
+            <Clock className="h-3 w-3" strokeWidth={1.75} />
             Turno activo: {shiftDuration}
           </div>
         </div>
 
         {/* Sales Summary Section */}
         <div className="px-5 pb-3">
-          <div className="rounded-lg border bg-muted/30 divide-y">
+          <div className="rounded-lg border border-border bg-card divide-y divide-border">
             {/* Revenue Overview */}
             <div className="p-4 space-y-3">
               <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                <TrendingUp className="h-3 w-3" />
+                <TrendingUp className="h-3 w-3" strokeWidth={1.75} />
                 Resumen de Ventas
               </div>
               <div className="grid grid-cols-3 gap-2">
-                <div className="text-center p-2.5 rounded-md bg-background/50 border min-w-0">
-                  <p className="text-2xl font-bold tabular-nums">{totalTransactions}</p>
+                <div className="text-center p-2.5 rounded-md bg-muted/50 min-w-0">
+                  <p className="text-2xl font-semibold tracking-tight tabular-nums">{totalTransactions}</p>
                   <p className="text-[11px] text-muted-foreground mt-1">Transacciones</p>
                 </div>
-                <div className="text-center p-2.5 rounded-md bg-background/50 border min-w-0">
-                  <p className="text-sm font-bold tabular-nums truncate" title={formatCurrency(totalSales)}>{formatCurrency(totalSales)}</p>
+                <div className="text-center p-2.5 rounded-md bg-muted/50 min-w-0">
+                  <p className="text-sm font-semibold font-mono tabular-nums truncate" title={formatCurrency(totalSales)}>{formatCurrency(totalSales)}</p>
                   <p className="text-[11px] text-muted-foreground mt-1">Ventas Totales</p>
                 </div>
-                <div className="text-center p-2.5 rounded-md bg-background/50 border min-w-0">
-                  <p className="text-sm font-bold tabular-nums truncate" title={formatCurrency(totalTransactions > 0 ? totalSales / totalTransactions : 0)}>{formatCurrency(totalTransactions > 0 ? totalSales / totalTransactions : 0)}</p>
+                <div className="text-center p-2.5 rounded-md bg-muted/50 min-w-0">
+                  <p className="text-sm font-semibold font-mono tabular-nums truncate" title={formatCurrency(totalTransactions > 0 ? totalSales / totalTransactions : 0)}>{formatCurrency(totalTransactions > 0 ? totalSales / totalTransactions : 0)}</p>
                   <p className="text-[11px] text-muted-foreground mt-1">Ticket Promedio</p>
                 </div>
               </div>
@@ -190,18 +190,18 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
             {/* Payment Breakdown */}
             <div className="p-4 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-sm shrink-0">
-                  <Banknote className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <div className="flex items-center gap-2 text-sm text-muted-foreground shrink-0">
+                  <Banknote className="h-4 w-4" strokeWidth={1.75} />
                   <span>Efectivo</span>
                 </div>
-                <span className="text-sm font-semibold tabular-nums truncate" title={formatCurrency(cashSalesTotal)}>{formatCurrency(cashSalesTotal)}</span>
+                <span className="text-sm font-medium font-mono tabular-nums truncate" title={formatCurrency(cashSalesTotal)}>{formatCurrency(cashSalesTotal)}</span>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-sm shrink-0">
-                  <CreditCard className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <div className="flex items-center gap-2 text-sm text-muted-foreground shrink-0">
+                  <CreditCard className="h-4 w-4" strokeWidth={1.75} />
                   <span>Tarjeta / Transferencia</span>
                 </div>
-                <span className="text-sm font-semibold tabular-nums truncate" title={formatCurrency(otherSalesTotal)}>{formatCurrency(otherSalesTotal)}</span>
+                <span className="text-sm font-medium font-mono tabular-nums truncate" title={formatCurrency(otherSalesTotal)}>{formatCurrency(otherSalesTotal)}</span>
               </div>
             </div>
           </div>
@@ -210,28 +210,28 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
         {/* Abonos Section */}
         {shiftDebtPayments.length > 0 && (
           <div className="px-5 pb-3">
-            <div className="rounded-lg border bg-muted/30 divide-y">
+            <div className="rounded-lg border border-border bg-card divide-y divide-border">
               <div className="p-4 space-y-2.5">
                 <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                  <HandCoins className="h-3 w-3" />
+                  <HandCoins className="h-3 w-3" strokeWidth={1.75} />
                   Abonos a Deudas ({totalDebtPayments})
                 </div>
                 {cashDebtTotal > 0 && (
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-sm shrink-0">
-                      <Banknote className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground shrink-0">
+                      <Banknote className="h-4 w-4" strokeWidth={1.75} />
                       <span>Efectivo</span>
                     </div>
-                    <span className="text-sm font-semibold tabular-nums text-green-700 dark:text-green-400">+{formatCurrency(cashDebtTotal)}</span>
+                    <span className="text-sm font-medium font-mono tabular-nums text-emerald-600 dark:text-emerald-400">+{formatCurrency(cashDebtTotal)}</span>
                   </div>
                 )}
                 {transferDebtTotal > 0 && (
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-sm shrink-0">
-                      <CreditCard className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground shrink-0">
+                      <CreditCard className="h-4 w-4" strokeWidth={1.75} />
                       <span>Transferencia</span>
                     </div>
-                    <span className="text-sm font-semibold tabular-nums">{formatCurrency(transferDebtTotal)}</span>
+                    <span className="text-sm font-medium font-mono tabular-nums">{formatCurrency(transferDebtTotal)}</span>
                   </div>
                 )}
               </div>
@@ -242,23 +242,23 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
         {/* Cash Reconciliation */}
         <div className="px-5 pb-3 space-y-2">
           <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-            <Wallet className="h-3 w-3" />
+            <Wallet className="h-3 w-3" strokeWidth={1.75} />
             Arqueo de Caja
           </div>
 
-          <div className="rounded-lg border divide-y text-sm">
+          <div className="rounded-lg border border-border divide-y divide-border text-sm">
             <div className="flex items-center justify-between gap-2 px-3.5 py-2.5">
               <span className="text-sm text-muted-foreground shrink-0">Fondo inicial</span>
-              <span className="text-sm font-medium tabular-nums truncate">{formatCurrency(initialCash)}</span>
+              <span className="text-sm font-medium font-mono tabular-nums truncate">{formatCurrency(initialCash)}</span>
             </div>
             <div className="flex items-center justify-between gap-2 px-3.5 py-2.5">
               <span className="text-sm text-muted-foreground shrink-0">+ Ventas en efectivo</span>
-              <span className="text-sm font-medium tabular-nums truncate text-green-700 dark:text-green-400">+{formatCurrency(cashSalesTotal)}</span>
+              <span className="text-sm font-medium font-mono tabular-nums truncate text-emerald-600 dark:text-emerald-400">+{formatCurrency(cashSalesTotal)}</span>
             </div>
             {cashDebtTotal > 0 && (
               <div className="flex items-center justify-between gap-2 px-3.5 py-2.5">
                 <span className="text-sm text-muted-foreground shrink-0">+ Abonos en efectivo</span>
-                <span className="text-sm font-medium tabular-nums truncate text-green-700 dark:text-green-400">+{formatCurrency(cashDebtTotal)}</span>
+                <span className="text-sm font-medium font-mono tabular-nums truncate text-emerald-600 dark:text-emerald-400">+{formatCurrency(cashDebtTotal)}</span>
               </div>
             )}
             {totalExpenses > 0 && (
@@ -274,12 +274,12 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
                     <Eye className="h-3.5 w-3.5" />
                   </Button>
                 </div>
-                <span className="text-sm font-bold tabular-nums truncate text-destructive">-{formatCurrency(totalExpenses)}</span>
+                <span className="text-sm font-semibold font-mono tabular-nums truncate text-destructive">-{formatCurrency(totalExpenses)}</span>
               </div>
             )}
-            <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 bg-muted/40">
+            <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 bg-muted/50">
               <span className="text-sm font-semibold shrink-0">Efectivo esperado</span>
-              <span className="text-sm font-bold tabular-nums truncate">{formatCurrency(expectedCash)}</span>
+              <span className="text-sm font-semibold font-mono tabular-nums truncate">{formatCurrency(expectedCash)}</span>
             </div>
           </div>
         </div>
@@ -290,7 +290,7 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
             Efectivo contado en caja
           </Label>
           <div className="relative">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-muted-foreground pointer-events-none">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-semibold text-muted-foreground pointer-events-none">
               {getCurrencySymbol()}
             </div>
             <Input
@@ -301,7 +301,7 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
               value={finalCash}
               onChange={handleAmountChange}
               placeholder="0.00"
-              className="h-12 text-lg! text-right font-bold pl-20 pr-5"
+              className="h-12 text-lg! text-right font-semibold tabular-nums pl-20 pr-5 bg-background"
               style={{ fontSize: '1.25rem' }}
               disabled={isLoading}
             />
@@ -315,7 +315,7 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
               className={cn(
                 "flex items-center justify-between p-3.5 rounded-lg border",
                 difference === 0
-                  ? "bg-green-500/10 border-green-500/20"
+                  ? "bg-emerald-500/10 border-emerald-500/20"
                   : difference < 0
                     ? "bg-red-500/10 border-red-500/20"
                     : "bg-amber-500/10 border-amber-500/20"
@@ -323,16 +323,16 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
             >
               <div className="flex items-center gap-2">
                 {difference === 0 ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
                 ) : difference < 0 ? (
-                  <ArrowDownCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                  <ArrowDownCircle className="h-5 w-5 text-red-600 dark:text-red-400" strokeWidth={1.75} />
                 ) : (
-                  <ArrowUpCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  <ArrowUpCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />
                 )}
                 <div>
                   <p className={cn(
                     "text-sm font-semibold",
-                    difference === 0 ? "text-green-700 dark:text-green-400"
+                    difference === 0 ? "text-emerald-600 dark:text-emerald-400"
                       : difference < 0 ? "text-red-700 dark:text-red-400"
                         : "text-amber-700 dark:text-amber-400"
                   )}>
@@ -349,8 +349,8 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
                 </div>
               </div>
               <span className={cn(
-                "text-sm font-bold tabular-nums shrink-0",
-                difference === 0 ? "text-green-700 dark:text-green-400"
+                "text-sm font-semibold font-mono tabular-nums shrink-0",
+                difference === 0 ? "text-emerald-600 dark:text-emerald-400"
                   : difference < 0 ? "text-red-700 dark:text-red-400"
                     : "text-amber-700 dark:text-amber-400"
               )}>
@@ -363,7 +363,7 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
         </div>{/* end scrollable */}
 
         {/* Actions */}
-        <div className="p-5 pt-3 border-t flex gap-3 shrink-0">
+        <div className="p-5 pt-3 border-t border-border flex gap-3 shrink-0">
           <Button
             variant="outline"
             onClick={onClose}
@@ -379,10 +379,7 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
             variant={difference !== null && difference < 0 ? "destructive" : "default"}
           >
             {isLoading ? (
-              <>
-                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Cerrando...
-              </>
+              <>Cerrando...</>
             ) : (
               <><LockKeyhole className="h-4 w-4" />Cerrar Turno</>
             )}

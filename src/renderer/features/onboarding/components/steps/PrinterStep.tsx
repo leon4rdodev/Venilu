@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { Printer } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { Label } from '@components/ui/label';
@@ -62,11 +61,7 @@ export function PrinterStep({
             </div>
 
             {hasPrinterSelected && (
-                <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="space-y-3"
-                >
+                <div className="space-y-3">
                     <div className="space-y-1.5">
                         <Label className="text-sm">Tamaño de papel</Label>
                         <Select
@@ -93,11 +88,11 @@ export function PrinterStep({
                         <Printer className="w-4 h-4 mr-2" />
                         Imprimir ticket de prueba
                     </Button>
-                </motion.div>
+                </div>
             )}
 
             {printers.length === 0 && (
-                <div className="text-center py-6 text-sm text-muted-foreground bg-muted/30 rounded-xl border border-dashed border-border">
+                <div className="text-center py-6 text-sm text-muted-foreground bg-muted/30 rounded-lg border border-dashed border-border">
                     No se encontraron impresoras físicas.<br />
                     <span className="text-xs">
                         Puedes configurar esto más tarde en Ajustes.

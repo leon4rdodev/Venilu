@@ -1,5 +1,4 @@
-
-import { useMemo, createElement } from "react";
+import { useMemo, createElement, memo } from "react";
 import { Card } from "@components/ui/card";
 import {
   Smartphone,
@@ -10,6 +9,7 @@ import {
   Package,
 } from "lucide-react";
 import { formatCurrency } from "@lib/currency";
+import { productImageSrc } from "@lib/image";
 import { cn } from "@lib/utils";
 
 export const getCategoryIcon = (category: string) => {
@@ -23,15 +23,10 @@ export const getCategoryIcon = (category: string) => {
   return Package;
 };
 
-export const getCategoryColor = (category: string) => {
-  const lower = category.toLowerCase();
-  if (lower.includes("celular") || lower.includes("phone")) return "text-blue-500 bg-blue-500/10";
-  if (lower.includes("audífono")) return "text-purple-500 bg-purple-500/10";
-  if (lower.includes("cargador") || lower.includes("cable")) return "text-amber-500 bg-amber-500/10";
-  if (lower.includes("protector") || lower.includes("funda")) return "text-green-500 bg-green-500/10";
-  if (lower.includes("repuesto")) return "text-orange-500 bg-orange-500/10";
-  if (lower.includes("accesorio")) return "text-cyan-500 bg-cyan-500/10";
-  return "text-muted-foreground bg-muted/50";
+// Monochrome (Vercel-style): category icons are neutral — color is reserved
+// for semantic states (stock, danger, success) only.
+export const getCategoryColor = (_category: string) => {
+  return "text-muted-foreground bg-muted";
 };
 
 import { Product } from "@shared/types/models";
@@ -41,58 +36,78 @@ interface ProductCardProps {
   onAddToCart: (product: Product) => void;
 }
 
-export function ProductCard({ product, onAddToCart }: ProductCardProps) {
+/** Memoized — with a stable onAddToCart, typing in the search box only re-renders changed cards. */
+export const ProductCard = memo(function ProductCard({ product, onAddToCart }: ProductCardProps) {
   const categoryIcon = useMemo(() => getCategoryIcon(product.category?.name || ""), [product.category]);
   const colorClasses = useMemo(() => getCategoryColor(product.category?.name || ""), [product.category]);
   const isOutOfStock = product.stock === 0;
-  const isLowStock = product.stock > 0 && product.stock <= (product.min_stock || 10);
+  const isLowStock = product.stock > 0 && product.stock <= (product.min_stock || 5);
+  const imageSrc = productImageSrc(product.image);
 
   return (
     <Card
       className={cn(
-        "group relative cursor-pointer border rounded-xl overflow-hidden transition-all duration-200 h-full flex flex-col justify-between bg-card",
+        "group relative cursor-pointer border rounded-lg overflow-hidden transition-all duration-200 h-full flex flex-col bg-card p-0 gap-0",
         isOutOfStock
           ? "opacity-60 cursor-not-allowed bg-muted/20"
           : "hover:shadow-md hover:border-primary/40 hover:-translate-y-1 active:translate-y-0"
       )}
       onClick={() => !isOutOfStock && onAddToCart(product)}
     >
-      {/* Top section: Icon and Stock Badge */}
-      <div className="relative p-4 flex items-start justify-between gap-2">
-        <div className={cn("p-2.5 rounded-xl transition-all duration-300 group-hover:scale-105 shrink-0", colorClasses.split(" ").slice(1).join(" "))}>
-          {createElement(categoryIcon, { className: cn("h-6 w-6", colorClasses.split(" ")[0]) })}
-        </div>
-        
+      {/* Photo — full-width hero on top */}
+      <div className="relative w-full aspect-square bg-muted/30 overflow-hidden shrink-0">
+        {imageSrc ? (
+          <img
+            src={imageSrc}
+            alt={product.name}
+            loading="lazy"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className={cn("p-4 rounded-2xl", colorClasses.split(" ").slice(1).join(" "))}>
+              {createElement(categoryIcon, { className: cn("h-10 w-10", colorClasses.split(" ")[0]) })}
+            </div>
+          </div>
+        )}
+
+        {/* Stock badge overlaid on the photo */}
         <span
           className={cn(
-            "text-[10px] font-bold px-2 py-1 rounded-full border shadow-sm shrink-0 whitespace-nowrap",
+            "absolute top-2 right-2 text-[10px] font-bold px-2 py-1 rounded-full border shadow-sm whitespace-nowrap backdrop-blur-sm",
             isOutOfStock
-              ? "bg-destructive/10 text-destructive border-destructive/20"
+              ? "bg-destructive/90 text-white border-destructive/20"
               : isLowStock
-                ? "bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-900/30 dark:text-amber-400"
-                : "bg-secondary text-secondary-foreground border-transparent"
+                ? "bg-amber-500/90 text-white border-amber-200/40"
+                : "bg-background/85 text-foreground border-border/60"
           )}
         >
           {isOutOfStock ? "Agotado" : `${product.stock} disp.`}
         </span>
       </div>
 
-      {/* Product info */}
-      <div className="px-4 pb-4 flex-1 flex flex-col justify-between gap-2">
-        <h3 
-          className="font-medium text-sm text-foreground/90 group-hover:text-primary transition-colors duration-200 truncate"
+      {/* Info below the photo */}
+      <div className="p-3.5 flex-1 flex flex-col gap-1.5">
+        <h3
+          className="font-medium text-sm leading-snug text-foreground/90 group-hover:text-primary transition-colors duration-200 line-clamp-2"
           title={product.name}
         >
           {product.name}
         </h3>
-        
-        <div className="pt-2 border-t border-border/50 mt-auto">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Precio</p>
-          <p className="text-lg font-bold text-primary tracking-tight truncate" title={formatCurrency(product.sale_price)}>
-            {formatCurrency(product.sale_price)}
-          </p>
+
+        {product.category?.name && (
+          <p className="text-[11px] text-muted-foreground truncate">{product.category.name}</p>
+        )}
+
+        <div className="pt-2 border-t border-border/50 mt-auto flex items-end justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Precio</p>
+            <p className="text-lg font-bold text-primary tracking-tight truncate" title={formatCurrency(product.sale_price)}>
+              {formatCurrency(product.sale_price)}
+            </p>
+          </div>
         </div>
       </div>
     </Card>
   );
-}
+});

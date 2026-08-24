@@ -1,37 +1,35 @@
-import { Sidebar, Header, useSidebar } from "@renderer/features/layout"
+import { useEffect, useRef } from "react"
+import { Sidebar, Header } from "@renderer/features/layout"
 import { useUser } from "@renderer/features/auth"
-import { useShift } from "@renderer/features/pos"
-import { Spinner } from "@components/ui/spinner"
-import { Outlet } from "react-router-dom"
-import { cn } from "@lib/utils"
+import { Outlet, useLocation } from "react-router-dom"
 
+/**
+ * Vercel-style app shell: full-width 64px top bar, 64px icon rail below it,
+ * content canvas to the right. Never blocked by data loading — the shift chip
+ * simply appears in the header when its data arrives.
+ */
 export function MainLayout() {
-  const { collapsed } = useSidebar()
   const { user } = useUser();
-  const { isLoading: isShiftLoading } = useShift();
+  const { pathname } = useLocation();
+  const mainRef = useRef<HTMLElement>(null);
 
-  const role = (user as unknown as { role_entity?: { name: string } })?.role_entity?.name || user?.role || null;
+  // The <main> element persists across navigations, so without this the new
+  // page would inherit the previous page's scroll position (visible "jump").
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 });
+  }, [pathname]);
+
+  const role = user?.role_entity?.name || user?.role || null;
   const name = user?.name || null;
 
-  if (isShiftLoading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <Spinner size="large" />
-      </div>
-    );
-  }
-
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      
-      <div className={cn(
-        "flex-1 flex flex-col transition-all duration-200 ease-in-out", 
-        collapsed ? "ml-16" : "ml-64"
-      )}>
-        <Header userName={name} userRole={role} />
-        
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background p-6">
+    <div className="flex h-screen flex-col overflow-hidden bg-background">
+      <Header userName={name} userRole={role} />
+
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar />
+
+        <main ref={mainRef} className="flex-1 overflow-y-auto overflow-x-hidden ml-16 p-5">
           <Outlet />
         </main>
       </div>

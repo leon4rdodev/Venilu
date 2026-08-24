@@ -62,76 +62,77 @@
 
 /* === Light theme variables === */
 :root {
-  /* Tech/Electronics Aesthetic - Clean, Cool, Modern */
-  --background: oklch(0.985 0.005 240); /* Cool off-white */
-  --foreground: oklch(0.14 0.05 260); /* Deep cool gray/navy */
-  --card: oklch(1 0 0); /* Pure white for contrast */
-  --card-foreground: oklch(0.14 0.05 260);
+  /* Vercel-style monochrome — pure neutrals, black primary, subtle borders */
+  --background: oklch(1 0 0); /* Pure white */
+  --foreground: oklch(0.145 0 0); /* Near-black #0a0a0a */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.14 0.05 260);
-  --primary: oklch(0.55 0.22 260); /* Tech Blue */
-  --primary-foreground: oklch(0.98 0 0); /* White text on blue */
-  --secondary: oklch(0.96 0.01 240); /* Very light cool gray */
-  --secondary-foreground: oklch(0.14 0.05 260);
-  --muted: oklch(0.96 0.01 240);
-  --muted-foreground: oklch(0.55 0.02 260);
-  --accent: oklch(0.94 0.02 260); /* Light blue-gray accent */
-  --accent-foreground: oklch(0.14 0.05 260);
-  --destructive: oklch(0.55 0.22 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.92 0.01 240); /* Cool gray border */
-  --input: oklch(0.92 0.01 240);
-  --ring: oklch(0.55 0.22 260); /* Blue ring */
-  --chart-1: oklch(0.55 0.22 260); /* Blue */
-  --chart-2: oklch(0.45 0.18 200); /* Teal/Cyan */
-  --chart-3: oklch(0.35 0.12 300); /* Purple */
-  --chart-4: oklch(0.65 0.15 85); /* Orange */
-  --chart-5: oklch(0.75 0.12 50); /* Amber */
-  --radius: 0.5rem;
-  --sidebar: oklch(0.985 0.005 240);
-  --sidebar-foreground: oklch(0.14 0.05 260);
-  --sidebar-primary: oklch(0.55 0.22 260);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.94 0.02 260);
-  --sidebar-accent-foreground: oklch(0.14 0.05 260);
-  --sidebar-border: oklch(0.92 0.01 240);
-  --sidebar-ring: oklch(0.55 0.22 260);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.145 0 0); /* Black — Vercel-style primary buttons */
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.97 0 0); /* #f5f5f5 */
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0); /* #737373 */
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.3); /* Functional red kept for danger */
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.922 0 0); /* #e5e5e5 */
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0); /* Neutral gray focus ring */
+  --chart-1: oklch(0.205 0 0); /* Monochrome ramp: dark → light */
+  --chart-2: oklch(0.371 0 0);
+  --chart-3: oklch(0.556 0 0);
+  --chart-4: oklch(0.708 0 0);
+  --chart-5: oklch(0.87 0 0);
+  --radius: 0.75rem; /* Generous rounding for cards/dialogs (rounded-lg/xl map to this) */
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.955 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
 }
 
 /* === Dark theme variables === */
 .dark {
-  --background: oklch(0.12 0.03 260); /* Deep slate/navy */
-  --foreground: oklch(0.96 0.01 240); /* High readability white */
-  --card: oklch(0.16 0.03 260); /* Slightly lighter slate */
-  --card-foreground: oklch(0.96 0.01 240);
-  --popover: oklch(0.16 0.03 260);
-  --popover-foreground: oklch(0.96 0.01 240);
-  --primary: oklch(0.6 0.22 260); /* Lighter Blue for dark mode */
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.2 0.04 260); /* Dark blue-gray */
-  --secondary-foreground: oklch(0.96 0.01 240);
-  --muted: oklch(0.2 0.04 260);
-  --muted-foreground: oklch(0.7 0.02 240);
-  --accent: oklch(0.22 0.05 260); /* Accent blue-gray */
-  --accent-foreground: oklch(0.96 0.01 240);
-  --destructive: oklch(0.6 0.25 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.22 0.05 260);
-  --input: oklch(0.22 0.05 260);
-  --ring: oklch(0.6 0.22 260);
-  --chart-1: oklch(0.6 0.22 260);
-  --chart-2: oklch(0.5 0.18 200);
-  --chart-3: oklch(0.4 0.12 300);
-  --chart-4: oklch(0.7 0.15 85);
-  --chart-5: oklch(0.8 0.12 50);
-  --sidebar: oklch(0.1 0.03 260); /* Even darker for sidebar contrast */
-  --sidebar-foreground: oklch(0.96 0.01 240);
-  --sidebar-primary: oklch(0.6 0.22 260);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.16 0.03 260);
-  --sidebar-accent-foreground: oklch(0.96 0.01 240);
-  --sidebar-border: oklch(0.22 0.05 260);
-  --sidebar-ring: oklch(0.6 0.22 260);
+  /* Vercel dark: #0a0a0a base, hairline #262626 borders, white primary */
+  --background: oklch(0.145 0 0); /* #0a0a0a */
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.169 0 0); /* Subtle lift over the background */
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.169 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0); /* White — inverted Vercel button */
+  --primary-foreground: oklch(0.145 0 0);
+  --secondary: oklch(0.269 0 0); /* #262626 */
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.235 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.2);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.269 0 0); /* Hairline #262626 */
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0); /* Monochrome ramp: light → dark */
+  --chart-2: oklch(0.708 0 0);
+  --chart-3: oklch(0.556 0 0);
+  --chart-4: oklch(0.438 0 0);
+  --chart-5: oklch(0.371 0 0);
+  --sidebar: oklch(0.125 0 0); /* Slightly darker than the canvas */
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.985 0 0);
+  --sidebar-primary-foreground: oklch(0.145 0 0);
+  --sidebar-accent: oklch(0.205 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.235 0 0);
+  --sidebar-ring: oklch(0.556 0 0);
 }
 
 /* === Tailwind Theme Mapping === */

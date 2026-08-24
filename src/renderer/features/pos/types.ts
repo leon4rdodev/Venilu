@@ -31,6 +31,7 @@ export type ShiftSale = Pick<Sale, 'total_amount' | 'payment_method' | 'status'>
  */
 export interface ShiftHistoryEntry {
   id: string;
+  user_id: string;
   user_name: string;
   start_time: string;
   end_time: string | null;

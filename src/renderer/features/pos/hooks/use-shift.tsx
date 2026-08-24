@@ -41,13 +41,15 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
     if (!user) {
       setActiveShift(null);
       setShiftSales([]);
+      setShiftDebtPayments([]);
       setShiftExpenses([]);
       setIsLoading(false);
       return;
     }
     setIsLoading(true);
     try {
-      const result = await window.ipcRenderer.invoke('shifts:getActive', { userId: user.id }) as IPCResponse<Shift>;
+      // Identity comes from the main-process session — no payload needed
+      const result = await window.ipcRenderer.invoke('shifts:getActive') as IPCResponse<Shift>;
       if (result.success && result.data) {
         setActiveShift(result.data);
         // Fetch sales for the active shift
@@ -91,7 +93,7 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
     if (!user) {
       return { success: false, message: 'No user logged in.' } as IPCResponse<Shift>;
     }
-    const result = await window.ipcRenderer.invoke('shifts:open', { initialCash, user }) as IPCResponse<Shift>;
+    const result = await window.ipcRenderer.invoke('shifts:open', { initialCash }) as IPCResponse<Shift>;
     if (result.success && result.data) {
       setActiveShift(result.data);
       setShiftSales([]);

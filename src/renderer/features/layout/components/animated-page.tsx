@@ -1,44 +1,9 @@
-import { motion } from "framer-motion";
+import { ReactNode } from "react";
 
-const pageVariants = {
-  initial: {
-    opacity: 0,
-    y: 10,
-  },
-  in: {
-    opacity: 1,
-    y: 0,
-  },
-  out: {
-    opacity: 0,
-    y: -10,
-  },
-};
-
-const pageTransition = {
-  type: "tween" as const,
-  ease: "easeOut" as const,
-  duration: 0,
-};
-
-// Assuming AnimatedPageProps is defined elsewhere or needs to be added.
-// For the purpose of this edit, we'll define a basic one if not provided.
-interface AnimatedPageProps {
-  children: React.ReactNode;
-  className?: string; // Added className based on the instruction
+/**
+ * Formerly animated the page entrance; now a pure passthrough so every
+ * screen renders instantly. Kept as a component to avoid breaking imports.
+ */
+export function AnimatedPage({ children }: { children: ReactNode }) {
+  return <>{children}</>;
 }
-
-export function AnimatedPage({ children, className }: AnimatedPageProps) {
-  return (
-    <motion.div
-      initial="initial"
-      animate="in"
-      exit="out"
-      variants={pageVariants}
-      transition={pageTransition}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-};

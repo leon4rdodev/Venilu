@@ -1,23 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@components/ui/table";
+import { Dialog, DialogContent } from "@components/ui/dialog";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
-import { Badge } from "@components/ui/badge";
-import { Pencil, Trash2, Check, X, Plus } from "lucide-react";
+import { Pencil, Trash2, Check, X, Plus, Tags } from "lucide-react";
 import { toast } from "sonner";
 import { DeleteConfirmDialog } from "@renderer/shared/components/delete-confirm-dialog";
 import { useCategories } from "@renderer/features/settings";
@@ -157,145 +142,135 @@ export function CategoryManagerDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
           {/* Header */}
-          <div className="p-6 pb-4 border-b space-y-3 shrink-0">
-            <DialogHeader>
-              <DialogTitle>Gestionar Categorías</DialogTitle>
-              <DialogDescription>
+          <div className="p-6 pb-4 border-b border-border space-y-4 shrink-0">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">Gestionar Categorías</h2>
+              <p className="text-sm text-muted-foreground">
                 Crea, edita o elimina categorías para organizar tu inventario
-              </DialogDescription>
-            </DialogHeader>
+              </p>
+            </div>
             {/* New category input — fixed in header */}
             <div className="flex gap-2">
-                <Input
-                  id="new-category"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Nombre de la nueva categoría..."
-                  disabled={isCreating}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleCreate();
-                    if (e.key === "Escape") setNewName("");
-                  }}
-                />
-                <Button
-                  onClick={handleCreate}
-                  disabled={isCreating || !newName.trim()}
-                  className="shrink-0 gap-1.5"
-                >
-                  <Plus className="h-4 w-4" />
-                  {isCreating ? "Creando..." : "Agregar"}
-                </Button>
+              <Input
+                id="new-category"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Nombre de la nueva categoría..."
+                disabled={isCreating}
+                className="h-9 bg-background"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCreate();
+                  if (e.key === "Escape") setNewName("");
+                }}
+              />
+              <Button
+                onClick={handleCreate}
+                disabled={isCreating || !newName.trim()}
+                className="shrink-0 h-9 gap-1.5"
+              >
+                <Plus className="h-4 w-4" strokeWidth={1.75} />
+                {isCreating ? "Creando..." : "Agregar"}
+              </Button>
             </div>
           </div>
 
           {/* Body — scrollable */}
-          <div className="flex-1 overflow-y-scroll min-h-0 p-6">
-            {/* Categories table */}
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead className="w-32">Productos</TableHead>
-                    <TableHead className="w-24 text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {categories.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center text-muted-foreground py-10">
-                        No hay categorías creadas aún
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    categories.map((category) => {
-                      const isEditing = editingId === category.id;
-                      return (
-                        <TableRow key={category.id} className={isEditing ? "bg-muted/30" : undefined}>
-                          <TableCell className="font-medium">
-                            {isEditing ? (
-                              <Input
-                                ref={editInputRef}
-                                value={editingName}
-                                onChange={(e) => setEditingName(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") handleSaveEdit();
-                                  if (e.key === "Escape") handleCancelEdit();
-                                }}
-                                className="h-8 text-sm"
-                              />
-                            ) : (
-                              category.name
-                            )}
-                          </TableCell>
-
-                          <TableCell>
-                            {!isEditing && (
-                              <Badge variant="secondary">
+          <div className="flex-1 overflow-y-auto min-h-0 p-6">
+            <div className="border border-border rounded-lg overflow-hidden">
+              {categories.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                    <Tags className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+                  </div>
+                  <p className="text-sm text-muted-foreground">No hay categorías creadas aún</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {categories.map((category) => {
+                    const isEditing = editingId === category.id;
+                    return (
+                      <div
+                        key={category.id}
+                        className={`flex items-center gap-3 px-4 py-3 ${
+                          isEditing ? "bg-muted/30" : "hover:bg-muted/30"
+                        } transition-colors`}
+                      >
+                        {isEditing ? (
+                          <>
+                            <Input
+                              ref={editInputRef}
+                              value={editingName}
+                              onChange={(e) => setEditingName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleSaveEdit();
+                                if (e.key === "Escape") handleCancelEdit();
+                              }}
+                              className="h-8 text-sm bg-background flex-1"
+                            />
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleSaveEdit}
+                                disabled={!editingName.trim()}
+                                className="h-8 w-8 p-0 text-foreground"
+                                title="Guardar cambios"
+                              >
+                                <Check className="h-4 w-4" strokeWidth={1.75} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleCancelEdit}
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                                title="Cancelar edición"
+                              >
+                                <X className="h-4 w-4" strokeWidth={1.75} />
+                              </Button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex-1 min-w-0 flex items-center gap-2">
+                              <span className="text-sm font-medium truncate">{category.name}</span>
+                              <span className="rounded-full text-xs font-medium px-2 py-1 bg-muted text-muted-foreground shrink-0">
                                 {category.product_count || 0} producto
                                 {category.product_count !== 1 ? "s" : ""}
-                              </Badge>
-                            )}
-                          </TableCell>
-
-                          <TableCell className="text-right">
-                            {isEditing ? (
-                              <div className="flex items-center justify-end gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={handleSaveEdit}
-                                  disabled={!editingName.trim()}
-                                  className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-500/10"
-                                  title="Guardar cambios"
-                                >
-                                  <Check className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={handleCancelEdit}
-                                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                                  title="Cancelar edición"
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center justify-end gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleStartEdit(category)}
-                                  className="h-8 w-8 p-0"
-                                  title="Editar categoría"
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteClick(category)}
-                                  className="h-8 w-8 p-0 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
-                                  title="Eliminar categoría"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleStartEdit(category)}
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                                title="Editar categoría"
+                              >
+                                <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteClick(category)}
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                title="Eliminar categoría"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                              </Button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
           {/* Footer */}
-          <div className="p-6 pt-4 border-t flex gap-3 shrink-0">
-            <Button variant="outline" onClick={handleClose} className="flex-1 h-11">
+          <div className="p-6 pt-4 border-t border-border flex gap-3 shrink-0">
+            <Button variant="outline" onClick={handleClose} className="flex-1 h-10">
               Cerrar
             </Button>
           </div>

@@ -17,6 +17,28 @@ export interface DayStats {
   totalTransactions: number;
   averageTicket: number;
   totalItemsSold: number;
+  averageMargin: number;
+  netProfit: number;
+}
+
+export interface HourlySalesPoint {
+  hour: number;
+  total: number;
+  transactions: number;
+}
+
+export interface PaymentMethodTotal {
+  method: string;
+  total: number;
+  transactions: number;
+}
+
+export interface InventoryStatsData {
+  totalProducts: number;
+  totalStockUnits: number;
+  totalStockValue: number;
+  outOfStockProducts: number;
+  lowStockProducts: number;
 }
 
 export interface DashboardStatsResponse {
@@ -57,3 +79,6 @@ export interface ShiftSummary {
 export interface LowStockResponse extends IPCResponse { data?: Product[] }
 export interface RecentSalesResponse extends IPCResponse { data?: Sale[] }
 export interface ShiftSummaryResponse extends IPCResponse { data?: ShiftSummary }
+export interface HourlySalesResponse extends IPCResponse { data?: HourlySalesPoint[] }
+export interface PaymentMethodsResponse extends IPCResponse { data?: PaymentMethodTotal[] }
+export interface InventoryStatsResponse extends IPCResponse { data?: InventoryStatsData }

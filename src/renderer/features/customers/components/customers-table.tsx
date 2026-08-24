@@ -2,8 +2,13 @@ import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@components/ui/table";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@components/ui/card";
-import { Plus, Search, Pencil, Trash2, Users, ChevronLeft, ChevronRight, Phone, Mail, MapPin, HandCoins, Eye } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select";
+import {
+  Plus, Search, Pencil, Trash2, Users,
+  HandCoins, Eye, X, ArrowUpNarrowWide, ArrowDownWideNarrow,
+} from "lucide-react";
+import { WidgetHeader } from "@renderer/shared/components/widget-header";
+import { TablePagination } from "@renderer/shared/components/table-pagination";
 import { CustomerDialog } from "./customer-dialog";
 import { CustomersStats } from "./customers-stats";
 import { PayDebtDialog } from "./pay-debt-dialog";
@@ -13,25 +18,73 @@ import { TableSkeletonRows } from "@renderer/shared/components/table-skeleton";
 import { EmptyStateRow } from "@renderer/shared/components/empty-state";
 import { useCustomers } from "../hooks/use-customers";
 import { useShift } from "@renderer/features/pos/hooks/use-shift";
+import { usePermissions } from "@renderer/features/auth/hooks/use-permission";
 import { Customer } from "@shared/types/models";
+import type { CustomerFilter, CustomerSortBy } from "../types";
 import { formatCurrency } from "@lib/currency";
 import { formatPhone } from "@lib/formatters";
+import { cn } from "@lib/utils";
+
+const FILTERS: { value: CustomerFilter; label: string }[] = [
+  { value: "all", label: "Todos" },
+  { value: "debtors", label: "Con deuda" },
+  { value: "credit", label: "Con crédito" },
+  { value: "inactive", label: "Inactivos 30d" },
+];
+
+const SORT_OPTIONS: { value: CustomerSortBy; label: string }[] = [
+  { value: "name", label: "Nombre" },
+  { value: "total_spent", label: "Más gastado" },
+  { value: "purchases_count", label: "Más compras" },
+  { value: "last_purchase_at", label: "Última compra" },
+  { value: "balance", label: "Deuda" },
+  { value: "created_at", label: "Más recientes" },
+];
+
+/** "Hoy" / "Ayer" / "Hace Nd" / short date — mature-POS relative recency. */
+function formatRecency(dateStr: string | null): string {
+  if (!dateStr) return "—";
+  const date = new Date(dateStr.includes("T") ? dateStr : dateStr.replace(" ", "T"));
+  if (isNaN(date.getTime())) return "—";
+  const days = Math.floor((Date.now() - date.getTime()) / 86_400_000);
+  if (days <= 0) return "Hoy";
+  if (days === 1) return "Ayer";
+  if (days < 30) return `Hace ${days}d`;
+  return date.toLocaleDateString("es-DO", { day: "2-digit", month: "short", year: "numeric" });
+}
 
 export function CustomersTable() {
   const {
     loading,
+    customers,
+    total,
+    totalPages,
     searchQuery,
     setSearchQuery,
+    filter,
+    setFilter,
+    sortBy,
+    setSortBy,
+    sortOrder,
+    setSortOrder,
     currentPage,
     setCurrentPage,
-    filteredCustomers,
-    paginatedCustomers,
-    totalPages,
     PAGE_SIZE,
     handleSave,
     handleDelete,
     fetchCustomers,
   } = useCustomers();
+
+  const perms = usePermissions(
+    "customers:create",
+    "customers:delete",
+    "customers:pay_debt",
+    "customers:view_balance",
+  );
+  const canCreate = perms["customers:create"];
+  const canDelete = perms["customers:delete"];
+  const canPayDebt = perms["customers:pay_debt"];
+  const canViewBalance = perms["customers:view_balance"];
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -60,163 +113,230 @@ export function CustomersTable() {
     if (success) setDeleteDialogOpen(false);
   };
 
+  const colCount = canViewBalance ? 6 : 5;
+
   return (
     <div className="space-y-6">
       <CustomersStats />
 
-      <Card className="border-border/50">
-        <CardHeader>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-primary" />
-                Lista de Clientes
-              </CardTitle>
-              <CardDescription>
-                {filteredCustomers.length} cliente{filteredCustomers.length !== 1 ? "s" : ""} encontrado
-                {filteredCustomers.length !== 1 ? "s" : ""}
-              </CardDescription>
-            </div>
+      {/* Standard list panel: header → single toolbar row → content → pagination */}
+      <div className="bg-card border border-border rounded-lg p-5 space-y-3">
+        <WidgetHeader
+          icon={Users}
+          title="Lista de Clientes"
+          subtitle={`${total} cliente${total !== 1 ? "s" : ""} registrado${total !== 1 ? "s" : ""}`}
+          action={
+            canCreate ? (
+              <Button onClick={handleAddNew} size="sm" className="h-9 shrink-0">
+                <Plus className="h-4 w-4" strokeWidth={1.75} />
+                Nuevo Cliente
+              </Button>
+            ) : undefined
+          }
+        />
+
+        {/* Single toolbar row: search · filter chips · sort */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+          <div className="relative w-56 shrink-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+            <Input
+              placeholder="Buscar cliente, teléfono o email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-9 pl-9 pr-8 bg-background"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-full hover:bg-muted transition-colors"
+                title="Limpiar búsqueda"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
-          <div className="flex items-center justify-between gap-3 pt-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar clientes..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 w-64"
-              />
-            </div>
-            <Button onClick={handleAddNew} size="sm" className="gap-1.5">
-              <Plus className="h-4 w-4" />
-              Nuevo Cliente
-            </Button>
+
+          <div className="flex items-center gap-1.5">
+            {FILTERS.map((f) => (
+              <button
+                key={f.value}
+                onClick={() => setFilter(f.value)}
+                className={cn(
+                  "px-3 h-9 rounded-full border text-xs font-medium transition-colors whitespace-nowrap",
+                  filter === f.value
+                    ? "bg-foreground text-background border-foreground"
+                    : "bg-card text-muted-foreground border-border hover:text-foreground hover:bg-muted"
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-lg border border-border overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/30">
-                  <TableHead className="font-semibold">Nombre</TableHead>
-                  <TableHead className="font-semibold">Teléfono</TableHead>
-                  <TableHead className="font-semibold">Email</TableHead>
-                  <TableHead className="font-semibold">Dirección</TableHead>
-                  <TableHead className="font-semibold text-right">Deuda</TableHead>
-                  <TableHead className="text-right font-semibold">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableSkeletonRows rows={5} cols={6} />
-                ) : paginatedCustomers.length === 0 ? (
-                  <EmptyStateRow
-                    icon={Users}
-                    title={searchQuery ? "No se encontraron clientes" : "No hay clientes registrados"}
-                    description={searchQuery ? "Intenta con otro término de búsqueda" : "Agrega tu primer cliente para comenzar"}
-                    colSpan={6}
-                  />
-                ) : (
-                  paginatedCustomers.map((customer) => {
-                    const balance = Number(customer.balance || 0);
-                    const creditLimit = customer.credit_limit != null ? Number(customer.credit_limit) : null;
-                    const isOverLimit = creditLimit !== null && balance >= creditLimit;
-                    
-                    return (
-                      <TableRow key={customer.id} className="hover:bg-muted/20 transition-colors">
-                        <TableCell>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{customer.name}</span>
-                            {isOverLimit && (
-                              <span className="text-[10px] font-semibold text-destructive mt-0.5">Límite excedido</span>
-                            )}
+
+          <div className="flex-1 min-w-2" />
+
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as CustomerSortBy)}>
+            <SelectTrigger className="h-9 w-[160px] bg-background">
+              <SelectValue placeholder="Ordenar por" />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+            title={sortOrder === "ASC" ? "Ascendente" : "Descendente"}
+            onClick={() => setSortOrder(sortOrder === "ASC" ? "DESC" : "ASC")}
+          >
+            {sortOrder === "ASC" ? (
+              <ArrowUpNarrowWide className="h-4 w-4" strokeWidth={1.75} />
+            ) : (
+              <ArrowDownWideNarrow className="h-4 w-4" strokeWidth={1.75} />
+            )}
+          </Button>
+        </div>
+
+        <div className="rounded-lg border border-border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent border-b border-border">
+                <TableHead className="text-xs font-medium text-muted-foreground">Cliente</TableHead>
+                <TableHead className="text-xs font-medium text-muted-foreground text-center">Compras</TableHead>
+                <TableHead className="text-xs font-medium text-muted-foreground text-right">Total Gastado</TableHead>
+                <TableHead className="text-xs font-medium text-muted-foreground text-right">Última Compra</TableHead>
+                {canViewBalance && (
+                  <TableHead className="text-xs font-medium text-muted-foreground text-right">Deuda</TableHead>
+                )}
+                <TableHead className="text-xs font-medium text-muted-foreground text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableSkeletonRows rows={6} cols={colCount} />
+              ) : customers.length === 0 ? (
+                <EmptyStateRow
+                  icon={Users}
+                  title={searchQuery || filter !== "all" ? "No se encontraron clientes" : "No hay clientes registrados"}
+                  description={searchQuery || filter !== "all" ? "Intenta ajustar la búsqueda o los filtros" : "Agrega tu primer cliente para comenzar"}
+                  colSpan={colCount}
+                />
+              ) : (
+                customers.map((customer) => {
+                  const balance = Number(customer.balance || 0);
+                  const creditLimit = customer.credit_limit != null ? Number(customer.credit_limit) : null;
+                  const isOverLimit = creditLimit !== null && balance >= creditLimit;
+
+                  return (
+                    <TableRow key={customer.id} className="hover:bg-muted/40 transition-colors">
+                      <TableCell className="max-w-[260px]">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-foreground text-xs font-semibold shrink-0 select-none">
+                            {customer.name.charAt(0).toUpperCase()}
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          {customer.phone ? (
-                            <span className="flex items-center gap-1.5 text-sm">
-                              <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                              {formatPhone(customer.phone)}
-                            </span>
-                          ) : <span className="text-muted-foreground/50 text-sm">—</span>}
-                        </TableCell>
-                        <TableCell>
-                          {customer.email ? (
-                            <span className="flex items-center gap-1.5 text-sm">
-                              <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                              {customer.email}
-                            </span>
-                          ) : <span className="text-muted-foreground/50 text-sm">—</span>}
-                        </TableCell>
-                        <TableCell>
-                          {customer.address ? (
-                            <span className="flex items-center gap-1.5 text-sm max-w-[200px] truncate">
-                              <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                              {customer.address}
-                            </span>
-                          ) : <span className="text-muted-foreground/50 text-sm">—</span>}
-                        </TableCell>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm font-medium truncate" title={customer.name}>{customer.name}</span>
+                              {creditLimit !== null && canViewBalance && (
+                                <span
+                                  className={cn(
+                                    "shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-medium",
+                                    isOverLimit
+                                      ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                                      : "bg-muted text-muted-foreground"
+                                  )}
+                                  title={`Límite de crédito: ${formatCurrency(creditLimit)}`}
+                                >
+                                  {isOverLimit ? "Límite excedido" : "Crédito"}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {customer.phone ? formatPhone(customer.phone) : customer.email || "Sin contacto"}
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center text-sm tabular-nums">
+                        {customer.purchases_count > 0 ? customer.purchases_count : <span className="text-muted-foreground/50">—</span>}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm tabular-nums whitespace-nowrap">
+                        {customer.total_spent > 0 ? formatCurrency(customer.total_spent) : <span className="text-muted-foreground/50">—</span>}
+                      </TableCell>
+                      <TableCell className="text-right text-sm text-muted-foreground whitespace-nowrap">
+                        {formatRecency(customer.last_purchase_at)}
+                      </TableCell>
+                      {canViewBalance && (
                         <TableCell className="text-right">
                           {balance > 0 ? (
-                            <button
-                              onClick={() => handlePayDebtClick(customer)}
-                              className={`inline-flex items-center gap-1 text-sm font-semibold hover:underline cursor-pointer ${isOverLimit ? 'text-destructive' : 'text-amber-600 dark:text-amber-400'}`}
-                              title="Abonar a deuda"
-                            >
-                              <HandCoins className="h-3.5 w-3.5" />
-                              {formatCurrency(balance)}
-                            </button>
+                            canPayDebt ? (
+                              <button
+                                onClick={() => handlePayDebtClick(customer)}
+                                className={cn(
+                                  "inline-flex items-center gap-1 text-sm font-mono tabular-nums font-medium hover:underline cursor-pointer",
+                                  isOverLimit ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
+                                )}
+                                title="Abonar a deuda"
+                              >
+                                <HandCoins className="h-3.5 w-3.5" strokeWidth={1.75} />
+                                {formatCurrency(balance)}
+                              </button>
+                            ) : (
+                              <span className={cn(
+                                "text-sm font-mono tabular-nums font-medium",
+                                isOverLimit ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
+                              )}>
+                                {formatCurrency(balance)}
+                              </span>
+                            )
                           ) : (
-                            <span className="text-sm text-green-600 dark:text-green-400 font-medium">
+                            <span className="inline-flex px-2 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                               Sin deuda
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 dark:text-blue-400" onClick={() => handleViewProfile(customer)} title="Ver Perfil">
-                              <Eye className="h-4 w-4" />
+                      )}
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => handleViewProfile(customer)} title="Ver Perfil">
+                            <Eye className="h-4 w-4" strokeWidth={1.75} />
+                          </Button>
+                          {canPayDebt && canViewBalance && balance > 0 && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => handlePayDebtClick(customer)} title="Abonar">
+                              <HandCoins className="h-4 w-4" strokeWidth={1.75} />
                             </Button>
-                            {balance > 0 && (
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-amber-600 hover:text-amber-700" onClick={() => handlePayDebtClick(customer)} title="Abonar">
-                                <HandCoins className="h-4 w-4" />
-                              </Button>
-                            )}
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(customer)} title="Editar">
-                              <Pencil className="h-4 w-4" />
+                          )}
+                          {canCreate && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => handleEdit(customer)} title="Editar">
+                              <Pencil className="h-4 w-4" strokeWidth={1.75} />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteClick(customer)} title="Eliminar">
-                              <Trash2 className="h-4 w-4" />
+                          )}
+                          {canDelete && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(customer)} title="Eliminar">
+                              <Trash2 className="h-4 w-4" strokeWidth={1.75} />
                             </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-2 py-4">
-              <p className="text-sm text-muted-foreground">
-                Mostrando {((currentPage - 1) * PAGE_SIZE) + 1}–{Math.min(currentPage * PAGE_SIZE, filteredCustomers.length)} de {filteredCustomers.length}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => p - 1)}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-sm font-medium">{currentPage} / {totalPages}</span>
-                <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => p + 1)}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        <TablePagination
+          page={currentPage}
+          totalPages={totalPages}
+          pageSize={PAGE_SIZE}
+          totalItems={total}
+          onPageChange={setCurrentPage}
+        />
+      </div>
 
       <CustomerDialog
         open={dialogOpen}

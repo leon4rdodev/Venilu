@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react"
-import { Users, Activity, CircleDollarSign, AlertCircle } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
+import { Users, Activity, CircleDollarSign, AlertCircle, UserPlus, Wallet } from "lucide-react"
 import { CustomerMetricCard } from "./customer-metric-card"
+import { formatCurrency } from "@lib/currency"
 import { ipc } from "@lib/ipc"
 
 interface CustomerStatsData {
@@ -11,71 +12,70 @@ interface CustomerStatsData {
   activeThisMonth: number
 }
 
-export function CustomersStats() {
-  const [statsData, setStatsData] = useState<CustomerStatsData>({
-    totalDebt: 0,
-    totalCustomers: 0,
-    newThisMonth: 0,
-    customersWithDebt: 0,
-    activeThisMonth: 0,
-  })
+const EMPTY: CustomerStatsData = {
+  totalDebt: 0,
+  totalCustomers: 0,
+  newThisMonth: 0,
+  customersWithDebt: 0,
+  activeThisMonth: 0,
+}
 
-  const fetchStats = useCallback(async () => {
-    try {
+export function CustomersStats() {
+  // Cached — invalidated by the CacheBridge on every 'customers-updated' event
+  const { data } = useQuery({
+    queryKey: ['customer-stats'],
+    queryFn: async () => {
       const result = await ipc.invoke('get-customer-stats') as {
         success: boolean
         data?: CustomerStatsData
         message?: string
       }
-      if (result.success && result.data) {
-        setStatsData(result.data)
+      if (!result.success || !result.data) {
+        throw new Error(result.message || 'Error al cargar estadísticas')
       }
-    } catch (error) {
-      console.error('Error fetching customer stats:', error)
-    }
-  }, [])
+      return result.data
+    },
+  })
 
-  // Initial data load on mount
-  useEffect(() => {
-    const init = async () => {
-      await fetchStats()
-    }
-    void init()
-  }, [fetchStats])
+  const statsData = data ?? EMPTY
 
-  // Re-fetch whenever customers are updated from elsewhere in the app
-  useEffect(() => {
-    const handleCustomersChanged = () => { void fetchStats() }
-    window.addEventListener('customers-updated', handleCustomersChanged)
-    return () => {
-      window.removeEventListener('customers-updated', handleCustomersChanged)
-    }
-  }, [fetchStats])
-
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(amount)
+  const avgDebt = statsData.customersWithDebt > 0
+    ? statsData.totalDebt / statsData.customersWithDebt
+    : 0
 
   const stats = [
     {
       title: "Deuda Total",
       value: formatCurrency(statsData.totalDebt),
       icon: CircleDollarSign,
-      trend: statsData.totalDebt > 0 ? "down" : "neutral" as "up" | "down" | "neutral",
+      trend: (statsData.totalDebt > 0 ? "down" : "neutral") as "up" | "down" | "neutral",
       change: statsData.totalDebt > 0 ? "Pendiente" : "Sin deudas",
+    },
+    {
+      title: "Deuda Promedio",
+      value: formatCurrency(avgDebt),
+      icon: Wallet,
     },
     {
       title: "Clientes con Deuda",
       value: statsData.customersWithDebt,
       icon: AlertCircle,
-      trend: statsData.customersWithDebt > 0 ? "down" : "neutral" as "up" | "down" | "neutral",
+      trend: (statsData.customersWithDebt > 0 ? "down" : "neutral") as "up" | "down" | "neutral",
       change: statsData.customersWithDebt > 0 ? `${statsData.customersWithDebt} clientes` : "Ninguno",
     },
     {
-      title: "Activos este Mes",
+      title: "Activos (30 días)",
       value: statsData.activeThisMonth,
       icon: Activity,
-      trend: statsData.activeThisMonth > 0 ? "up" : "neutral" as "up" | "down" | "neutral",
-      change: statsData.activeThisMonth > 0 ? `+${statsData.activeThisMonth}` : "Sin actividad",
+      trend: (statsData.activeThisMonth > 0 ? "up" : "neutral") as "up" | "down" | "neutral",
+      change: statsData.activeThisMonth > 0 ? "Comprando" : "Sin actividad",
+    },
+    {
+      title: "Nuevos este Mes",
+      value: statsData.newThisMonth,
+      icon: UserPlus,
+      trend: (statsData.newThisMonth > 0 ? "up" : "neutral") as "up" | "down" | "neutral",
+      change: statsData.newThisMonth > 0 ? `+${statsData.newThisMonth}` : "—",
     },
     {
       title: "Total de Clientes",
@@ -85,10 +85,10 @@ export function CustomersStats() {
   ]
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
       {stats.map((stat, index) => (
         <CustomerMetricCard
-          key={index}
+          key={stat.title}
           index={index}
           {...stat}
         />

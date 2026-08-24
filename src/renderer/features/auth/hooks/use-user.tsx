@@ -4,8 +4,8 @@ import { User } from '@shared/types/models';
 interface UserContextType {
   user: User | null;
   sessionReady: boolean;
-  setUser: (user: User | null) => void;
-  logout: () => void;
+  setUser: (user: User | null) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -40,9 +40,23 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       const initialUser = initialUserRef.current;
       if (initialUser && window.ipcRenderer) {
         try {
-          // Send only the ID — main reloads permissions from DB
-          await window.ipcRenderer.invoke('set-logged-in-user', initialUser.id);
-          console.log('[useUser] Backend session restored for:', initialUser.username);
+          // Restore with the session token issued at login — main re-fetches
+          // the user and permissions from the DB.
+          const token = window.localStorage.getItem('session_token');
+          const result = await window.ipcRenderer.invoke('session:restore', {
+            userId: initialUser.id,
+            token,
+          }) as { success: boolean; message?: string };
+
+          if (result?.success) {
+            console.log('[useUser] Backend session restored for:', initialUser.username);
+          } else {
+            // Expired or invalid token — force a fresh login
+            console.warn('[useUser] Session restore rejected:', result?.message);
+            window.localStorage.removeItem('user');
+            window.localStorage.removeItem('session_token');
+            setUserState(null);
+          }
         } catch (error) {
           console.error('[useUser] Error restoring backend session:', error);
         }
@@ -56,13 +70,12 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     try {
       setSessionReady(false);
       if (user) {
+        // The main-process session is established by login-request /
+        // session:restore — here we only persist the renderer copy.
         window.localStorage.setItem('user', JSON.stringify(user));
-        // Send ONLY the user ID — main process reloads permissions from DB
-        if (window.ipcRenderer) {
-          await window.ipcRenderer.invoke('set-logged-in-user', user.id);
-        }
       } else {
         window.localStorage.removeItem('user');
+        window.localStorage.removeItem('session_token');
         if (window.ipcRenderer) {
           await window.ipcRenderer.invoke('logout');
         }

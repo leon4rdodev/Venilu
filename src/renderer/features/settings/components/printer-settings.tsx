@@ -1,14 +1,14 @@
 
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select"
 import { Label } from "@components/ui/label"
 import { Button } from "@components/ui/button"
 import { RefreshCw, Printer } from "lucide-react"
 import { toast } from "sonner"
 import { useSettings } from "../hooks/use-settings"
-import { Spinner } from "@components/ui/spinner"
+import { Skeleton } from "@components/ui/skeleton"
+import { WidgetHeader } from "@renderer/shared/components/widget-header"
 
 interface PrinterInfo {
   name: string;
@@ -149,22 +149,41 @@ export function PrinterSettings() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="flex justify-center py-12">
-          <Spinner className="size-8" />
-        </CardContent>
-      </Card>
+      <div className="bg-card border border-border rounded-lg p-6">
+        <div className="space-y-1.5">
+          <Skeleton className="h-5 w-56" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <div className="mt-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <Skeleton className="h-8 flex-1" />
+            <Skeleton className="h-8 flex-1" />
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card className="border-border/50 shadow-sm bg-card/50 backdrop-blur-sm">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Configuración de Impresora</CardTitle>
-        <CardDescription className="text-xs">Configura la impresora de recibos</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div className="bg-card border border-border rounded-lg p-6">
+      <WidgetHeader
+        icon={Printer}
+        title="Configuración de Impresora"
+        subtitle="Configura la impresora de recibos"
+      />
+
+      <div className="mt-6 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <Label htmlFor="printer-name" className="text-sm">Impresora</Label>
@@ -173,9 +192,9 @@ export function PrinterSettings() {
                 variant="ghost"
                 onClick={loadPrinters}
                 disabled={isLoadingPrinters || isSaving}
-                className="h-7 px-2"
+                className="h-7 px-2 text-muted-foreground"
               >
-                <RefreshCw className={`h-3 w-3 ${isLoadingPrinters ? 'animate-spin' : ''}`} />
+                <RefreshCw className="h-3 w-3" strokeWidth={1.75} />
               </Button>
             </div>
             <Select
@@ -235,13 +254,10 @@ export function PrinterSettings() {
             className="flex-1"
           >
             {isTesting ? (
-              <>
-                <Spinner className="size-3 mr-2" />
-                Imprimiendo...
-              </>
+              'Imprimiendo...'
             ) : (
               <>
-                <Printer className="h-3 w-3 mr-2" />
+                <Printer className="h-3 w-3 mr-2" strokeWidth={1.75} />
                 Probar
               </>
             )}
@@ -252,17 +268,10 @@ export function PrinterSettings() {
             disabled={isSaving || isTesting}
             className="flex-1"
           >
-            {isSaving ? (
-              <>
-                <Spinner className="size-3 mr-2" />
-                Guardando...
-              </>
-            ) : (
-              'Guardar'
-            )}
+            {isSaving ? 'Guardando...' : 'Guardar'}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { TrendingUp, DollarSign, Wallet, Percent, LucideIcon } from "lucide-react"
+import { TrendingUp, DollarSign, Wallet, Percent, Receipt, Coins, ShoppingBag, LucideIcon } from "lucide-react"
 import { ReportsMetricCard } from './reports-metric-card';
 import { formatCurrency } from '@lib/currency';
 
@@ -16,50 +16,44 @@ interface SalesMetricsGridProps {
   loading: boolean;
 }
 
+const ICONS: Record<string, LucideIcon> = {
+  "Total Ventas": DollarSign,
+  "Ganancia Neta": TrendingUp,
+  "Costo Total": Wallet,
+  "Margen Promedio": Percent,
+  "Transacciones": Receipt,
+  "Ticket Promedio": Coins,
+  "Unidades Vendidas": ShoppingBag,
+};
+
+/** Labels whose value is a plain count (not money). */
+const COUNT_LABELS = new Set(["Transacciones", "Unidades Vendidas"]);
+
 export const SalesMetricsGrid = React.memo(({ salesMetrics, loading }: SalesMetricsGridProps) => {
-  const getIconForLabel = (label: string): LucideIcon => {
-    switch (label) {
-      case "Total Ventas":
-        return DollarSign;
-      case "Ganancia Neta":
-        return TrendingUp;
-      case "Costo Total":
-        return Wallet;
-      case "Margen Promedio":
-        return Percent;
-      default:
-        return DollarSign;
-    }
+  const formatValue = (metric: SalesMetric): string => {
+    if (metric.label === "Margen Promedio") return `${metric.value.toFixed(2)}%`;
+    if (COUNT_LABELS.has(metric.label)) return metric.value.toLocaleString("es-DO");
+    return formatCurrency(metric.value);
   };
 
   return (
-    <div
-      className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
-    >
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
       {loading ? (
-         Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-32 bg-muted/20 animate-pulse rounded-xl border border-muted/20" />
-          ))
+        Array.from({ length: 7 }).map((_, i) => (
+          <div key={i} className="h-[118px] bg-card border border-border rounded-lg p-4 animate-pulse" />
+        ))
       ) : (
-        salesMetrics.map((metric, index) => {
-          const Icon = getIconForLabel(metric.label);
-          const isPercentage = metric.label === "Margen Promedio";
-          const formattedValue = isPercentage 
-            ? `${metric.value.toFixed(2)}%` 
-            : formatCurrency(metric.value);
-
-          return (
-            <ReportsMetricCard
-              key={metric.label}
-              label={metric.label}
-              value={formattedValue}
-              icon={Icon}
-              trend={metric.trend}
-              change={metric.change}
-              index={index}
-            />
-          );
-        })
+        salesMetrics.map((metric, index) => (
+          <ReportsMetricCard
+            key={metric.label}
+            label={metric.label}
+            value={formatValue(metric)}
+            icon={ICONS[metric.label] ?? DollarSign}
+            trend={metric.trend}
+            change={metric.change}
+            index={index}
+          />
+        ))
       )}
     </div>
   );

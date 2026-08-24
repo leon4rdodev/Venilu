@@ -187,8 +187,8 @@ export function RoleDialog({ role, isOpen, onClose, onSave }: RoleDialogProps) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="p-6 pb-4 border-b space-y-1 shrink-0">
-          <h2 className="text-xl font-semibold tracking-tight">
+        <div className="p-6 pb-4 border-b border-border space-y-1 shrink-0">
+          <h2 className="text-lg font-semibold tracking-tight">
             {role ? 'Editar Rol' : 'Crear Nuevo Rol'}
           </h2>
           <p className="text-sm text-muted-foreground">
@@ -199,7 +199,7 @@ export function RoleDialog({ role, isOpen, onClose, onSave }: RoleDialogProps) {
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-scroll p-6 space-y-6" style={{ scrollbarWidth: 'thin' }}>
+        <div className="flex-1 overflow-y-auto p-6 space-y-6" style={{ scrollbarWidth: 'thin' }}>
           <div className="space-y-2">
             <Label htmlFor="role-name">Nombre del Rol *</Label>
             <Input
@@ -208,42 +208,43 @@ export function RoleDialog({ role, isOpen, onClose, onSave }: RoleDialogProps) {
               onChange={(e) => setName(e.target.value)}
               placeholder="Ej: Supervisor de Inventario"
               disabled={isSaving || isSystem}
+              className="h-10 bg-background"
             />
           </div>
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b">
-              <Label className="text-base font-semibold">Permisos del Sistema</Label>
-              <span className="text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-md">
+            <div className="flex items-center justify-between pb-2 border-b border-border">
+              <Label className="text-sm font-semibold tracking-tight">Permisos del Sistema</Label>
+              <span className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium text-foreground">
                 {selectedPermissions.size} seleccionados
               </span>
             </div>
             
-            <div className="grid grid-cols-1 gap-y-8 mt-4">
+            <div className="grid grid-cols-1 gap-y-4 mt-4">
               {PERMISSION_GROUPS.map((group, idx) => {
                 const groupIds = group.permissions.map(p => p.id as Permission);
                 const isGroupAllSelected = groupIds.every(id => selectedPermissions.has(id));
 
                 return (
-                  <div key={idx} className="space-y-4 bg-card rounded-lg border border-border/50 p-4 shadow-sm">
-                    <div className="flex items-center justify-between border-b pb-3">
-                      <h4 className="text-lg font-bold text-primary tracking-tight">{group.title}</h4>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                  <div key={idx} className="border border-border rounded-lg overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                      <h4 className="text-sm font-semibold tracking-tight text-foreground">{group.title}</h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => toggleGroup(group.permissions as {id: Permission}[])}
                         disabled={isAdminRole || isSaving}
-                        className="h-8 px-3 text-xs font-medium uppercase tracking-wider"
+                        className="h-7 px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
                       >
                         {isGroupAllSelected ? 'Desmarcar' : 'Marcar Todo'}
                       </Button>
                     </div>
-                    <div className="space-y-4 pt-1">
+                    <div className="divide-y divide-border">
                       {group.permissions.map((perm) => (
-                        <div key={perm.id} className="flex items-center justify-between gap-2">
-                          <Label 
-                            htmlFor={`perm-${perm.id}`} 
-                            className="text-sm font-medium text-foreground/90 cursor-pointer flex-1 leading-snug py-1.5"
+                        <div key={perm.id} className="flex items-center justify-between gap-2 px-4 py-1.5">
+                          <Label
+                            htmlFor={`perm-${perm.id}`}
+                            className="text-sm font-medium text-foreground cursor-pointer flex-1 leading-snug py-1.5"
                           >
                             {perm.label}
                           </Label>
@@ -264,16 +265,16 @@ export function RoleDialog({ role, isOpen, onClose, onSave }: RoleDialogProps) {
         </div>
 
         {/* Footer */}
-        <div className="p-6 pt-4 border-t flex gap-3 shrink-0">
-          <Button variant="outline" onClick={onClose} disabled={isSaving} className="flex-1 h-11">
+        <div className="p-6 pt-4 border-t border-border flex gap-3 shrink-0">
+          <Button variant="outline" onClick={onClose} disabled={isSaving} className="flex-1 h-10">
             {isAdminRole ? 'Cerrar' : 'Cancelar'}
           </Button>
           {!isAdminRole && (
-            <Button onClick={handleSubmit} disabled={!name.trim() || isSaving} className="flex-1 h-11 gap-2">
+            <Button onClick={handleSubmit} disabled={!name.trim() || isSaving} className="flex-1 h-10 gap-2">
               {isSaving ? 'Guardando...' : role ? (
-                <><Check className="h-4 w-4" />Guardar Cambios</>
+                <><Check className="h-4 w-4" strokeWidth={1.75} />Guardar Cambios</>
               ) : (
-                <><Plus className="h-4 w-4" />Crear Rol</>
+                <><Plus className="h-4 w-4" strokeWidth={1.75} />Crear Rol</>
               )}
             </Button>
           )}

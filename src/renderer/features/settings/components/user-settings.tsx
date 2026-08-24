@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@components/ui/card"
 import { Button } from "@components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@components/ui/table"
-import { Badge } from "@components/ui/badge"
 import { useUser } from "@renderer/features/auth"
+import { Users } from 'lucide-react';
+import { WidgetHeader } from "@renderer/shared/components/widget-header"
 import { UserDialog } from './user-dialog';
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@components/ui/alert-dialog';
@@ -45,7 +45,7 @@ export function UserSettings() {
         console.error('Error fetching users:', error);
       }
     }
-    
+
     loadUsers();
   }, [refreshTrigger]);
 
@@ -64,35 +64,38 @@ export function UserSettings() {
 
   return (
     <>
-      <Card className="border-border/50 shadow-sm bg-card/50 backdrop-blur-sm">
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <div>
-            <CardTitle className="text-base">Gestión de Usuarios</CardTitle>
-            <CardDescription className="text-xs">Administra los usuarios del sistema</CardDescription>
-          </div>
-          {role === 'admin' && <Button size="sm" onClick={() => { setSelectedUser(null); setIsDialogOpen(true); }}>Agregar Usuario</Button>}
-        </CardHeader>
-        <CardContent>
+      <div className="bg-card border border-border rounded-lg p-6">
+        <WidgetHeader
+          icon={Users}
+          title="Gestión de Usuarios"
+          subtitle="Administra los usuarios del sistema"
+          action={role === 'admin' && (
+            <Button size="sm" onClick={() => { setSelectedUser(null); setIsDialogOpen(true); }}>Agregar Usuario</Button>
+          )}
+        />
+        <div className="mt-4 overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Username</TableHead>
-                <TableHead>Rol</TableHead>
-                {role === 'admin' && <TableHead className="text-right">Acciones</TableHead>}
+              <TableRow className="border-b border-border hover:bg-transparent">
+                <TableHead className="text-xs text-muted-foreground font-medium">Nombre</TableHead>
+                <TableHead className="text-xs text-muted-foreground font-medium">Username</TableHead>
+                <TableHead className="text-xs text-muted-foreground font-medium">Rol</TableHead>
+                {role === 'admin' && <TableHead className="text-xs text-muted-foreground font-medium text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="divide-y divide-border [&_tr]:border-0">
               {users.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.name}</TableCell>
-                  <TableCell>{user.username}</TableCell>
+                  <TableCell className="text-muted-foreground">{user.username}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">{(user as ExtendedUser).role_entity?.name || user.role}</Badge>
+                    <span className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium text-foreground whitespace-nowrap">
+                      {(user as ExtendedUser).role_entity?.name || user.role}
+                    </span>
                   </TableCell>
                   {role === 'admin' && (
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => { setSelectedUser(user); setIsDialogOpen(true); }}>
+                      <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => { setSelectedUser(user); setIsDialogOpen(true); }}>
                         Editar
                       </Button>
                       <Button variant="ghost" size="sm" className="text-destructive" onClick={() => { setSelectedUser(user); setIsAlertOpen(true); }}>
@@ -104,8 +107,8 @@ export function UserSettings() {
               ))}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <UserDialog
         user={selectedUser}

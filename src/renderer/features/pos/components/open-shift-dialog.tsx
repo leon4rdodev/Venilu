@@ -78,8 +78,8 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
         onInteractOutside={(e) => e.preventDefault()}
       >
         {/* Header */}
-        <div className="p-5 pb-3 space-y-1 border-b">
-          <h2 className="text-xl font-semibold tracking-tight">Abrir Caja</h2>
+        <div className="p-5 pb-3 space-y-1 border-b border-border">
+          <h2 className="text-lg font-semibold tracking-tight">Abrir Caja</h2>
           <p className="text-sm text-muted-foreground">
             Registra el fondo inicial para comenzar tu turno
           </p>
@@ -90,11 +90,11 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
           {/* Input */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-              <Banknote className="h-3 w-3" />
+              <Banknote className="h-3 w-3" strokeWidth={1.75} />
               Fondo de caja inicial
             </div>
             <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-muted-foreground pointer-events-none">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold text-muted-foreground pointer-events-none">
                 {getCurrencySymbol()}
               </div>
               <Input
@@ -105,7 +105,7 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
                 value={initialCash}
                 onChange={handleAmountChange}
                 placeholder="0.00"
-                className="h-12 text-lg! text-right font-bold pl-18 pr-5"
+                className="h-12 text-lg! text-right font-semibold tabular-nums pl-18 pr-5 bg-background"
                 style={{ fontSize: '1.25rem' }}
                 disabled={isLoading}
               />
@@ -125,7 +125,7 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
                 <button
                   key={amount}
                   className={cn(
-                    "py-2 rounded-md text-xs font-semibold border transition-colors",
+                    "py-2 rounded-md text-xs font-medium tabular-nums border transition-colors",
                     isSelected
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-background hover:bg-muted border-border"
@@ -133,7 +133,7 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
                   onClick={() => setInitialCash(String(amount))}
                   disabled={isLoading}
                 >
-                  {amount === 0 ? '$0' : formatCurrency(amount)}
+                  {amount === 0 ? formatCurrency(0) : formatCurrency(amount)}
                 </button>
               );
             })}
@@ -141,7 +141,7 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
         </div>
 
         {/* Actions */}
-        <div className="px-5 pb-5 pt-3 border-t flex gap-3">
+        <div className="px-5 pb-5 pt-3 border-t border-border flex gap-3">
           <Button
             variant="ghost"
             onClick={logout}
@@ -158,10 +158,7 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
             className="h-11 px-8"
           >
             {isLoading ? (
-              <>
-                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Abriendo...
-              </>
+              <>Abriendo...</>
             ) : (
               <><PlayCircle className="h-4 w-4" />Iniciar Turno</>
             )}

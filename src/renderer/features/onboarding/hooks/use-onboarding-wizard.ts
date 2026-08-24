@@ -141,15 +141,8 @@ export function useOnboardingWizard(onComplete: () => void): UseOnboardingWizard
                 return;
             }
 
-            // Auto-login: sets the session so settings:update passes requireRole('admin')
-            if (userResult.data) {
-                await window.ipcRenderer.invoke('set-logged-in-user', {
-                    id: userResult.data.id,
-                    role: userResult.data.role,
-                    username: userResult.data.username,
-                    name: userResult.data.name,
-                });
-            }
+            // create-user establishes the main-process session for the first
+            // admin automatically — settings:update below is authorized by it.
 
             const settingsResult = await window.ipcRenderer.invoke('settings:update', {
                 business_name: businessData.business_name,
@@ -175,6 +168,9 @@ export function useOnboardingWizard(onComplete: () => void): UseOnboardingWizard
             window.dispatchEvent(
                 new CustomEvent('currency-updated', { detail: businessData.currency })
             );
+
+            // Close the temporary onboarding session — the user logs in normally next.
+            await window.ipcRenderer.invoke('logout');
 
             toast.success('¡Configuración completada!');
             setTimeout(() => onComplete(), 1000);

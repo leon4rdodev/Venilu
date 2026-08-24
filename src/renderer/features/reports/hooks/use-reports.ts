@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { subMonths, startOfDay, endOfDay } from "date-fns";
-import { useToast } from "@renderer/features/layout";
+import { toast } from "sonner";
 
 type DateRange = { from?: Date; to?: Date };
 
@@ -21,75 +22,80 @@ const calculateChange = (current: number, previous: number) => {
   return ((current - previous) / previous) * 100;
 };
 
-export function useReports() {
-  const { toast } = useToast();
+interface ReportsData {
+  rawMetricsData: any;
+  salesOverTime: SalesOverTimeData[];
+  topSellingProducts: SellingProduct[];
+  leastSellingProducts: SellingProduct[];
+}
 
+/**
+ * Cached reports — keyed by date range with keepPreviousData, so changing the
+ * range keeps the current report on screen while the new one loads, and
+ * revisiting a range you already viewed renders instantly.
+ */
+export function useReports() {
   const [dateRange, setDateRange] = useState<DateRange>({
     from: subMonths(startOfDay(new Date()), 1),
     to: endOfDay(new Date()),
   });
-  const [loading, setLoading] = useState(true);
-  const [rawMetricsData, setRawMetricsData] = useState<any>(null);
-  const [salesOverTime, setSalesOverTime] = useState<SalesOverTimeData[]>([]);
-  const [interval, setIntervalType] = useState<"day" | "week" | "month">("day");
-  const [topSellingProducts, setTopSellingProducts] = useState<SellingProduct[]>([]);
-  const [leastSellingProducts, setLeastSellingProducts] = useState<SellingProduct[]>([]);
 
-  const startDate = useMemo(() => dateRange.from || null, [dateRange.from]);
-  const endDate = useMemo(() => dateRange.to || null, [dateRange.to]);
+  const startDate = dateRange.from ?? null;
+  const endDate = dateRange.to ?? null;
+  const startISO = startDate?.toISOString() ?? null;
+  const endISO = endDate?.toISOString() ?? null;
 
-  const fetchReportData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const startDateISO = startDate?.toISOString();
-      const endDateISO = endDate?.toISOString();
+  // Chart granularity derives from the range length
+  const interval = useMemo<"day" | "week" | "month">(() => {
+    if (!startDate || !endDate) return "day";
+    const diffDays = Math.ceil(Math.abs(endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays > 120) return "month";
+    if (diffDays > 31) return "week";
+    return "day";
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startISO, endISO]);
 
-      let selectedInterval = "day";
-      if (startDate && endDate) {
-        const diffDays = Math.ceil(
-          Math.abs(endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-        );
-        if (diffDays > 120) selectedInterval = "month";
-        else if (diffDays > 31) selectedInterval = "week";
-      }
-      setIntervalType(selectedInterval as "day" | "week" | "month");
-
+  const query = useQuery<ReportsData>({
+    queryKey: ["reports", startISO, endISO],
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
       const [metricsData, salesTime, topProductsResponse, leastProductsResponse] =
         await Promise.all([
-          window.ipcRenderer.invoke("get-total-sales-metrics", { startDate: startDateISO, endDate: endDateISO }),
-          window.ipcRenderer.invoke("get-sales-over-time", { startDate: startDateISO, endDate: endDateISO, interval: selectedInterval }),
-          window.ipcRenderer.invoke("get-top-selling-products", { startDate: startDateISO, endDate: endDateISO, limit: 5 }),
-          window.ipcRenderer.invoke("get-least-selling-products", { startDate: startDateISO, endDate: endDateISO, limit: 5 }),
+          window.ipcRenderer.invoke("get-total-sales-metrics", { startDate: startISO, endDate: endISO }),
+          window.ipcRenderer.invoke("get-sales-over-time", { startDate: startISO, endDate: endISO, interval }),
+          window.ipcRenderer.invoke("get-top-selling-products", { startDate: startISO, endDate: endISO, limit: 5 }),
+          window.ipcRenderer.invoke("get-least-selling-products", { startDate: startISO, endDate: endISO, limit: 5 }),
         ]);
 
-      setRawMetricsData(metricsData);
-
-      if (salesTime) setSalesOverTime(salesTime as SalesOverTimeData[]);
-
       const topProducts = topProductsResponse as { success: boolean; data: SellingProduct[] };
-      setTopSellingProducts(topProducts?.success ? topProducts.data : []);
-
       const leastProducts = leastProductsResponse as { success: boolean; data: SellingProduct[] };
-      setLeastSellingProducts(leastProducts?.success ? leastProducts.data : []);
-    } catch (error: unknown) {
-      console.error("Error fetching report data:", error);
-      toast({
-        title: "Error al cargar reportes",
-        description: (error as Error).message || "Ocurrió un error inesperado.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [startDate, endDate, toast]);
+
+      return {
+        rawMetricsData: metricsData,
+        salesOverTime: Array.isArray(salesTime) ? (salesTime as SalesOverTimeData[]) : [],
+        topSellingProducts: topProducts?.success ? topProducts.data : [],
+        leastSellingProducts: leastProducts?.success ? leastProducts.data : [],
+      };
+    },
+  });
 
   useEffect(() => {
-    fetchReportData();
-  }, [fetchReportData]);
+    if (query.error) {
+      toast.error("Error al cargar reportes", {
+        description: query.error instanceof Error ? query.error.message : "Ocurrió un error inesperado.",
+      });
+    }
+  }, [query.error]);
+
+  const rawMetricsData = query.data?.rawMetricsData ?? null;
+  const salesOverTime = query.data?.salesOverTime ?? [];
+  const topSellingProducts = query.data?.topSellingProducts ?? [];
+  const leastSellingProducts = query.data?.leastSellingProducts ?? [];
 
   const salesMetrics = useMemo(() => {
-    const current = rawMetricsData?.current || { totalAmount: 0, netProfit: 0, totalCost: 0, averageMargin: 0 };
-    const previous = rawMetricsData?.previous || { totalAmount: 0, netProfit: 0, totalCost: 0, averageMargin: 0 };
+    const EMPTY = { totalAmount: 0, netProfit: 0, totalCost: 0, averageMargin: 0, totalSalesCount: 0, averageTicket: 0, totalItemsSold: 0 };
+    const current = rawMetricsData?.current || EMPTY;
+    const previous = rawMetricsData?.previous || EMPTY;
 
     const calcTrend = (cur: number, prev: number) => {
       const change = calculateChange(cur, prev);
@@ -104,14 +110,17 @@ export function useReports() {
       { label: "Ganancia Neta", value: current.netProfit, ...calcTrend(current.netProfit, previous.netProfit || 0) },
       { label: "Costo Total", value: current.totalCost, change: `${costChange.toFixed(1)}%`, trend: costTrend },
       { label: "Margen Promedio", value: current.averageMargin, ...calcTrend(current.averageMargin, previous.averageMargin || 0) },
+      { label: "Transacciones", value: current.totalSalesCount || 0, ...calcTrend(current.totalSalesCount || 0, previous.totalSalesCount || 0) },
+      { label: "Ticket Promedio", value: current.averageTicket || 0, ...calcTrend(current.averageTicket || 0, previous.averageTicket || 0) },
+      { label: "Unidades Vendidas", value: current.totalItemsSold || 0, ...calcTrend(current.totalItemsSold || 0, previous.totalItemsSold || 0) },
     ];
   }, [rawMetricsData]);
 
   const handleGeneratePDF = useCallback(async () => {
     try {
       const result = (await window.ipcRenderer.invoke("generate-sales-report-pdf", {
-        startDate: startDate?.toISOString(),
-        endDate: endDate?.toISOString(),
+        startDate: startISO,
+        endDate: endISO,
         metrics: rawMetricsData,
         salesOverTime,
         topSellingProducts,
@@ -119,20 +128,20 @@ export function useReports() {
       })) as { success: boolean; filePath?: string; message?: string };
 
       if (result.success) {
-        toast({ title: "PDF Generado", description: `El reporte ha sido guardado en: ${result.filePath}` });
+        toast.success("PDF generado", { description: `El reporte ha sido guardado en: ${result.filePath}` });
       } else {
-        toast({ title: "Error al generar PDF", description: result.message || "No se pudo generar el reporte.", variant: "destructive" });
+        toast.error("Error al generar PDF", { description: result.message || "No se pudo generar el reporte." });
       }
     } catch (error: unknown) {
       console.error("Error generating PDF:", error);
-      toast({ title: "Error al generar PDF", description: (error as Error).message || "Ocurrió un error inesperado.", variant: "destructive" });
+      toast.error("Error al generar PDF", { description: (error as Error).message || "Ocurrió un error inesperado." });
     }
-  }, [startDate, endDate, rawMetricsData, salesOverTime, topSellingProducts, leastSellingProducts, toast]);
+  }, [startISO, endISO, rawMetricsData, salesOverTime, topSellingProducts, leastSellingProducts]);
 
   return {
     dateRange,
     setDateRange,
-    loading,
+    loading: query.isPending,
     salesMetrics,
     salesOverTime,
     interval,

@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@components/ui/alert-dialog"
 import { Plus, Pencil, Trash2, Tag } from "lucide-react"
-import { Spinner } from "@components/ui/spinner"
+import { Skeleton } from "@components/ui/skeleton"
 import { toast } from "sonner"
 import { useCategories } from "@renderer/features/settings/hooks/use-categories"
 import { Badge } from "@components/ui/badge"
@@ -109,8 +109,19 @@ export function CategorySettings() {
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="flex justify-center py-12">
-          <Spinner className="size-8" />
+        <CardContent className="space-y-4 py-6">
+          <div className="space-y-1.5">
+            <Skeleton className="h-5 w-56" />
+            <Skeleton className="h-4 w-72" />
+          </div>
+          <div className="rounded-lg border border-border divide-y divide-border">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between p-3">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     );

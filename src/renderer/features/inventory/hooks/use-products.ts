@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { ipc } from "@lib/ipc";
 import { toast } from "sonner";
 import { Product } from "@shared/types/models";
@@ -13,23 +14,52 @@ type PaginationData = {
   hasPreviousPage: boolean;
 };
 
+export type StockFilter = "all" | "low" | "out";
+export type SortOrder = "ASC" | "DESC";
+export type ViewMode = "grid" | "table";
+
+const VIEW_MODE_KEY = "venilu_inventory_view";
+
+const DEFAULT_PAGINATION: PaginationData = {
+  currentPage: 1,
+  pageSize: 12,
+  totalItems: 0,
+  totalPages: 0,
+  hasNextPage: false,
+  hasPreviousPage: false,
+};
+
+function readViewMode(): ViewMode {
+  try {
+    const stored = window.localStorage.getItem(VIEW_MODE_KEY);
+    return stored === "table" ? "table" : "grid";
+  } catch {
+    return "grid";
+  }
+}
+
 export function useProducts() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [isLoading, setIsLoading] = useState(true);
+  const [stockFilter, setStockFilter] = useState<StockFilter>("all");
+  const [sortBy, setSortBy] = useState("name");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("ASC");
+  const [viewMode, setViewModeState] = useState<ViewMode>(readViewMode);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [pagination, setPagination] = useState<PaginationData>({
-    currentPage: 1,
-    pageSize: 10,
-    totalItems: 0,
-    totalPages: 0,
-    hasNextPage: false,
-    hasPreviousPage: false,
-  });
 
   const { categories: categoryList, loadCategories } = useCategories(true);
+
+  const setViewMode = useCallback((mode: ViewMode) => {
+    setViewModeState(mode);
+    try {
+      window.localStorage.setItem(VIEW_MODE_KEY, mode);
+    } catch {
+      /* per-view convenience only */
+    }
+  }, []);
 
   // Debounce search
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -38,60 +68,57 @@ export function useProducts() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Refresh category list whenever CategoryManagerDialog makes changes
+  // Reset to page 1 when any filter/sort changes
   useEffect(() => {
-    const handler = () => loadCategories();
-    window.addEventListener('categories-updated', handler);
-    return () => window.removeEventListener('categories-updated', handler);
-  }, [loadCategories]);
+    setPage(1);
+  }, [debouncedSearch, selectedCategory, stockFilter, sortBy, sortOrder]);
 
-  const fetchProducts = useCallback(
-    async (
-      page: number = pagination.currentPage,
-      pageSize: number = pagination.pageSize,
-      search: string = debouncedSearch,
-      category: string = selectedCategory
-    ) => {
-      // Only show full loading state if we have no products yet
-      if (products.length === 0) setIsLoading(true);
-      setError(null);
-      try {
-        const result = (await ipc.invoke("get-products", {
-          page,
-          pageSize,
-          search,
-          category,
-          sortBy: "name",
-          sortOrder: "ASC",
-        })) as {
-          success: boolean;
-          data?: { products: Product[]; pagination: PaginationData };
-          message?: string;
-        };
-
-        if (result.success && result.data) {
-          setProducts(result.data.products);
-          setPagination(result.data.pagination);
-        } else {
-          setError(result.message || "Error al cargar productos");
-          toast.error("Error al cargar productos", { description: result.message });
-        }
-      } catch (err) {
-        console.error("Error fetching products:", err);
-        setError("Error de conexión");
-        toast.error("Error de conexión", { description: "No se pudieron cargar los productos" });
-      } finally {
-        setIsLoading(false);
+  // Cached, keyed by every filter — keepPreviousData means changing filters or
+  // pages NEVER blanks the list: the previous result stays visible while the
+  // new one loads in the background.
+  const query = useQuery({
+    queryKey: [
+      "products",
+      { page, pageSize, search: debouncedSearch, category: selectedCategory, stockFilter, sortBy, sortOrder },
+    ],
+    queryFn: async () => {
+      const result = (await ipc.invoke("get-products", {
+        page,
+        pageSize,
+        search: debouncedSearch,
+        category: selectedCategory,
+        sortBy,
+        sortOrder,
+        stockFilter,
+      })) as {
+        success: boolean;
+        data?: { products: Product[]; pagination: PaginationData };
+        message?: string;
+      };
+      if (!result.success || !result.data) {
+        throw new Error(result.message || "Error al cargar productos");
       }
+      return result.data;
     },
-    [pagination.currentPage, pagination.pageSize, debouncedSearch, selectedCategory, products.length]
-  );
+    placeholderData: keepPreviousData,
+  });
 
-  // Reset to page 1 when filters change
   useEffect(() => {
-    fetchProducts(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch, selectedCategory]);
+    if (query.error) {
+      toast.error("Error al cargar productos", {
+        description: query.error instanceof Error ? query.error.message : undefined,
+      });
+    }
+  }, [query.error]);
+
+  const products = useMemo(() => query.data?.products ?? [], [query.data]);
+  const pagination = query.data?.pagination ?? DEFAULT_PAGINATION;
+
+  /** Refetches the product list (all cached filter combinations). */
+  const fetchProducts = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ["products"] }),
+    [queryClient]
+  );
 
   const handleSave = async (productData: Product, editingProduct: Product | null) => {
     setIsSaving(true);
@@ -107,9 +134,9 @@ export function useProducts() {
 
       if (result?.success) {
         toast.success(editingProduct ? "Producto actualizado" : "Producto creado");
-        await fetchProducts();
-        await loadCategories();
+        // CacheBridge invalidates products/inventory-stats/low-stock via this event
         window.dispatchEvent(new CustomEvent("inventory-updated"));
+        void loadCategories();
         return true;
       } else {
         throw new Error(result?.message || "Error en la operación");
@@ -124,14 +151,41 @@ export function useProducts() {
     }
   };
 
+  /** Quick stock adjustment — server enforces inventory:adjust_stock. */
+  const handleAdjustStock = async (productId: string, newStock: number): Promise<boolean> => {
+    setIsSaving(true);
+    try {
+      const result = await ipc.invoke("update-product", {
+        productId,
+        productData: { stock: newStock },
+      }) as { success: boolean; message?: string };
+
+      if (!result?.success) {
+        toast.error("Error al ajustar stock", { description: result?.message });
+        return false;
+      }
+      toast.success("Stock actualizado");
+      window.dispatchEvent(new CustomEvent("inventory-updated"));
+      return true;
+    } catch (err) {
+      toast.error("Error al ajustar stock", { description: (err as Error).message });
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleDelete = async (productId: string) => {
     setIsSaving(true);
     try {
-      await ipc.invoke("delete-product", productId);
+      const result = await ipc.invoke("delete-product", productId) as { success: boolean; message?: string };
+      if (!result?.success) {
+        toast.error("Error al eliminar producto", { description: result?.message });
+        return false;
+      }
       toast.success("Producto eliminado");
-      await fetchProducts();
-      await loadCategories();
       window.dispatchEvent(new CustomEvent("inventory-updated"));
+      void loadCategories();
       return true;
     } catch {
       toast.error("Error al eliminar producto");
@@ -141,15 +195,12 @@ export function useProducts() {
     }
   };
 
-  const handlePageChange = useCallback(
-    (page: number) => fetchProducts(page, pagination.pageSize, debouncedSearch, selectedCategory),
-    [fetchProducts, pagination.pageSize, debouncedSearch, selectedCategory]
-  );
+  const handlePageChange = useCallback((newPage: number) => setPage(newPage), []);
 
-  const handlePageSizeChange = useCallback(
-    (pageSize: number) => fetchProducts(1, pageSize, debouncedSearch, selectedCategory),
-    [fetchProducts, debouncedSearch, selectedCategory]
-  );
+  const handlePageSizeChange = useCallback((newPageSize: number) => {
+    setPageSize(newPageSize);
+    setPage(1);
+  }, []);
 
   const categories = useMemo(
     () => [
@@ -165,15 +216,24 @@ export function useProducts() {
     setSearchQuery,
     selectedCategory,
     setSelectedCategory,
-    isLoading,
+    stockFilter,
+    setStockFilter,
+    sortBy,
+    setSortBy,
+    sortOrder,
+    setSortOrder,
+    viewMode,
+    setViewMode,
+    isLoading: query.isPending,
     isSaving,
-    error,
+    error: query.error instanceof Error ? query.error.message : null,
     pagination,
     categories,
     categoryList,
     loadCategories,
     fetchProducts,
     handleSave,
+    handleAdjustStock,
     handleDelete,
     handlePageChange,
     handlePageSizeChange,

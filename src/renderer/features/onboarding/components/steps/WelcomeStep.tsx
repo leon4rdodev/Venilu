@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { User, Building2, Printer } from 'lucide-react';
 
 const CHECKLIST = [
@@ -17,12 +16,9 @@ export function WelcomeStep() {
 
             <div className="space-y-3">
                 {CHECKLIST.map((item, i) => (
-                    <motion.div
+                    <div
                         key={i}
-                        initial={{ opacity: 0, y: 12 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1 + 0.1 }}
-                        className="flex items-start gap-4 p-4 rounded-xl border border-border/60 bg-card/50"
+                        className="flex items-start gap-4 p-4 rounded-lg border border-border/60 bg-card/50"
                     >
                         <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
                             <item.icon className="w-4 h-4 text-primary" />
@@ -31,7 +27,7 @@ export function WelcomeStep() {
                             <p className="text-sm font-medium">{item.label}</p>
                             <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
                         </div>
-                    </motion.div>
+                    </div>
                 ))}
             </div>
         </div>

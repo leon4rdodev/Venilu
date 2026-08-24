@@ -1,118 +1,187 @@
-import { useState, useEffect, useMemo } from 'react';
-import { DollarSign, ShoppingBag, TrendingUp, Package } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { DollarSign, ShoppingBag, TrendingUp, Package, Percent, Layers, AlertTriangle } from 'lucide-react';
 import { ipc } from '@lib/ipc';
 import { formatCurrency } from '@lib/currency';
 import { Product, Sale } from '@shared/types/models';
 import { usePermissions } from '@renderer/features/auth/hooks/use-permission';
 import { useUser } from '@renderer/features/auth';
+import type { MetricCardProps } from '@renderer/pages/dashboard/components/metric-card';
 import type {
-  DayStats,
   DashboardStatsResponse,
-  TopProduct,
-  TopProductsResponse,
-  ShiftSummary,
   ShiftSummaryResponse,
   LowStockResponse,
   RecentSalesResponse,
+  HourlySalesResponse,
+  PaymentMethodsResponse,
+  InventoryStatsData,
+  InventoryStatsResponse,
 } from '@renderer/features/dashboard/types';
-
 
 const calculateChange = (current: number, previous: number) => {
   if (previous === 0) return current > 0 ? 100 : 0;
   return ((current - previous) / previous) * 100;
 };
 
+const trendOf = (current: number, previous: number) => {
+  const change = calculateChange(current, previous);
+  return {
+    change: `${change > 0 ? '+' : ''}${change.toFixed(1)}%`,
+    trend: (change > 0 ? 'up' : change < 0 ? 'down' : 'neutral') as 'up' | 'down' | 'neutral',
+  };
+};
+
+/**
+ * Dashboard data via the shared query cache: navigating away and back renders
+ * the cached dashboard INSTANTLY while everything refreshes in the background.
+ */
 export function useDashboard() {
   const { user } = useUser();
 
-  // Batch permission check — single hook call, stable object
-  const perms = usePermissions(
-    'reports:view_summary',
-    'sales:view',
-    'inventory:view',
-  );
+  const perms = usePermissions('reports:view_summary', 'sales:view', 'inventory:view');
   const canViewSummary = perms['reports:view_summary'];
   const canViewSales   = perms['sales:view'];
   const canViewStock   = perms['inventory:view'];
 
-  const [shiftSummary, setShiftSummary]         = useState<ShiftSummary | null>(null);
-  const [todayStats, setTodayStats]             = useState<DayStats | null>(null);
-  const [yesterdayStats, setYesterdayStats]     = useState<DayStats | null>(null);
-  const [recentSales, setRecentSales]           = useState<Sale[]>([]);
-  const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
-  const [topProducts, setTopProducts]           = useState<TopProduct[]>([]);
-  const [loading, setLoading]                   = useState(true);
+  const [hourlyDay, setHourlyDay] = useState<'today' | 'yesterday'>('today');
 
-  useEffect(() => {
-    if (!user) return;
+  const shiftQuery = useQuery({
+    queryKey: ['shift-summary'],
+    enabled: !!user,
+    queryFn: async () => {
+      const res = await ipc.invoke('get-shift-summary') as ShiftSummaryResponse;
+      return res?.success ? res.data ?? null : null;
+    },
+  });
 
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // Always fetch: own shift summary (pos:access level)
-        const shiftRes = await ipc.invoke('get-shift-summary') as ShiftSummaryResponse;
-        if (shiftRes?.success) setShiftSummary(shiftRes.data ?? null);
+  const statsQuery = useQuery({
+    queryKey: ['dashboard-stats'],
+    enabled: !!user && canViewSummary,
+    queryFn: async () => await ipc.invoke('get-dashboard-stats') as DashboardStatsResponse,
+  });
 
-        // Conditional fetches based on permissions
-        const today = new Date();
-        const startDate = new Date(today.setHours(0, 0, 0, 0));
-        const endDate   = new Date(today.setHours(23, 59, 59, 999));
+  const recentSalesQuery = useQuery({
+    queryKey: ['recent-sales'],
+    enabled: !!user && canViewSales,
+    queryFn: async () => {
+      const res = await ipc.invoke('get-recent-sales', 6) as RecentSalesResponse;
+      return res?.success && res.data ? res.data : [];
+    },
+  });
 
-        const [statsData, salesData, stockData, topData] = await Promise.all([
-          canViewSummary
-            ? ipc.invoke('get-dashboard-stats') as Promise<DashboardStatsResponse>
-            : Promise.resolve(null),
-          canViewSales
-            ? ipc.invoke('get-recent-sales', 5) as Promise<RecentSalesResponse>
-            : Promise.resolve(null),
-          canViewStock
-            ? ipc.invoke('get-low-stock-products', 5) as Promise<LowStockResponse>
-            : Promise.resolve(null),
-          canViewSummary
-            ? ipc.invoke('get-top-selling-products', { startDate, endDate, limit: 5 }) as Promise<TopProductsResponse>
-            : Promise.resolve(null),
-        ]);
+  const lowStockQuery = useQuery({
+    queryKey: ['low-stock'],
+    enabled: !!user && canViewStock,
+    queryFn: async () => {
+      const res = await ipc.invoke('get-low-stock-products', 5) as LowStockResponse;
+      return res?.success && res.data ? res.data : [];
+    },
+  });
 
-        if (statsData) {
-          setTodayStats(statsData.today);
-          setYesterdayStats(statsData.yesterday);
-        }
-        setRecentSales(salesData?.success && salesData.data ? salesData.data : []);
-        setLowStockProducts(stockData?.success && stockData.data ? stockData.data : []);
-        setTopProducts(topData?.success && topData.data ? topData.data : []);
-      } catch (err) {
-        console.error('[useDashboard] Error fetching dashboard data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Same cache key as the inventory screen's stats — one fetch serves both
+  const inventoryStatsQuery = useQuery({
+    queryKey: ['inventory-stats'],
+    enabled: !!user && canViewStock,
+    queryFn: async () => {
+      const res = await ipc.invoke('get-inventory-stats') as InventoryStatsResponse;
+      if (!res?.success || !res.data) throw new Error(res?.message || 'Error');
+      return res.data;
+    },
+  });
 
-    fetchData();
-  }, [user, canViewSummary, canViewSales, canViewStock]);
+  const paymentsQuery = useQuery({
+    queryKey: ['payment-methods'],
+    enabled: !!user && canViewSummary,
+    queryFn: async () => {
+      const res = await ipc.invoke('get-payment-method-totals') as PaymentMethodsResponse;
+      return res?.success && res.data ? res.data : [];
+    },
+  });
 
-  const statCards = useMemo(() => {
-    if (!todayStats) return [];
-    return [
-      { title: 'Ventas de Hoy',   value: formatCurrency(todayStats.totalSales),    current: todayStats.totalSales,        previous: yesterdayStats?.totalSales ?? 0,        icon: DollarSign,  description: 'Ingresos totales' },
-      { title: 'Transacciones',   value: todayStats.totalTransactions,              current: todayStats.totalTransactions, previous: yesterdayStats?.totalTransactions ?? 0, icon: ShoppingBag, description: 'Órdenes completadas' },
-      { title: 'Ticket Promedio', value: formatCurrency(todayStats.averageTicket),  current: todayStats.averageTicket,     previous: yesterdayStats?.averageTicket ?? 0,     icon: TrendingUp,  description: 'Por venta' },
-      { title: 'Prod. Vendidos',  value: todayStats.totalItemsSold,                 current: todayStats.totalItemsSold,    previous: yesterdayStats?.totalItemsSold ?? 0,    icon: Package,     description: 'Volumen de salida' },
-    ].map((stat) => {
-      const change = calculateChange(stat.current, stat.previous);
-      return { ...stat, change: `${change > 0 ? '+' : ''}${change.toFixed(1)}%`, trend: (change > 0 ? 'up' : change < 0 ? 'down' : 'neutral') as 'up' | 'down' | 'neutral' };
-    });
-  }, [todayStats, yesterdayStats]);
+  const hourlyQuery = useQuery({
+    queryKey: ['sales-by-hour', hourlyDay],
+    enabled: !!user && canViewSummary,
+    queryFn: async () => {
+      const res = await ipc.invoke('get-sales-by-hour', { day: hourlyDay }) as HourlySalesResponse;
+      return res?.success && res.data ? res.data : [];
+    },
+  });
+
+  const todayStats = statsQuery.data?.today ?? null;
+  const yesterdayStats = statsQuery.data?.yesterday ?? null;
+  const inventoryStats: InventoryStatsData | null = inventoryStatsQuery.data ?? null;
+
+  const loading =
+    (canViewSummary && statsQuery.isPending) ||
+    (canViewSales && recentSalesQuery.isPending) ||
+    (canViewStock && (lowStockQuery.isPending || inventoryStatsQuery.isPending)) ||
+    (canViewSummary && paymentsQuery.isPending);
+
+  const statCards = useMemo<(Omit<MetricCardProps, 'index'>)[]>(() => {
+    const cards: (Omit<MetricCardProps, 'index'>)[] = [];
+
+    if (todayStats) {
+      cards.push(
+        {
+          title: 'Ventas de Hoy',
+          value: formatCurrency(todayStats.totalSales),
+          icon: DollarSign,
+          ...trendOf(todayStats.totalSales, yesterdayStats?.totalSales ?? 0),
+        },
+        {
+          title: 'Transacciones',
+          value: todayStats.totalTransactions,
+          icon: ShoppingBag,
+        },
+        {
+          title: 'Ticket Promedio',
+          value: formatCurrency(todayStats.averageTicket),
+          icon: TrendingUp,
+        },
+        {
+          title: 'Prod. Vendidos',
+          value: todayStats.totalItemsSold,
+          icon: Package,
+        },
+        {
+          title: 'Margen Utilidad',
+          value: `${todayStats.averageMargin.toFixed(1)}%`,
+          icon: Percent,
+          ...trendOf(todayStats.averageMargin, yesterdayStats?.averageMargin ?? 0),
+        },
+      );
+    }
+
+    if (inventoryStats) {
+      const alerts = inventoryStats.lowStockProducts + inventoryStats.outOfStockProducts;
+      cards.push(
+        {
+          title: 'Stock Total',
+          value: inventoryStats.totalStockUnits.toLocaleString('es-DO'),
+          icon: Layers,
+        },
+        {
+          title: 'Alertas Stock',
+          value: alerts,
+          icon: AlertTriangle,
+          variant: 'danger' as const,
+        },
+      );
+    }
+
+    return cards;
+  }, [todayStats, yesterdayStats, inventoryStats]);
 
   return {
     loading,
-    // Shift summary — always available
-    shiftSummary,
-    // Permission-gated data
-    statCards:         canViewSummary ? statCards : [],
-    topProducts:       canViewSummary ? topProducts : [],
-    recentSales:       canViewSales   ? recentSales : [],
-    lowStockProducts:  canViewStock   ? lowStockProducts : [],
-    // Permission flags for the component to conditionally render widgets
+    shiftSummary: shiftQuery.data ?? null,
+    statCards,
+    hourlySales: hourlyQuery.data ?? [],
+    hourlyDay,
+    setHourlyDay,
+    paymentTotals: paymentsQuery.data ?? [],
+    recentSales: (canViewSales ? recentSalesQuery.data ?? [] : []) as Sale[],
+    lowStockProducts: (canViewStock ? lowStockQuery.data ?? [] : []) as Product[],
     canViewSummary,
     canViewSales,
     canViewStock,

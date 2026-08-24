@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import React from "react";
 
 interface PageHeaderProps {
@@ -7,16 +6,15 @@ interface PageHeaderProps {
   action?: React.ReactNode;
 }
 
+/**
+ * Static page header — the page ENTRANCE animation lives exclusively in
+ * AnimatedPage, so headers never animate on their own (no side-slides).
+ */
 export function PageHeader({ title, description, action }: PageHeaderProps) {
   return (
-    <motion.div
-      className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.5 }}
-    >
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">
+        <h1 className="text-3xl font-semibold tracking-tighter text-foreground">
           {title}
         </h1>
         {description && (
@@ -30,6 +28,6 @@ export function PageHeader({ title, description, action }: PageHeaderProps) {
           {action}
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }

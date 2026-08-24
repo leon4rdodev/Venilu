@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { CreditCard, ShoppingBag, Trash2, Lock } from "lucide-react";
+import { CreditCard, ShoppingBag, Trash2, Lock, Pause, PauseCircle, User2, X } from "lucide-react";
 import { CartItem, CartItemType } from "./cart-item";
 import { PaymentDialog } from "./payment-dialog";
+import { ParkedSalesDialog } from "./parked-sales-dialog";
 import { formatCurrency, getCurrencySymbol } from "@lib/currency";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import { PaymentMethod, Customer } from "@shared/types/models";
 import { usePermission } from "@renderer/features/auth/hooks/use-permission";
 import { cn } from "@lib/utils";
+import type { ParkedSale } from "../hooks/use-cart";
 
 interface CartProps {
   cart: CartItemType[];
@@ -19,6 +21,10 @@ interface CartProps {
   selectedCustomer: Customer | null;
   onSelectCustomer: (customer: Customer | null) => void;
   onProcessSale: (paymentMethod: PaymentMethod, amountPaid: number, changeGiven: number) => Promise<{ success: boolean, saleId?: string, message?: string }>;
+  parkedSales: ParkedSale[];
+  onParkSale: () => void;
+  onResumeParked: (id: string) => void;
+  onRemoveParked: (id: string) => void;
 }
 
 export default function Cart({
@@ -31,9 +37,14 @@ export default function Cart({
   selectedCustomer,
   onSelectCustomer,
   onProcessSale,
+  parkedSales,
+  onParkSale,
+  onResumeParked,
+  onRemoveParked,
 }: CartProps) {
   const canDiscount = usePermission('pos:apply_discount');
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [parkedDialogOpen, setParkedDialogOpen] = useState(false);
   const subtotal = cart.reduce((sum, item) => sum + item.sale_price * item.quantity, 0);
   const total = Math.max(0, subtotal - discountAmount);
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -41,38 +52,89 @@ export default function Cart({
   return (
     <div className="w-96">
       <div
-        className="flex flex-col border rounded-xl bg-card shadow-md overflow-hidden"
-        style={{ height: "clamp(500px, calc(100vh - 7rem), 700px)" }}
+        className="flex flex-col border border-border rounded-lg bg-card overflow-hidden"
+        style={{ height: "clamp(500px, calc(100vh - 6.5rem), 720px)" }}
       >
         {/* HEADER */}
-        <div className="shrink-0 px-4 py-3 border-b bg-background flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-semibold">Pedido Actual</h2>
-            <p className="text-xs text-muted-foreground">
+        <div className="shrink-0 px-4 py-3 border-b border-border bg-card flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold tracking-tight">Pedido Actual</h2>
+            <p className="text-xs text-muted-foreground truncate">
               {cart.length === 0
                 ? "Sin artículos"
                 : `${totalItems} artículo${totalItems !== 1 ? 's' : ''} • ${cart.length} producto${cart.length !== 1 ? 's' : ''}`}
             </p>
           </div>
-          {cart.length > 0 && (
+          <div className="flex items-center gap-1 shrink-0">
+            {/* On-hold tickets */}
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 text-xs text-muted-foreground hover:text-destructive"
-              onClick={onClearCart}
+              className={cn(
+                "h-8 gap-1 text-xs",
+                parkedSales.length > 0 ? "text-foreground" : "text-muted-foreground"
+              )}
+              onClick={() => setParkedDialogOpen(true)}
+              title="Ventas en espera"
             >
-              <Trash2 className="h-3.5 w-3.5 mr-1" />
-              Vaciar
+              <PauseCircle className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {parkedSales.length > 0 && (
+                <span className="font-semibold tabular-nums">{parkedSales.length}</span>
+              )}
             </Button>
-          )}
+            {cart.length > 0 && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={onParkSale}
+                  title="Poner esta venta en espera"
+                >
+                  <Pause className="h-3.5 w-3.5" strokeWidth={1.75} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs text-muted-foreground hover:text-destructive"
+                  onClick={onClearCart}
+                  title="Vaciar carrito"
+                >
+                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                </Button>
+              </>
+            )}
+          </div>
         </div>
+
+        {/* Attached customer chip */}
+        {selectedCustomer && (
+          <div className="shrink-0 px-4 py-2 border-b border-border bg-muted/40 flex items-center gap-2 text-sm">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted shrink-0">
+              <User2 className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
+            </div>
+            <span className="font-medium truncate flex-1 min-w-0">{selectedCustomer.name}</span>
+            {Number(selectedCustomer.balance) > 0 && (
+              <span className="text-xs font-medium text-amber-600 dark:text-amber-400 whitespace-nowrap font-mono tabular-nums">
+                Deuda {formatCurrency(Number(selectedCustomer.balance))}
+              </span>
+            )}
+            <button
+              onClick={() => onSelectCustomer(null)}
+              className="p-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+              title="Quitar cliente"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* CONTENIDO SCROLLEABLE */}
         <div className="flex-1 overflow-y-auto min-h-0">
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center px-4 text-center text-muted-foreground">
-              <div className="w-16 h-16 rounded-full bg-muted/40 flex items-center justify-center mb-3">
-                <ShoppingBag className="h-8 w-8 text-muted-foreground/30" />
+              <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-3">
+                <ShoppingBag className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} />
               </div>
               <p className="text-sm font-medium">Carrito vacío</p>
               <p className="text-xs mt-1">Toca un producto para agregarlo</p>
@@ -92,16 +154,16 @@ export default function Cart({
         </div>
 
         {/* FOOTER */}
-        <div className="shrink-0 border-t bg-background p-4 space-y-3">
+        <div className="shrink-0 border-t border-border bg-card p-4 space-y-3">
           {/* Subtotal & Descuento */}
           <div className="flex flex-col gap-2 mb-2">
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground">Subtotal</span>
-              <span className="font-medium text-foreground tabular-nums">
+              <span className="font-medium text-foreground font-mono tabular-nums">
                 {formatCurrency(subtotal)}
               </span>
             </div>
-            
+
             <div className={cn("flex justify-between items-center text-sm", !canDiscount && "opacity-60")}>
               <div className="flex items-center gap-1">
                 <span className="text-muted-foreground">Descuento</span>
@@ -126,7 +188,7 @@ export default function Cart({
                     }
                   }}
                   className={cn(
-                    "h-7 text-right text-xs bg-muted/50 border-transparent hover:border-border focus:border-primary",
+                    "h-8 text-right text-xs bg-background font-mono tabular-nums",
                     !canDiscount && "cursor-not-allowed"
                   )}
                   placeholder={canDiscount ? "0.00" : "Bloqueado"}
@@ -135,12 +197,12 @@ export default function Cart({
             </div>
           </div>
 
-          <div className="w-full h-px bg-border/50" />
+          <div className="w-full h-px bg-border" />
 
           {/* Total */}
           <div className="flex justify-between items-center mt-1">
             <span className="text-sm font-medium text-muted-foreground">Total a pagar</span>
-            <span className="text-2xl font-bold text-primary tabular-nums">
+            <span className="text-2xl font-semibold tracking-tight tabular-nums text-foreground">
               {formatCurrency(total)}
             </span>
           </div>
@@ -170,6 +232,15 @@ export default function Cart({
           const result = await onProcessSale(paymentMethod as PaymentMethod, amountPaid, changeGiven);
           return result;
         }}
+      />
+
+      {/* Ventas en espera */}
+      <ParkedSalesDialog
+        open={parkedDialogOpen}
+        onOpenChange={setParkedDialogOpen}
+        parkedSales={parkedSales}
+        onResume={onResumeParked}
+        onRemove={onRemoveParked}
       />
     </div>
   );

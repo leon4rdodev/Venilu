@@ -1,114 +1,74 @@
-import { useState, useCallback, useEffect } from 'react';
-import { Product as POSProduct } from '@shared/types/models';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { Product } from '@shared/types/models';
 import { IPCResponse } from '@shared/types/ipc';
+import type { POSPagination } from '../types';
 
-// Define the pagination structure (if not already in PaginatedResponse)
-export interface POSPagination {
-  currentPage: number;
-  pageSize: number;
-  totalItems: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-}
+const PAGE_SIZE = 40;
 
-export function usePOSProducts() {
-  const [products, setProducts] = useState<POSProduct[]>([]);
+/**
+ * Server-driven POS product catalog.
+ *
+ * Search and category filtering happen in the DATABASE (debounced), so the POS
+ * sees the whole catalog — not just the first page. `loadMore` appends the next
+ * page for large result sets.
+ */
+export function usePOSProducts(search: string, categoryId: string) {
+  const [products, setProducts] = useState<Product[]>([]);
   const [pagination, setPagination] = useState<POSPagination>({
     currentPage: 1,
-    pageSize: 20,
+    pageSize: PAGE_SIZE,
     totalItems: 0,
     totalPages: 0,
     hasNextPage: false,
-    hasPreviousPage: false
+    hasPreviousPage: false,
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  // Guards against out-of-order responses (fast typing / slow queries)
+  const requestIdRef = useRef(0);
 
-  const loadProducts = useCallback(async (params: {
-    page?: number;
-    pageSize?: number;
-    search?: string;
-    category?: string;
-    append?: boolean; // For infinite scroll
-  } = {}) => {
-    const {
-      page = 1,
-      pageSize = 20,
-      search = '',
-      category = 'all',
-      append = false
-    } = params;
-
+  const fetchPage = useCallback(async (page: number, append: boolean) => {
+    const requestId = ++requestIdRef.current;
     setIsLoading(true);
-    setHasError(false);
-    setErrorMessage('');
-
     try {
-      if (!window.ipcRenderer) {
-        throw new Error('IPC Renderer not available');
-      }
+      if (!window.ipcRenderer) throw new Error('IPC Renderer not available');
 
       const result = await window.ipcRenderer.invoke('get-products-for-pos', {
         page,
-        pageSize,
+        pageSize: PAGE_SIZE,
         search,
-        category,
+        category: categoryId || 'all',
         sortBy: 'name',
-        sortOrder: 'ASC'
-      }) as IPCResponse<{ products: POSProduct[]; pagination: POSPagination }>;
+        sortOrder: 'ASC',
+      }) as IPCResponse<{ products: Product[]; pagination: POSPagination }>;
+
+      if (requestId !== requestIdRef.current) return; // stale response — drop
 
       if (result.success && result.data) {
-        if (append) {
-          // Append for infinite scroll
-          setProducts(prev => [...prev, ...result.data!.products]);
-        } else {
-          // Replace for search/filter
-          setProducts(result.data.products);
-        }
-        
+        const incoming = result.data.products;
+        setProducts(prev => (append ? [...prev, ...incoming] : incoming));
         setPagination(result.data.pagination);
-      } else {
-        setHasError(true);
-        setErrorMessage(result.message || 'Error al cargar productos');
       }
     } catch (err) {
       console.error('Error loading POS products:', err);
-      setHasError(true);
-      setErrorMessage(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
-      setIsLoading(false);
+      if (requestId === requestIdRef.current) setIsLoading(false);
     }
-  }, []);
+  }, [search, categoryId]);
 
-  const loadMore = useCallback(async () => {
-    if (!pagination.hasNextPage || isLoading) return;
-    
-    await loadProducts({
-      page: pagination.currentPage + 1,
-      pageSize: pagination.pageSize,
-      append: true
-    });
-  }, [pagination, isLoading, loadProducts]);
-
-  const refresh = useCallback(async () => {
-    await loadProducts({ page: 1 });
-  }, [loadProducts]);
-
-  // Initial load
+  // Debounced server-side search/filter
   useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
+    const timer = setTimeout(() => { void fetchPage(1, false); }, 250);
+    return () => clearTimeout(timer);
+  }, [fetchPage]);
 
-  return {
-    products,
-    pagination,
-    isLoading,
-    hasError,
-    errorMessage,
-    loadProducts,
-    loadMore,
-    refresh
-  };
+  const loadMore = useCallback(() => {
+    if (pagination.hasNextPage && !isLoading) {
+      void fetchPage(pagination.currentPage + 1, true);
+    }
+  }, [pagination.hasNextPage, pagination.currentPage, isLoading, fetchPage]);
+
+  /** Re-fetches the first page with current filters (e.g. after a sale updates stock). */
+  const refresh = useCallback(() => { void fetchPage(1, false); }, [fetchPage]);
+
+  return { products, pagination, isLoading, loadMore, refresh };
 }

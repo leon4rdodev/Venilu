@@ -18,14 +18,19 @@ import {
   MinusCircle,
 } from "lucide-react";
 import { formatCurrency } from "@lib/currency";
-import { Spinner } from "@components/ui/spinner";
+import { Skeleton } from "@components/ui/skeleton";
 import { formatDateTime, formatTime } from "@lib/formatters";
 import { useUser } from "@renderer/features/auth";
+import { usePermission } from "@renderer/features/auth/hooks/use-permission";
+import { PERMISSIONS } from "@shared/permissions";
 import { useShift } from "@renderer/features/pos/hooks/use-shift";
 import { toast } from "sonner";
 import { TransactionDetailsDialog } from "./transaction-details-dialog";
 import { ForceCloseDialog } from "./force-close-dialog";
 import { ViewExpensesDialog } from "./view-expenses-dialog";
+import { WidgetHeader } from "@renderer/shared/components/widget-header";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs";
+import { TransactionsList } from "./transactions-list";
 import { cn } from "@lib/utils";
 import { Sale } from "@shared/types/models";
 import type { ShiftHistoryEntry } from "@renderer/features/pos/types";
@@ -41,17 +46,17 @@ const paymentMethodConfig: Record<
   cash: {
     label: "Efectivo",
     icon: Banknote,
-    color: "text-green-600 dark:text-green-400",
+    color: "text-emerald-600 dark:text-emerald-400",
   },
   card: {
     label: "Tarjeta",
     icon: CreditCard,
-    color: "text-blue-600 dark:text-blue-400",
+    color: "text-muted-foreground",
   },
   transfer: {
     label: "Transferencia",
     icon: ArrowRightLeft,
-    color: "text-purple-600 dark:text-purple-400",
+    color: "text-muted-foreground",
   },
   credit: {
     label: "Credito",
@@ -59,6 +64,9 @@ const paymentMethodConfig: Record<
     color: "text-amber-600 dark:text-amber-400",
   },
 };
+
+const TAB_TRIGGER_CLASS =
+  "flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 pt-1 pb-3 text-sm font-medium text-muted-foreground gap-2 shadow-none transition-colors hover:text-foreground data-[state=active]:border-foreground data-[state=active]:text-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none dark:data-[state=active]:border-foreground dark:data-[state=active]:bg-transparent";
 
 const getMethodConfig = (method: string) =>
   paymentMethodConfig[method.toLowerCase()] || {
@@ -83,10 +91,22 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
   const [expensesViewTitle, setExpensesViewTitle] = useState("");
   const { user } = useUser();
   const { fetchActiveShift } = useShift();
+  const canForceClose = usePermission(PERMISSIONS.SHIFTS_FORCE);
+  const [activeTab, setActiveTab] = useState("transactions");
+  const [txRefreshKey, setTxRefreshKey] = useState(0);
 
   const handleForceCloseSuccess = () => {
     fetchHistory();
     fetchActiveShift();
+  };
+
+  /** Refreshes whichever tab is currently active. */
+  const handleRefresh = () => {
+    if (activeTab === "transactions") {
+      setTxRefreshKey((k) => k + 1);
+    } else {
+      void fetchHistory();
+    }
   };
 
   const fetchHistory = useCallback(async () => {
@@ -180,48 +200,10 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
     setForceCloseDialogOpen(true);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <Spinner className="size-8" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="w-full h-full flex flex-col">
-        <div className="flex items-center gap-3 pb-4 border-b mb-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setShowSalesHistory(false)}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <h1 className="text-lg font-semibold tracking-tight">
-            Historial de Ventas
-          </h1>
-        </div>
-        <div className="flex-1 flex flex-col items-center justify-center gap-4">
-          <div className="text-center space-y-1">
-            <p className="text-sm font-medium">Error al cargar el historial</p>
-            <p className="text-xs text-muted-foreground">{error}</p>
-          </div>
-          <Button onClick={fetchHistory} variant="outline" size="sm">
-            <RefreshCw className="mr-2 h-3.5 w-3.5" />
-            Reintentar
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="w-full h-full flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-3 pb-3 border-b shrink-0">
+      <div className="flex items-center gap-3 pb-3 border-b border-border shrink-0">
         <Button
           variant="ghost"
           size="icon"
@@ -230,31 +212,91 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div className="flex-1">
-          <h1 className="text-lg font-semibold tracking-tight">
-            Historial de Ventas
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {shifts.length} turno{shifts.length !== 1 ? "s" : ""} registrado
-            {shifts.length !== 1 ? "s" : ""}
-          </p>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={fetchHistory}
-          disabled={isLoading}
-        >
-          <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
-        </Button>
+        <WidgetHeader
+          icon={Receipt}
+          title="Historial de Ventas"
+          subtitle={
+            activeTab === "shifts"
+              ? `${shifts.length} turno${shifts.length !== 1 ? "s" : ""} registrado${shifts.length !== 1 ? "s" : ""}`
+              : "Todas las transacciones registradas"
+          }
+          className="flex-1"
+          action={
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleRefresh}
+              disabled={activeTab === "shifts" && isLoading}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          }
+        />
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto pt-3 pb-4 pr-3 space-y-2">
-        {shifts.length === 0 ? (
+      {/* Tabs */}
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="flex-1 flex flex-col min-h-0 overflow-hidden"
+      >
+        <TabsList className="w-full h-auto justify-start bg-transparent p-0 pt-3 gap-6 rounded-none border-b border-border shrink-0">
+          <TabsTrigger value="transactions" className={TAB_TRIGGER_CLASS}>
+            <Receipt className="h-4 w-4" strokeWidth={1.75} />
+            Transacciones
+          </TabsTrigger>
+          <TabsTrigger value="shifts" className={TAB_TRIGGER_CLASS}>
+            <Clock className="h-4 w-4" strokeWidth={1.75} />
+            Turnos
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent
+          value="transactions"
+          forceMount
+          className="flex-1 min-h-0 m-0 pt-3 data-[state=inactive]:hidden focus-visible:outline-none focus-visible:ring-0"
+        >
+          <TransactionsList refreshKey={txRefreshKey} />
+        </TabsContent>
+
+        <TabsContent
+          value="shifts"
+          forceMount
+          className="flex-1 min-h-0 m-0 overflow-y-auto pt-3 pb-4 pr-3 space-y-2 data-[state=inactive]:hidden focus-visible:outline-none focus-visible:ring-0"
+        >
+        {isLoading ? (
+          <>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-card border border-border rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-4 w-4" />
+                  <Skeleton className="h-8 w-8 rounded-full" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-48" />
+                  </div>
+                  <Skeleton className="h-4 w-20" />
+                </div>
+              </div>
+            ))}
+          </>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center gap-4 py-16">
+            <div className="text-center space-y-1">
+              <p className="text-sm font-medium">Error al cargar el historial</p>
+              <p className="text-xs text-muted-foreground">{error}</p>
+            </div>
+            <Button onClick={fetchHistory} variant="outline" size="sm">
+              <RefreshCw className="mr-2 h-3.5 w-3.5" />
+              Reintentar
+            </Button>
+          </div>
+        ) : shifts.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center py-16 text-center">
-            <Receipt className="h-10 w-10 text-muted-foreground/40 mb-3" />
+            <div className="w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-3">
+              <Receipt className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} />
+            </div>
             <p className="text-sm font-medium">No hay turnos registrados</p>
             <p className="text-xs text-muted-foreground mt-1">
               Los turnos aparecerán aquí al abrirlos
@@ -279,7 +321,7 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
             const creditSales = activeSales
               .filter((s) => s.payment_method === "credit")
               .reduce((sum, s) => sum + s.total_amount, 0);
-            
+
             // Expenses
             const expenses = shift.expenses || [];
             const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
@@ -298,7 +340,7 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
             return (
               <div
                 key={shift.id}
-                className="rounded-lg border bg-card overflow-hidden"
+                className="bg-card border border-border rounded-lg overflow-hidden"
               >
                 {/* Shift Header */}
                 <button
@@ -311,19 +353,23 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                         "h-4 w-4 text-muted-foreground transition-transform duration-300",
                         isExpanded && "rotate-90",
                       )}
+                      strokeWidth={1.75}
                     />
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+                    <Clock className="h-4 w-4 text-foreground" strokeWidth={1.75} />
                   </div>
                   <div className="flex-1 min-w-0 pr-4">
                     <div className="flex items-center gap-2">
-                      <span className="text-base font-semibold">
+                      <span className="text-base font-semibold tracking-tight">
                         Turno #{shift.id}
                       </span>
                       <span
                         className={cn(
-                          "text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wider shrink-0",
+                          "px-2 py-0.5 rounded-full text-xs font-medium shrink-0",
                           isOpen
-                            ? "bg-green-500/10 text-green-600 dark:text-green-400"
-                            : "bg-muted text-muted-foreground",
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            : "bg-muted text-foreground",
                         )}
                       >
                         {isOpen ? "Activo" : "Cerrado"}
@@ -337,7 +383,7 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                       </div>
                       {shift.force_closed && (
                         <div className="flex">
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 uppercase tracking-wider">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-600 dark:text-red-400">
                             Cerrado forzosamente
                           </span>
                         </div>
@@ -345,13 +391,13 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                     </div>
                   </div>
                   <div className="text-right shrink-0 whitespace-nowrap">
-                    <p className="text-base font-bold tabular-nums">
+                    <p className="text-base font-semibold font-mono tabular-nums">
                       {formatCurrency(totalShiftSales)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {activeSales.length} venta{activeSales.length !== 1 ? "s" : ""}
                       {shift.sales.length > activeSales.length && (
-                         <span className="text-destructive ml-1">({shift.sales.length - activeSales.length} anulada{shift.sales.length - activeSales.length !== 1 ? 's' : ''})</span>
+                         <span className="text-red-600 dark:text-red-400 ml-1">({shift.sales.length - activeSales.length} anulada{shift.sales.length - activeSales.length !== 1 ? 's' : ''})</span>
                       )}
                     </p>
                   </div>
@@ -363,21 +409,21 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                   style={{ gridTemplateRows: isExpanded ? "1fr" : "0fr" }}
                 >
                   <div className="overflow-hidden">
-                    <div className="border-t">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x">
+                    <div className="border-t border-border">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-border">
                         {/* Sales List */}
                         <div className="p-4 space-y-2">
-                          <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                            <Receipt className="h-3 w-3" />
+                          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
+                            <Receipt className="h-3.5 w-3.5" strokeWidth={1.75} />
                             Detalle de Ventas
                           </div>
 
                           {shift.sales.length === 0 ? (
-                            <p className="text-xs text-muted-foreground text-center py-6 bg-muted/20 rounded-lg">
+                            <p className="text-xs text-muted-foreground text-center py-6 bg-muted/40 border border-border rounded-lg">
                               Este turno no tuvo ventas
                             </p>
                           ) : (
-                            <div className="space-y-1">
+                            <div className="divide-y divide-border">
                               {shift.sales.map((sale) => {
                                 const config = getMethodConfig(
                                   sale.payment_method,
@@ -388,28 +434,29 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                                   <div
                                     key={sale.id}
                                     className={cn(
-                                      "group flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-muted/40 transition-colors",
-                                      isVoided && "opacity-60 bg-muted/20"
+                                      "group flex items-center gap-3 px-2 py-2.5 hover:bg-muted/40 transition-colors",
+                                      isVoided && "opacity-60"
                                     )}
                                   >
                                     <div className="shrink-0">
                                       <MethodIcon
                                         className={cn("h-4 w-4", isVoided ? "text-muted-foreground" : config.color)}
+                                        strokeWidth={1.75}
                                       />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2">
-                                        <span className={cn("text-sm font-medium", isVoided && "line-through")}>
+                                        <span className={cn("text-sm font-medium", isVoided && "line-through text-muted-foreground")}>
                                           #{sale.id}
                                         </span>
                                         {isVoided && (
-                                          <span className="text-[8px] font-bold px-1 py-0 rounded bg-red-500 text-white uppercase tracking-tighter">
+                                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-600 dark:text-red-400">
                                             Anulada
                                           </span>
                                         )}
                                         {sale.status === 'credit' && (
-                                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-                                            Credito
+                                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                                            Crédito
                                           </span>
                                         )}
                                         <span className="text-xs text-muted-foreground truncate">
@@ -418,12 +465,12 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                                       </div>
                                       {sale.customer_name && (
                                         <div className="flex items-center gap-1 mt-0.5">
-                                          <User2 className="h-3 w-3 text-muted-foreground" />
-                                          <span className="text-[10px] text-muted-foreground truncate">{sale.customer_name}</span>
+                                          <User2 className="h-3 w-3 text-muted-foreground" strokeWidth={1.75} />
+                                          <span className="text-xs text-muted-foreground truncate">{sale.customer_name}</span>
                                         </div>
                                       )}
                                     </div>
-                                    <span className={cn("text-sm font-semibold tabular-nums whitespace-nowrap shrink-0", isVoided && "line-through text-muted-foreground")}>
+                                    <span className={cn("text-sm font-medium font-mono tabular-nums text-right whitespace-nowrap shrink-0", isVoided && "line-through text-muted-foreground")}>
                                       {formatCurrency(sale.total_amount)}
                                     </span>
                                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -432,21 +479,21 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                                           e.stopPropagation();
                                           handleViewTransaction(sale);
                                         }}
-                                        className="p-1 rounded hover:bg-muted"
+                                        className="p-1 rounded-md hover:bg-muted"
                                         title="Ver detalles"
                                       >
-                                        <Eye className="h-4 w-4 text-muted-foreground" />
+                                        <Eye className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
                                       </button>
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handlePrintReceipt(sale);
                                         }}
-                                        className="p-1 rounded hover:bg-muted"
+                                        className="p-1 rounded-md hover:bg-muted"
                                         title="Imprimir"
                                         disabled={isVoided}
                                       >
-                                        <Printer className="h-4 w-4 text-muted-foreground" />
+                                        <Printer className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
                                       </button>
                                     </div>
                                   </div>
@@ -460,38 +507,38 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                         <div className="p-4 space-y-4">
                           {/* Payment breakdown */}
                           <div>
-                            <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                              <TrendingUp className="h-3 w-3" />
+                            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
+                              <TrendingUp className="h-3.5 w-3.5" strokeWidth={1.75} />
                               Resumen por Método
                             </div>
-                            <div className="rounded-lg border divide-y text-sm">
+                            <div className="rounded-lg border border-border divide-y divide-border text-sm">
                               <div className="flex items-center justify-between px-3.5 py-2.5">
                                 <div className="flex items-center gap-2">
-                                  <Banknote className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                  <Banknote className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
                                   <span className="text-sm">Efectivo</span>
                                 </div>
-                                <span className="text-sm font-semibold tabular-nums">
+                                <span className="text-sm font-medium font-mono tabular-nums text-right">
                                   {formatCurrency(cashSales)}
                                 </span>
                               </div>
                               <div className="flex items-center justify-between px-3.5 py-2.5">
                                 <div className="flex items-center gap-2">
-                                  <CreditCard className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                  <CreditCard className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
                                   <span className="text-sm">Tarjeta</span>
                                 </div>
-                                <span className="text-sm font-semibold tabular-nums">
+                                <span className="text-sm font-medium font-mono tabular-nums text-right">
                                   {formatCurrency(cardSales)}
                                 </span>
                               </div>
                               {transferSales > 0 && (
                                 <div className="flex items-center justify-between px-3.5 py-2.5">
                                   <div className="flex items-center gap-2">
-                                    <ArrowRightLeft className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                    <ArrowRightLeft className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
                                     <span className="text-sm">
                                       Transferencia
                                     </span>
                                   </div>
-                                  <span className="text-sm font-semibold tabular-nums">
+                                  <span className="text-sm font-medium font-mono tabular-nums text-right">
                                     {formatCurrency(transferSales)}
                                   </span>
                                 </div>
@@ -499,12 +546,12 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                               {creditSales > 0 && (
                                 <div className="flex items-center justify-between px-3.5 py-2.5">
                                   <div className="flex items-center gap-2">
-                                    <HandCoins className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                    <HandCoins className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />
                                     <span className="text-sm">
                                       Credito
                                     </span>
                                   </div>
-                                  <span className="text-sm font-semibold tabular-nums">
+                                  <span className="text-sm font-medium font-mono tabular-nums text-right">
                                     {formatCurrency(creditSales)}
                                   </span>
                                 </div>
@@ -513,10 +560,10 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                               {cashDebtTotal > 0 && (
                                 <div className="flex items-center justify-between px-3.5 py-2.5">
                                   <div className="flex items-center gap-2">
-                                    <HandCoins className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                    <HandCoins className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
                                     <span className="text-sm">Abonos (efectivo)</span>
                                   </div>
-                                  <span className="text-sm font-semibold tabular-nums text-green-700 dark:text-green-400">
+                                  <span className="text-sm font-medium font-mono tabular-nums text-right text-emerald-600 dark:text-emerald-400">
                                     +{formatCurrency(cashDebtTotal)}
                                   </span>
                                 </div>
@@ -524,10 +571,10 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                               {transferDebtTotal > 0 && (
                                 <div className="flex items-center justify-between px-3.5 py-2.5">
                                   <div className="flex items-center gap-2">
-                                    <ArrowRightLeft className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                    <ArrowRightLeft className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
                                     <span className="text-sm">Abonos (transferencia)</span>
                                   </div>
-                                  <span className="text-sm font-semibold tabular-nums">
+                                  <span className="text-sm font-medium font-mono tabular-nums text-right">
                                     {formatCurrency(transferDebtTotal)}
                                   </span>
                                 </div>
@@ -536,7 +583,7 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                                 <span className="text-sm font-semibold">
                                   Total Neto
                                 </span>
-                                <span className="text-base font-bold tabular-nums">
+                                <span className="text-base font-semibold font-mono tabular-nums text-right">
                                   {formatCurrency(totalShiftSales)}
                                 </span>
                               </div>
@@ -546,36 +593,36 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                           {/* Expenses */}
                           {expenses.length > 0 && (
                             <div>
-                              <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                                <MinusCircle className="h-3 w-3 text-destructive" />
+                              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
+                                <MinusCircle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" strokeWidth={1.75} />
                                 Salidas de Caja (Gastos)
                               </div>
-                              <div className="rounded-lg border divide-y text-xs">
+                              <div className="rounded-lg border border-border divide-y divide-border text-xs">
                                 {expenses.map((expense, idx) => (
                                   <div key={idx} className="flex items-center justify-between px-3 py-2">
                                     <span className="text-muted-foreground truncate mr-2" title={expense.reason}>{expense.reason}</span>
-                                    <span className="font-semibold text-destructive tabular-nums shrink-0">
+                                    <span className="font-medium text-red-600 dark:text-red-400 font-mono tabular-nums text-right shrink-0">
                                       -{formatCurrency(expense.amount)}
                                     </span>
                                   </div>
                                 ))}
-                                <div className="flex items-center justify-between px-3 py-2 bg-destructive/5">
+                                <div className="flex items-center justify-between px-3 py-2 bg-muted/40">
                                   <div className="flex items-center gap-2">
-                                    <span className="font-semibold text-destructive">Total Gastos</span>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
-                                      className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                                    <span className="font-semibold text-red-600 dark:text-red-400">Total Gastos</span>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
                                       onClick={() => {
                                         setExpensesToView(expenses);
                                         setExpensesViewTitle(`Salidas del Turno #${shift.id}`);
                                         setShowExpensesDialog(true);
                                       }}
                                     >
-                                      <Eye className="h-3.5 w-3.5" />
+                                      <Eye className="h-3.5 w-3.5" strokeWidth={1.75} />
                                     </Button>
                                   </div>
-                                  <span className="font-bold text-destructive tabular-nums">
+                                  <span className="font-semibold text-red-600 dark:text-red-400 font-mono tabular-nums text-right">
                                     -{formatCurrency(totalExpenses)}
                                   </span>
                                 </div>
@@ -585,16 +632,16 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
 
                           {/* Cash register */}
                           <div>
-                            <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                              <Wallet className="h-3 w-3" />
+                            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
+                              <Wallet className="h-3.5 w-3.5" strokeWidth={1.75} />
                               Arqueo de Caja
                             </div>
-                            <div className="rounded-lg border divide-y text-sm">
+                            <div className="rounded-lg border border-border divide-y divide-border text-sm">
                               <div className="flex items-center justify-between px-3.5 py-2.5">
                                 <span className="text-sm text-muted-foreground">
                                   Fondo inicial
                                 </span>
-                                <span className="text-sm font-medium tabular-nums">
+                                <span className="text-sm font-medium font-mono tabular-nums text-right">
                                   {formatCurrency(shift.initial_cash)}
                                 </span>
                               </div>
@@ -602,7 +649,7 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                                 <span className="text-sm text-muted-foreground">
                                   + Ventas en efectivo
                                 </span>
-                                <span className="text-sm font-medium text-green-700 dark:text-green-400 tabular-nums">
+                                <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 font-mono tabular-nums text-right">
                                   +{formatCurrency(cashSales)}
                                 </span>
                               </div>
@@ -611,17 +658,17 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                                   <span className="text-sm text-muted-foreground">
                                     + Abonos en efectivo
                                   </span>
-                                  <span className="text-sm font-medium text-green-700 dark:text-green-400 tabular-nums">
+                                  <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 font-mono tabular-nums text-right">
                                     +{formatCurrency(cashDebtTotal)}
                                   </span>
                                 </div>
                               )}
                               {totalExpenses > 0 && (
-                                <div className="flex items-center justify-between px-3.5 py-2.5 bg-destructive/5">
-                                  <span className="text-sm text-destructive">
+                                <div className="flex items-center justify-between px-3.5 py-2.5">
+                                  <span className="text-sm text-red-600 dark:text-red-400">
                                     - Salidas de caja
                                   </span>
-                                  <span className="text-sm font-medium text-destructive tabular-nums">
+                                  <span className="text-sm font-medium text-red-600 dark:text-red-400 font-mono tabular-nums text-right">
                                     -{formatCurrency(totalExpenses)}
                                   </span>
                                 </div>
@@ -630,7 +677,7 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                                 <span className="text-sm font-semibold">
                                   Efectivo esperado
                                 </span>
-                                <span className="text-base font-bold tabular-nums">
+                                <span className="text-base font-semibold font-mono tabular-nums text-right">
                                   {formatCurrency(
                                     shift.expected_cash ??
                                       Number(shift.initial_cash) + cashSales + cashDebtTotal - totalExpenses,
@@ -643,16 +690,19 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                           {/* Shift result */}
                           {isOpen ? (
                             <div className="space-y-3">
-                              <div className="flex items-center gap-2 justify-center py-3 rounded-lg bg-blue-500/5 border border-blue-500/15">
-                                <Clock className="h-3.5 w-3.5 text-blue-500" />
-                                <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                              <div className="flex items-center gap-2 justify-center py-3 rounded-lg bg-muted/40 border border-border">
+                                <span className="relative flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                                </span>
+                                <span className="text-sm font-medium text-muted-foreground">
                                   Turno activo — pendiente de cierre
                                 </span>
                               </div>
-                              {user?.role === 'admin' && user?.id !== shift.user_name && (
-                                <Button 
-                                  variant="destructive" 
-                                  className="w-full" 
+                              {canForceClose && user?.id !== shift.user_id && (
+                                <Button
+                                  variant="destructive"
+                                  className="w-full"
                                   size="sm"
                                   onClick={(e) => handleForceCloseClick(shift, e)}
                                 >
@@ -661,33 +711,24 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                               )}
                             </div>
                           ) : (
-                            <div className="rounded-lg border divide-y text-sm">
+                            <div className="rounded-lg border border-border divide-y divide-border text-sm">
                               <div className="flex items-center justify-between px-3.5 py-2.5">
                                 <span className="text-sm text-muted-foreground">
                                   Efectivo contado
                                 </span>
-                                <span className="text-sm font-medium tabular-nums">
+                                <span className="text-sm font-medium font-mono tabular-nums text-right">
                                   {formatCurrency(shift.final_cash ?? 0)}
                                 </span>
                               </div>
-                              <div
-                                className={cn(
-                                  "flex items-center justify-between px-3.5 py-2.5",
-                                  shift.difference === 0
-                                    ? "bg-muted/40"
-                                    : (shift.difference ?? 0) < 0
-                                      ? "bg-red-500/10"
-                                      : "bg-green-500/10",
-                                )}
-                              >
+                              <div className="flex items-center justify-between px-3.5 py-2.5 bg-muted/40">
                                 <span
                                   className={cn(
-                                    "text-sm font-semibold",
+                                    "px-2 py-1 rounded-full text-xs font-medium",
                                     shift.difference === 0
-                                      ? ""
+                                      ? "bg-muted text-foreground"
                                       : (shift.difference ?? 0) < 0
-                                        ? "text-red-600 dark:text-red-400"
-                                        : "text-green-600 dark:text-green-400",
+                                        ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                                        : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
                                   )}
                                 >
                                   {shift.difference === 0
@@ -698,12 +739,12 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                                 </span>
                                 <span
                                   className={cn(
-                                    "text-sm font-bold tabular-nums",
+                                    "text-sm font-semibold font-mono tabular-nums text-right",
                                     shift.difference === 0
                                       ? ""
                                       : (shift.difference ?? 0) < 0
                                         ? "text-red-600 dark:text-red-400"
-                                        : "text-green-600 dark:text-green-400",
+                                        : "text-emerald-600 dark:text-emerald-400",
                                   )}
                                 >
                                   {(shift.difference ?? 0) > 0 ? "+" : ""}
@@ -721,13 +762,19 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
             );
           })
         )}
-      </div>
+        </TabsContent>
+      </Tabs>
 
       <TransactionDetailsDialog
         open={transactionDialogOpen}
         onOpenChange={setTransactionDialogOpen}
         transaction={selectedTransaction}
-        onVoidSuccess={fetchHistory}
+        onVoidSuccess={() => {
+          // Refresh the history AND the live shift context so the expected
+          // cash in the header/close-shift dialog reflects the voided sale.
+          fetchHistory();
+          void fetchActiveShift();
+        }}
       />
 
       <ForceCloseDialog
@@ -737,7 +784,7 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
         onSuccess={handleForceCloseSuccess}
       />
 
-      <ViewExpensesDialog 
+      <ViewExpensesDialog
         isOpen={showExpensesDialog}
         onClose={() => setShowExpensesDialog(false)}
         expenses={expensesToView}

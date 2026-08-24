@@ -148,7 +148,7 @@ export function BusinessStep({
                         <img
                             src={businessData.logoPreview}
                             alt="Logo"
-                            className="w-28 h-28 object-contain rounded-xl border border-border bg-muted"
+                            className="w-28 h-28 object-contain rounded-lg border border-border bg-muted"
                         />
                         <button
                             onClick={removeLogo}
@@ -158,7 +158,7 @@ export function BusinessStep({
                         </button>
                     </div>
                 ) : (
-                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all">
+                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all">
                         <Upload className="w-6 h-6 mb-1.5 text-muted-foreground" />
                         <p className="text-sm text-muted-foreground">Click para subir logo</p>
                         <input

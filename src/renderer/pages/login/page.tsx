@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ipc } from "@lib/ipc";
-import { motion, AnimatePresence } from "framer-motion";
 
 const features = [
   { icon: ShoppingCart, label: "Punto de venta ágil" },
@@ -48,9 +47,11 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promis
       const result = (await ipc.invoke("login-request", {
         username,
         password,
-      })) as { success: boolean; message?: string; data?: User };
+      })) as { success: boolean; message?: string; data?: { user: User; token: string } };
       if (result.success && result.data) {
-        await onLogin(result.data);
+        // Persist the session token so the session survives app restarts
+        window.localStorage.setItem("session_token", result.data.token);
+        await onLogin(result.data.user);
         navigate("/dashboard");
       } else {
         setError(result.message || "Credenciales inválidas.");
@@ -65,14 +66,11 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promis
   return (
     <div className="min-h-screen flex bg-background overflow-hidden">
       {/* ── Left branded panel ── */}
-      <motion.div
+      <div
         className="hidden lg:flex lg:w-[42%] relative flex-col justify-between overflow-hidden"
-        initial={{ x: -60, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
         style={{
           background:
-            "linear-gradient(145deg, oklch(0.10 0.04 260), oklch(0.16 0.07 265), oklch(0.12 0.05 255))",
+            "linear-gradient(160deg, oklch(0.08 0 0), oklch(0.145 0 0))",
         }}
       >
         {/* Decorative grid overlay */}
@@ -80,19 +78,19 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promis
           className="absolute inset-0 opacity-[0.04]"
           style={{
             backgroundImage:
-              "linear-gradient(oklch(0.9 0.1 260) 1px, transparent 1px), linear-gradient(90deg, oklch(0.9 0.1 260) 1px, transparent 1px)",
+              "linear-gradient(oklch(0.98 0 0) 1px, transparent 1px), linear-gradient(90deg, oklch(0.98 0 0) 1px, transparent 1px)",
             backgroundSize: "40px 40px",
           }}
         />
 
         {/* Glow orbs */}
         <div
-          className="absolute top-1/4 -left-20 w-72 h-72 rounded-full opacity-20 blur-3xl"
-          style={{ background: "oklch(0.6 0.22 260)" }}
+          className="absolute top-1/4 -left-20 w-72 h-72 rounded-full opacity-[0.14] blur-3xl"
+          style={{ background: "oklch(0.55 0 0)" }}
         />
         <div
           className="absolute bottom-1/4 right-0 w-56 h-56 rounded-full opacity-10 blur-3xl"
-          style={{ background: "oklch(0.5 0.18 200)" }}
+          style={{ background: "oklch(0.4 0 0)" }}
         />
 
         {/* Top: logo */}
@@ -100,13 +98,13 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promis
           <div className="flex items-center gap-3">
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center"
-              style={{ background: "oklch(0.6 0.22 260)" }}
+              style={{ background: "oklch(1 0 0)" }}
             >
-              <ShoppingCart className="w-5 h-5 text-white" />
+              <ShoppingCart className="w-5 h-5" style={{ color: "oklch(0.145 0 0)" }} />
             </div>
             <span
               className="text-2xl font-bold tracking-tight"
-              style={{ color: "oklch(0.97 0.01 240)" }}
+              style={{ color: "oklch(0.985 0 0)" }}
             >
               Venilu
             </span>
@@ -117,57 +115,49 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promis
         <div className="relative z-10 px-10 space-y-8">
           <div className="space-y-3">
             <h1
-              className="text-4xl font-bold leading-tight"
-              style={{ color: "oklch(0.97 0.01 240)" }}
+              className="text-4xl font-bold leading-tight tracking-tight"
+              style={{ color: "oklch(0.985 0 0)" }}
             >
               Tu negocio,
               <br />
               bajo control.
             </h1>
-            <p style={{ color: "oklch(0.65 0.04 250)" }} className="text-base leading-relaxed">
+            <p style={{ color: "oklch(0.62 0 0)" }} className="text-base leading-relaxed">
               Sistema POS diseñado para comercios que buscan eficiencia, claridad y velocidad.
             </p>
           </div>
 
           <div className="space-y-3">
-            {features.map((f, i) => (
-              <motion.div
+            {features.map((f) => (
+              <div
                 key={f.label}
                 className="flex items-center gap-3"
-                initial={{ opacity: 0, x: -16 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4 + i * 0.1, duration: 0.4 }}
               >
                 <div
                   className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ background: "oklch(0.6 0.22 260 / 0.15)", border: "1px solid oklch(0.6 0.22 260 / 0.25)" }}
+                  style={{ background: "oklch(1 0 0 / 0.06)", border: "1px solid oklch(1 0 0 / 0.12)" }}
                 >
-                  <f.icon className="w-4 h-4" style={{ color: "oklch(0.72 0.16 260)" }} />
+                  <f.icon className="w-4 h-4" style={{ color: "oklch(0.85 0 0)" }} />
                 </div>
-                <span className="text-sm" style={{ color: "oklch(0.75 0.03 250)" }}>
+                <span className="text-sm" style={{ color: "oklch(0.75 0 0)" }}>
                   {f.label}
                 </span>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
 
         {/* Bottom: version */}
         <div className="relative z-10 p-10">
-          <p className="text-xs" style={{ color: "oklch(0.4 0.03 260)" }}>
+          <p className="text-xs" style={{ color: "oklch(0.45 0 0)" }}>
             Venilu v1.0 · © 2025
           </p>
         </div>
-      </motion.div>
+      </div>
 
       {/* ── Right form panel ── */}
       <div className="flex-1 flex items-center justify-center p-8">
-        <motion.div
-          className="w-full max-w-sm space-y-8"
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.15, ease: "easeOut" }}
-        >
+        <div className="w-full max-w-sm space-y-8">
           {/* Mobile-only logo */}
           <div className="flex items-center gap-2 lg:hidden">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
@@ -228,20 +218,12 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promis
             </div>
 
             {/* Error message */}
-            <AnimatePresence>
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0, y: -8 }}
-                  animate={{ opacity: 1, height: "auto", y: 0 }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex items-center gap-2 text-destructive text-sm bg-destructive/8 border border-destructive/20 rounded-lg px-3 py-2.5"
-                >
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  {error}
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {error && (
+              <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/8 border border-destructive/20 rounded-lg px-3 py-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {error}
+              </div>
+            )}
 
             <Button
               type="submit"
@@ -249,11 +231,7 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promis
               disabled={isLoading || !username || !password}
             >
               {isLoading ? (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
-                  className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full"
-                />
+                "Ingresando..."
               ) : (
                 <>
                   <LogIn className="w-4 h-4 mr-2" />
@@ -262,7 +240,7 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promis
               )}
             </Button>
           </form>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

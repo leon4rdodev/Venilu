@@ -121,12 +121,15 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
         if (result.success) {
           toast.success('Usuario actualizado exitosamente');
           if (loggedInUser && loggedInUser.id === user.id) {
-            setLoggedInUser({
-              ...loggedInUser,
-              name: formData.name,
-              username: formData.username,
-              role: formData.role,
-            });
+            // Re-fetch the session user from main so local state (including
+            // permissions) matches the database.
+            const refreshed = await window.ipcRenderer.invoke('session:refresh') as {
+              success: boolean;
+              data?: typeof loggedInUser;
+            };
+            if (refreshed.success && refreshed.data) {
+              setLoggedInUser(refreshed.data);
+            }
           }
           onSave();
           onClose();
@@ -162,8 +165,8 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
         {/* Header */}
-        <div className="p-6 pb-4 border-b space-y-1">
-          <h2 className="text-xl font-semibold tracking-tight">
+        <div className="p-6 pb-4 border-b border-border space-y-1">
+          <h2 className="text-lg font-semibold tracking-tight">
             {user ? 'Editar Usuario' : 'Agregar Usuario'}
           </h2>
           <p className="text-sm text-muted-foreground">
@@ -181,6 +184,7 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
               onChange={handleChange}
               placeholder="Ej: Juan Pérez"
               disabled={isSaving}
+              className="h-10 bg-background"
             />
           </div>
           <div className="space-y-2">
@@ -191,6 +195,7 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
               onChange={handleChange}
               placeholder="Ej: juan.perez"
               disabled={isSaving}
+              className="h-10 bg-background"
             />
           </div>
           <div className="space-y-2">
@@ -202,6 +207,7 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
               onChange={handleChange}
               placeholder={user ? 'Dejar en blanco para no cambiar' : 'Ingresa una contraseña'}
               disabled={isSaving}
+              className="h-10 bg-background"
             />
             {formData.password && formData.password.length < 4 && (
               <p className="text-xs text-destructive">La contraseña debe tener al menos 4 caracteres</p>
@@ -210,7 +216,7 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
           <div className="space-y-2">
             <Label htmlFor="role">Rol *</Label>
             <Select value={formData.role_id} onValueChange={handleRoleChange} disabled={isSaving || roles.length === 0}>
-              <SelectTrigger id="role">
+              <SelectTrigger id="role" className="h-10 bg-background w-full">
                 <SelectValue placeholder="Selecciona un rol" />
               </SelectTrigger>
               <SelectContent>
@@ -223,15 +229,15 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
         </div>
 
         {/* Footer */}
-        <div className="p-6 pt-4 border-t flex gap-3">
-          <Button variant="outline" onClick={onClose} disabled={isSaving} className="flex-1 h-11">
+        <div className="p-6 pt-4 border-t border-border flex gap-3">
+          <Button variant="outline" onClick={onClose} disabled={isSaving} className="flex-1 h-10">
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={!canSave || isSaving} className="flex-1 h-11 gap-2">
+          <Button onClick={handleSubmit} disabled={!canSave || isSaving} className="flex-1 h-10 gap-2">
             {isSaving ? 'Guardando...' : user ? (
-              <><UserCheck className="h-4 w-4" />Guardar</>
+              <><UserCheck className="h-4 w-4" strokeWidth={1.75} />Guardar</>
             ) : (
-              <><UserPlus className="h-4 w-4" />Agregar Usuario</>
+              <><UserPlus className="h-4 w-4" strokeWidth={1.75} />Agregar Usuario</>
             )}
           </Button>
         </div>

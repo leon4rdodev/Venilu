@@ -69,8 +69,8 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
       <DialogContent className="sm:max-w-[480px] p-0 gap-0 overflow-hidden">
         <form onSubmit={handleSubmit} className="flex flex-col">
           {/* Header */}
-          <div className="p-6 pb-4 border-b space-y-1">
-            <h2 className="text-xl font-semibold tracking-tight">
+          <div className="p-6 pb-4 border-b border-border space-y-1">
+            <h2 className="text-lg font-semibold tracking-tight">
               {isEditing ? "Editar Cliente" : "Nuevo Cliente"}
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -157,24 +157,24 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
           </div>
 
           {/* Footer */}
-          <div className="p-6 pt-4 border-t flex gap-3">
+          <div className="p-6 pt-4 border-t border-border flex gap-3">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="flex-1 h-11"
+              className="flex-1 h-10"
             >
               Cancelar
             </Button>
             <Button
               type="submit"
               disabled={!name.trim() || saving}
-              className="flex-1 h-11 gap-2"
+              className="flex-1 h-10 gap-2"
             >
               {saving ? "Guardando..." : isEditing ? (
-                <><Save className="h-4 w-4" />Guardar Cambios</>
+                <><Save className="h-4 w-4" strokeWidth={1.75} />Guardar Cambios</>
               ) : (
-                <><UserPlus className="h-4 w-4" />Crear Cliente</>
+                <><UserPlus className="h-4 w-4" strokeWidth={1.75} />Crear Cliente</>
               )}
             </Button>
           </div>

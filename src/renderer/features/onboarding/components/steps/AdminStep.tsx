@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { Eye, EyeOff } from 'lucide-react';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
@@ -83,12 +82,9 @@ export function AdminStep({
                 {strength && (
                     <div className="space-y-1 pt-1">
                         <div className="h-1 bg-muted rounded-full overflow-hidden">
-                            <motion.div
+                            <div
                                 className={`h-full ${strength.color} rounded-full`}
-                                initial={{ width: 0 }}
-                                animate={{ width: undefined }}
                                 style={{ width: strength.w }}
-                                transition={{ duration: 0.3 }}
                             />
                         </div>
                         <p className="text-xs text-muted-foreground">{strength.label}</p>

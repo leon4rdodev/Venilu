@@ -1,12 +1,5 @@
 import React from "react";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@components/ui/card";
-import {
   ResponsiveContainer,
   BarChart,
   Bar,
@@ -17,8 +10,8 @@ import {
 } from "recharts";
 import { formatCurrency, getCurrencySymbol } from "@lib/currency";
 import { useCurrency } from "@renderer/shared/context/currency-context";
-import { BarChart3, TrendingUp } from "lucide-react";
-
+import { BarChart3 } from "lucide-react";
+import { WidgetHeader } from "@renderer/shared/components/widget-header";
 
 interface SalesOverTimeData {
   period: string;
@@ -73,129 +66,102 @@ export const SalesOverTimeChart = React.memo(
     };
 
     return (
-      <Card className="border-border/50 shadow-sm bg-card transition-shadow duration-300">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <div className="p-2 bg-primary/10 rounded-lg text-primary">
-              <BarChart3 className="h-5 w-5" />
+      <div className="bg-card border border-border rounded-lg p-6">
+        <WidgetHeader
+          icon={BarChart3}
+          title="Ventas en el Tiempo"
+          subtitle={`Resumen de ingresos y transacciones agrupado por ${
+            interval === "week" ? "semana" : interval === "month" ? "mes" : "día"
+          }.`}
+        />
+
+        <div className="h-[300px] w-full mt-6">
+          {loading ? (
+            <div className="w-full h-full flex items-end gap-2 p-4">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex-1 bg-muted animate-pulse rounded-t"
+                  style={{ height: `${Math.random() * 60 + 20}%` }}
+                />
+              ))}
             </div>
-            <span>Ventas en el Tiempo</span>
-          </CardTitle>
-          <CardDescription>
-            Resumen de ingresos y transacciones agrupado por{" "}
-            {interval === "week"
-              ? "semana"
-              : interval === "month"
-                ? "mes"
-                : "día"}
-            .
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pl-0 pr-4 pb-4">
-          <div className="h-[300px] w-full">
-            {loading ? (
-              <div className="w-full h-full flex items-end gap-2 p-4">
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 bg-muted/20 animate-pulse rounded-t-lg"
-                    style={{ height: `${Math.random() * 60 + 20}%` }}
-                  />
-                ))}
+          ) : salesOverTime.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={salesOverTime}
+                margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  className="stroke-border"
+                />
+                <XAxis
+                  dataKey="period"
+                  stroke="var(--muted-foreground)"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={10}
+                  tickFormatter={formatPeriodLabel}
+                />
+                <YAxis
+                  stroke="var(--muted-foreground)"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => compactCurrency(value)}
+                  tickMargin={8}
+                  width={60}
+                />
+                <Tooltip
+                  cursor={{ fill: "var(--muted)", opacity: 0.5 }}
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const p = payload[0].payload as SalesOverTimeData;
+                      return (
+                        <div className="rounded-lg border border-border bg-popover p-3 shadow-md">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
+                            {formatPeriodLabel(p.period)}
+                          </p>
+                          <p className="text-sm font-semibold tabular-nums">
+                            {formatCurrency(p.totalSales)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {p.totalTransactions} transacci
+                            {p.totalTransactions === 1 ? "ón" : "ones"}
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Bar
+                  dataKey="totalSales"
+                  fill="var(--primary)"
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={36}
+                  animationDuration={800}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <div className="w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-3">
+                <BarChart3 className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} />
               </div>
-            ) : salesOverTime.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={salesOverTime}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 0 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    className="stroke-muted"
-                  />
-                  <XAxis
-                    dataKey="period"
-                    stroke="var(--muted-foreground)"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={10}
-                    tickFormatter={formatPeriodLabel}
-                  />
-                  <YAxis
-                    stroke="var(--muted-foreground)"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => compactCurrency(value)}
-                    tickMargin={10}
-                    width={75}
-                  />
-                  <Tooltip
-                    cursor={{ fill: "var(--muted)" }}
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        return (
-                          <div className="rounded-xl border border-border bg-background/95 backdrop-blur-sm p-3 shadow-lg ring-1 ring-black/5">
-                            <div className="flex flex-col gap-1">
-                              <span className="text-[0.70rem] uppercase text-muted-foreground font-semibold tracking-wider">
-                                Período
-                              </span>
-                              <span className="font-bold text-foreground">
-                                {payload[0].payload.period}
-                              </span>
-                              <div className="h-px bg-border my-1" />
-                              <div className="flex items-center gap-2">
-                                <TrendingUp className="h-3 w-3 text-green-500" />
-                                <span className="font-bold text-primary">
-                                  {formatCurrency(
-                                    payload[0].payload.totalSales,
-                                  )}{" "}
-                                  <span className="text-muted-foreground font-normal text-xs">
-                                    en ventas
-                                  </span>
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground">
-                                  {payload[0].payload.totalTransactions}{" "}
-                                  transacciones
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <Bar
-                    dataKey="totalSales"
-                    fill="var(--primary)"
-                    radius={[6, 6, 0, 0]}
-                    barSize={40}
-                    className="fill-primary"
-                    animationDuration={1500}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <div className="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-                  <BarChart3 className="h-10 w-10 text-muted-foreground/50" />
-                </div>
-                <p className="text-sm font-medium mb-1">
-                  No hay datos de ventas
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Selecciona un período con ventas registradas
-                </p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              <p className="text-sm font-medium text-muted-foreground mb-1">
+                No hay datos de ventas
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Selecciona un período con ventas registradas
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
     );
   },
 );

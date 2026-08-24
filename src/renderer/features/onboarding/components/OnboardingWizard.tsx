@@ -1,5 +1,3 @@
-import { AnimatePresence, motion } from 'framer-motion';
-
 import { useOnboardingWizard } from '@renderer/features/onboarding/hooks/use-onboarding-wizard';
 import { STEPS } from '@renderer/features/onboarding/types/onboarding.types';
 
@@ -41,16 +39,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
                 {/* Step content */}
                 <div className="flex-1 overflow-y-auto px-8 lg:px-16 pt-12 pb-6">
-                    <AnimatePresence mode="wait" custom={wizard.slideDir}>
-                        <motion.div
-                            key={wizard.currentStep}
-                            custom={wizard.slideDir}
-                            initial={{ opacity: 0, x: wizard.slideDir * 40 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: wizard.slideDir * -30 }}
-                            transition={{ duration: 0.3, ease: 'easeInOut' }}
-                            className="max-w-xl space-y-6"
-                        >
+                    <div className="max-w-xl space-y-6">
                             {/* Step header */}
                             <div className="space-y-1 mb-8">
                                 <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-widest mb-2">
@@ -97,8 +86,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                                     isLoading={wizard.isLoading}
                                 />
                             )}
-                        </motion.div>
-                    </AnimatePresence>
+                    </div>
                 </div>
 
                 <OnboardingNavigation
