@@ -1,4 +1,5 @@
 import { AppDataSource } from "@main/config/data-source";
+import { stockMovementsService } from "./stock-movements.service";
 import { Product as ProductEntity } from "@main/modules/products/entities/product.entity";
 import { SaleItem as SaleItemEntity } from "@main/modules/sales/entities/sale-item.entity";
 import { imagesService } from "@main/shared/services/images.service";
@@ -187,7 +188,19 @@ export class ProductsService {
         }
 
         const product = this.productRepository.create(data as Partial<ProductEntity>);
-        return this.productRepository.save(product);
+        const saved = await this.productRepository.save(product);
+
+        // Kardex: opening stock
+        if (Number(saved.stock) > 0) {
+            await stockMovementsService.record({
+                product_id: saved.id,
+                type: 'initial',
+                quantity_delta: Number(saved.stock),
+                stock_after: Number(saved.stock),
+                note: 'Stock inicial',
+            });
+        }
+        return saved;
     }
 
     async update(
@@ -242,6 +255,17 @@ export class ProductsService {
         await this.productRepository.update({ id }, dataToUpdate);
         const updated = await this.productRepository.findOneBy({ id });
         if (!updated) throw new Error("Producto no encontrado después de la actualización");
+
+        // Kardex: manual stock adjustment (only when the value really changed)
+        if (changedStock && opts.canAdjustStock) {
+            await stockMovementsService.record({
+                product_id: id,
+                type: 'adjustment',
+                quantity_delta: Number(updated.stock) - Number(current.stock),
+                stock_after: Number(updated.stock),
+                note: 'Ajuste manual',
+            });
+        }
         return updated;
     }
 

@@ -122,10 +122,67 @@ export function registerReportsHandlers() {
     }
   });
 
-  ipcMain.handle('generate-sales-report-pdf', async (_event, data) => {
+  /** Payment method breakdown for an arbitrary range (reports page widget). */
+  ipcMain.handle('get-payment-breakdown', async (_event, { startDate, endDate }) => {
+    try {
+      requirePermission('reports:view_full');
+      const data = await reportsService.getPaymentMethodBreakdown(
+        startDate ? new Date(startDate) : null,
+        endDate ? new Date(endDate) : null,
+      );
+      return { success: true, data };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  /** Revenue/units/profit per product category for the range. */
+  ipcMain.handle('get-category-breakdown', async (_event, { startDate, endDate }) => {
+    try {
+      requirePermission('reports:view_full');
+      const data = await reportsService.getCategoryBreakdown(
+        startDate ? new Date(startDate) : null,
+        endDate ? new Date(endDate) : null,
+      );
+      return { success: true, data };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  /** Registered customers ranked by spend in the range. */
+  ipcMain.handle('get-top-customers', async (_event, { startDate, endDate, limit }) => {
+    try {
+      requirePermission('reports:view_full');
+      const data = await reportsService.getTopCustomers(
+        startDate ? new Date(startDate) : null,
+        endDate ? new Date(endDate) : null,
+        Math.min(20, Math.max(1, Number(limit) || 5)),
+      );
+      return { success: true, data };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  /**
+   * Exports recalculate everything in main from just the date range —
+   * renderer-supplied figures are never trusted.
+   * Payload: { startDate, endDate, interval? }
+   */
+  ipcMain.handle('generate-sales-report-pdf', async (_event, { startDate, endDate, interval } = {}) => {
     try {
       requirePermission('reports:export_pdf');
-      return await pdfService.generateSalesReportPdf(data);
+      return await pdfService.generateSalesReportPdf({ startDate, endDate, interval });
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  ipcMain.handle('export-sales-report-csv', async (_event, { startDate, endDate, interval } = {}) => {
+    try {
+      requirePermission('reports:export_pdf');
+      return await pdfService.generateSalesReportCsv({ startDate, endDate, interval });
     } catch (err: any) {
       return { success: false, message: err.message };
     }

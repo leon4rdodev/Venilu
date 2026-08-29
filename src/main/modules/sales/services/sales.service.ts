@@ -7,6 +7,8 @@ import { Customer as CustomerEntity } from "@main/modules/customers/entities/cus
 import { DebtPayment as DebtPaymentEntity } from "@main/modules/sales/entities/debt-payment.entity";
 import { Repository, DataSource } from "typeorm";
 import { round2 } from "@shared/money";
+import { StockMovement } from "@main/modules/products/entities/stock-movement.entity";
+import { getSessionUser } from "@main/shared/session";
 
 interface ProcessSaleData {
     user_id: string;
@@ -95,6 +97,8 @@ export class SalesService {
 
             let calculatedSubtotal = 0;
             const saleItems: SaleItemEntity[] = [];
+            // Kardex drafts — saved after the sale id exists (same transaction)
+            const movementDrafts: Array<{ product_id: string; quantity_delta: number; stock_after: number }> = [];
 
             for (const item of items) {
                 const quantity = Number(item.quantity);
@@ -114,6 +118,7 @@ export class SalesService {
                 // Update stock
                 product.stock -= quantity;
                 await transactionalEntityManager.save(product);
+                movementDrafts.push({ product_id: product.id, quantity_delta: -quantity, stock_after: product.stock });
 
                 // Unit price is ALWAYS the DB price unless the user holds
                 // pos:price_override and explicitly sends one.
@@ -220,12 +225,25 @@ export class SalesService {
 
             const savedSale = await transactionalEntityManager.save(SaleEntity, sale);
 
+            // Kardex: one movement per line, referencing the sale — commits or
+            // rolls back together with the sale itself.
+            const session = getSessionUser();
+            for (const draft of movementDrafts) {
+                await transactionalEntityManager.save(StockMovement, transactionalEntityManager.create(StockMovement, {
+                    ...draft,
+                    type: 'sale',
+                    reference: savedSale.id,
+                    user_id: session?.id ?? saleData.user_id,
+                    username: session?.username,
+                }));
+            }
+
             // Update customer balance for credit sales
             if (isCredit && customer) {
                 customer.balance = round2((Number(customer.balance) || 0) + finalTotal);
                 await transactionalEntityManager.save(CustomerEntity, customer);
             }
-            
+
             return { success: true, saleId: savedSale.id };
         });
     }
@@ -243,6 +261,11 @@ export class SalesService {
         }
         if (paymentMethod !== 'cash' && paymentMethod !== 'transfer') {
             throw new Error("Método de pago inválido");
+        }
+        // A cash payment MUST be attributed to an open shift — otherwise that
+        // money never shows up in any register's expected_cash reconciliation.
+        if (paymentMethod === 'cash' && !shiftId) {
+            throw new Error("Abre un turno para registrar abonos en efectivo");
         }
 
         return await this.dataSource.transaction(async (transactionalEntityManager) => {
@@ -465,7 +488,8 @@ export class SalesService {
                 throw new Error("Esta venta ya ha sido anulada");
             }
 
-            // Restore stock
+            // Restore stock (+ kardex entry per line)
+            const session = getSessionUser();
             for (const item of sale.items) {
                 if (item.product_id) {
                     const product = await transactionalEntityManager.findOne(ProductEntity, {
@@ -474,6 +498,16 @@ export class SalesService {
                     if (product) {
                         product.stock += item.quantity;
                         await transactionalEntityManager.save(ProductEntity, product);
+                        await transactionalEntityManager.save(StockMovement, transactionalEntityManager.create(StockMovement, {
+                            product_id: product.id,
+                            type: 'void',
+                            quantity_delta: item.quantity,
+                            stock_after: product.stock,
+                            reference: sale.id,
+                            user_id: session?.id,
+                            username: session?.username,
+                            note: 'Anulación de venta',
+                        }));
                     }
                 }
             }
@@ -491,6 +525,28 @@ export class SalesService {
                         customer.balance = Math.max(0, round2(Number(customer.balance) - outstanding));
                         await transactionalEntityManager.save(CustomerEntity, customer);
                     }
+                }
+
+                // Money ALREADY collected for this sale must be returned to the
+                // customer: record a refund so income and the register's
+                // expected cash reverse too (dated now, attributed to the
+                // voiding user's open shift when there is one).
+                const collected = round2(Number(sale.amount_paid || 0));
+                if (collected > 0) {
+                    const openShift = session
+                        ? await transactionalEntityManager.findOne(ShiftEntity, {
+                            where: { user_id: session.id, status: 'open' },
+                        })
+                        : null;
+                    await transactionalEntityManager.save(DebtPaymentEntity, transactionalEntityManager.create(DebtPaymentEntity, {
+                        customer_id: sale.customer_id,
+                        shift_id: openShift?.id,
+                        amount: collected,
+                        payment_method: 'cash',
+                        type: 'refund',
+                        reference: sale.id,
+                        notes: `Reembolso por anulación de venta #${sale.id}`,
+                    }));
                 }
             }
 

@@ -3,6 +3,7 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 import { imagesService, migrateLegacyProductImages } from '@main/shared/services/images.service';
 import { AppDataSource } from '@main/config/data-source';
+import { runMigrationsWithBaseline } from '@main/config/run-migrations';
 import { RolesService } from '@main/modules/users/services/roles.service';
 import { registerUsersHandlers } from '@main/modules/users/users.ipc';
 import { registerProductsHandlers } from '@main/modules/products/products.ipc';
@@ -14,6 +15,8 @@ import { registerReportsHandlers } from '@main/modules/reports/reports.ipc';
 import { registerBackupsHandlers } from '@main/modules/backups/backups.ipc';
 import { registerCustomersHandlers } from '@main/modules/customers/customers.ipc';
 import { registerPrinterHandlers } from '@main/shared/ipc/printer.ipc';
+import { registerAuditHandlers } from '@main/modules/audit/audit.ipc';
+import { BackupsService } from '@main/modules/backups/services/backups.service';
 import { registerSessionHandlers } from '@main/shared/session';
 import { setupAutoUpdater } from '@main/shared/ipc/updater.ipc';
 
@@ -79,10 +82,20 @@ async function initialize() {
         await AppDataSource.initialize();
         console.log('[App] Database initialized.');
 
+        // Schema via migrations (synchronize is off): fresh installs build the
+        // full schema; pre-migration installs are baselined without touching them.
+        await runMigrationsWithBaseline();
+
         // Performance: WAL journaling avoids writer-blocks-reader stalls and
         // makes commits much cheaper; NORMAL sync is safe with WAL.
         await AppDataSource.query('PRAGMA journal_mode = WAL');
         await AppDataSource.query('PRAGMA synchronous = NORMAL');
+        // Concurrent IPC handlers can briefly contend for the writer lock even
+        // under WAL — wait instead of surfacing SQLITE_BUSY to the user.
+        await AppDataSource.query('PRAGMA busy_timeout = 3000');
+        // Refresh planner statistics so the report/list indices are actually
+        // chosen once tables grow (no-op when stats are already fresh).
+        await AppDataSource.query('PRAGMA optimize');
 
         // 2. Seed system roles (idempotent — safe to run on every boot)
         const rolesService = new RolesService();
@@ -109,11 +122,17 @@ async function initialize() {
         registerBackupsHandlers();
         registerCustomersHandlers();
         registerPrinterHandlers();
+        registerAuditHandlers();
 
         // 5. Create the browser window and wire the auto-updater ONCE
         // (registering it per-window duplicated IPC handlers on macOS 'activate')
         const mainWindow = await createWindow();
         setupAutoUpdater(mainWindow);
+
+        // 6. Scheduled automatic backup — deferred so it never delays first paint
+        setTimeout(() => {
+            new BackupsService().runAutoBackupIfDue();
+        }, 10_000);
     } catch (err) {
         console.error('[App] Initialization error:', err);
         app.quit();

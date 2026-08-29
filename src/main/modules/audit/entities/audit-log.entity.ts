@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 /**
  * Immutable audit trail for sensitive operations.
@@ -13,6 +13,8 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeor
  *   - inventory:delete (product)
  */
 @Entity('audit_logs')
+@Index('idx_audit_created_at', ['created_at'])
+@Index('idx_audit_action', ['action'])
 export class AuditLog {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

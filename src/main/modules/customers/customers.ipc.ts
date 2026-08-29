@@ -1,6 +1,7 @@
 import { ipcMain } from "electron";
 import { CustomersService } from "@main/modules/customers/services/customers.service";
 import { requirePermission, hasPermission } from "@main/shared/session";
+import { csvRow, saveCsv } from "@main/shared/services/csv.util";
 
 const customersService = new CustomersService();
 
@@ -126,6 +127,47 @@ export function registerCustomersHandlers() {
             const safeLimit = Math.min(100, Math.max(1, Number(limit) || 20));
             const result = await customersService.getCustomerPayments(customerId, safePage, safeLimit);
             return { success: true, ...result };
+        } catch (error: any) {
+            return { success: false, message: error.message };
+        }
+    });
+
+    /** Full customer directory as CSV, with purchase aggregates when available. */
+    ipcMain.handle('export-customers-csv', async () => {
+        try {
+            requirePermission('customers:view');
+            const showBalance = hasPermission('customers:view_balance');
+
+            // The list service caps pageSize at 100 — page through everything.
+            const num = (n: unknown) => (Math.round((Number(n) || 0) * 100) / 100).toFixed(2);
+            const lines: string[] = [];
+            lines.push(csvRow(
+                'Nombre', 'Teléfono', 'Email', 'Dirección',
+                ...(showBalance ? ['Deuda', 'Límite de crédito'] : []),
+                'Compras', 'Total gastado', 'Última compra',
+            ));
+
+            let page = 1;
+            for (;;) {
+                const result = await customersService.list({ page, pageSize: 100, sortBy: 'name', sortOrder: 'ASC' });
+                for (const c of result.items as any[]) {
+                    lines.push(csvRow(
+                        c.name,
+                        c.phone ?? '',
+                        c.email ?? '',
+                        c.address ?? '',
+                        ...(showBalance ? [num(c.balance), c.credit_limit != null ? num(c.credit_limit) : ''] : []),
+                        c.purchases_count ?? 0,
+                        num(c.total_spent),
+                        c.last_purchase_at ? String(c.last_purchase_at).slice(0, 10) : '',
+                    ));
+                }
+                if (page >= result.totalPages) break;
+                page++;
+            }
+
+            const stamp = new Date().toISOString().slice(0, 10);
+            return await saveCsv(`Clientes_${stamp}.csv`, lines);
         } catch (error: any) {
             return { success: false, message: error.message };
         }

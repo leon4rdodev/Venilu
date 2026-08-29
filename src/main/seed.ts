@@ -52,7 +52,9 @@ function getDevDbPath(): string {
 const SeedDataSource = new DataSource({
   type: 'sqlite',
   database: getDevDbPath(),
-  synchronize: true,
+  // The app manages the schema via migrations now — the seed only inserts
+  // rows into an already-built dev database.
+  synchronize: false,
   logging: false,
   entities: [Category, Product, Customer, User, Role, Sale, SaleItem, DebtPayment, Shift, ShiftExpense, Setting, AuditLog],
 });

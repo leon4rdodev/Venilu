@@ -27,6 +27,7 @@ export class SettingsService {
     private static readonly EDITABLE_FIELDS = [
         'business_name', 'business_address', 'business_phone', 'business_email',
         'business_tax_id', 'logo_filename', 'printer_name', 'paper_size', 'currency',
+        'receipt_footer', 'auto_backup',
     ] as const;
 
     /**
@@ -50,6 +51,27 @@ export class SettingsService {
         }
         if (clean.paper_size != null && !['58mm', '80mm'].includes(clean.paper_size)) {
             throw new Error("Tamaño de papel inválido");
+        }
+        if (clean.auto_backup != null && !['off', 'daily', 'weekly'].includes(clean.auto_backup)) {
+            throw new Error("Frecuencia de backup automático inválida");
+        }
+        if (typeof clean.receipt_footer === 'string' && clean.receipt_footer.length > 300) {
+            clean.receipt_footer = clean.receipt_footer.slice(0, 300);
+        }
+
+        // Non-string editable fields are handled explicitly below
+        const autoPrint = (settingsData as any).auto_print_receipt;
+        if (autoPrint !== undefined) {
+            clean.auto_print_receipt = Boolean(autoPrint);
+        }
+
+        const retention = (settingsData as any).auto_backup_retention;
+        if (retention !== undefined) {
+            const n = Number(retention);
+            if (!Number.isInteger(n) || n < 1 || n > 30) {
+                throw new Error("La retención de backups debe estar entre 1 y 30.");
+            }
+            clean.auto_backup_retention = n;
         }
         return clean;
     }

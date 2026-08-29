@@ -62,6 +62,21 @@ export function registerUsersHandlers() {
     return usersService.checkOnboardingStatus();
   });
 
+  /**
+   * Public — feeds the login user picker (shared-terminal pattern).
+   * Returns display data only; authentication still goes through
+   * login-request with the password.
+   */
+  ipcMain.handle('login:list-users', async () => {
+    try {
+      const profiles = await usersService.listLoginProfiles();
+      return { success: true, data: profiles };
+    } catch (err: unknown) {
+      console.error('[users.ipc] login:list-users:', err);
+      return { success: false, message: 'No se pudo cargar la lista de usuarios.' };
+    }
+  });
+
   // ─── User management ───────────────────────────────────────────────────────
 
   ipcMain.handle('get-users', async () => {

@@ -31,5 +31,21 @@ export class Setting {
 
     @Column({ default: 'DOP' })
     currency!: string;
+
+    /** Custom message printed at the bottom of every receipt. */
+    @Column({ nullable: true, type: 'text' })
+    receipt_footer?: string;
+
+    /** Print the receipt automatically right after each completed sale. */
+    @Column({ default: false })
+    auto_print_receipt!: boolean;
+
+    /** Automatic backup cadence: 'off' | 'daily' | 'weekly'. */
+    @Column({ default: 'daily' })
+    auto_backup!: string;
+
+    /** How many automatic backups to keep before pruning the oldest. */
+    @Column({ default: 7 })
+    auto_backup_retention!: number;
 }
 

@@ -1,7 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, Index } from "typeorm";
 import { Shift } from "./shift.entity";
 
 @Entity("shift_expenses")
+@Index("idx_shift_expenses_shift", ["shift_id"])
 export class ShiftExpense {
     @PrimaryGeneratedColumn("uuid")
     id!: string;

@@ -1,10 +1,13 @@
-import { Entity, PrimaryColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, OneToMany } from "typeorm";
+import { Entity, PrimaryColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, OneToMany, Index } from "typeorm";
 import { User } from "@main/modules/users/entities/user.entity";
 import { Sale } from "@main/modules/sales/entities/sale.entity";
 import { DebtPayment } from "@main/modules/sales/entities/debt-payment.entity";
 import { ShiftExpense } from "./shift-expense.entity";
 
 @Entity("shifts")
+// getActiveShift/getLastClosedShift query by (user_id, status) on every boot
+// and POS interaction.
+@Index("idx_shifts_user_status", ["user_id", "status"])
 export class Shift {
     @PrimaryColumn()
     id!: string;

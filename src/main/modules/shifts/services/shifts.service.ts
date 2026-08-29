@@ -27,6 +27,17 @@ export class ShiftsService {
     }
 
     /**
+     * Most recent closed shift for the user — feeds the "suggested opening
+     * float" in the open-shift dialog (cash continuity between shifts).
+     */
+    async getLastClosedShift(userId: string): Promise<ShiftEntity | null> {
+        return this.shiftRepository.findOne({
+            where: { user_id: userId, status: 'closed' },
+            order: { end_time: 'DESC' },
+        });
+    }
+
+    /**
      * Throws unless the shift belongs to the given user or the caller may view
      * other users' shifts.
      */
@@ -131,13 +142,15 @@ export class ShiftsService {
             .filter(s => s.payment_method === 'cash' && s.status !== 'voided')
             .reduce((sum, s) => sum + Number(s.total_amount), 0);
 
-        // Also include cash debt payments received during this shift
+        // Also include cash debt payments received during this shift.
+        // Refunds (voided credit sales already collected) SUBTRACT — that money
+        // physically left the drawer.
         const debtPayments = await this.debtPaymentRepository.find({
             where: { shift_id: shiftId }
         });
         const totalDebtCash = debtPayments
             .filter(p => p.payment_method === 'cash')
-            .reduce((sum, p) => sum + Number(p.amount), 0);
+            .reduce((sum, p) => sum + (p.type === 'refund' ? -Number(p.amount) : Number(p.amount)), 0);
 
         // Subtract expenses
         const totalExpenses = (shift.expenses || []).reduce((sum, e) => sum + Number(e.amount), 0);
@@ -253,7 +266,7 @@ export class ShiftsService {
         const debtPaymentsCash = await this.debtPaymentRepository.find({ where: { shift_id: shiftId } });
         const totalDebtCash = debtPaymentsCash
             .filter(p => p.payment_method === 'cash')
-            .reduce((sum, p) => sum + Number(p.amount), 0);
+            .reduce((sum, p) => sum + (p.type === 'refund' ? -Number(p.amount) : Number(p.amount)), 0);
 
         const totalExpenses = (shift.expenses || []).reduce((sum, e) => sum + Number(e.amount), 0);
 

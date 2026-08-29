@@ -1,8 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, Index } from "typeorm";
 import { Customer } from "@main/modules/customers/entities/customer.entity";
 import { Shift } from "@main/modules/shifts/entities/shift.entity";
 
 @Entity("debt_payments")
+@Index("idx_debt_payments_customer", ["customer_id"])
+@Index("idx_debt_payments_shift", ["shift_id"])
 export class DebtPayment {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
@@ -27,6 +29,18 @@ export class DebtPayment {
     /** 'cash' | 'transfer' */
     @Column({ default: 'cash' })
     payment_method!: 'cash' | 'transfer';
+
+    /**
+     * 'payment' = money received from the customer.
+     * 'refund'  = money returned (voiding an already-collected credit sale) —
+     *             subtracts from income and from the shift's expected cash.
+     */
+    @Column({ default: 'payment' })
+    type!: 'payment' | 'refund';
+
+    /** Related sale id (refunds reference the voided sale). */
+    @Column({ nullable: true })
+    reference?: string;
 
     @Column({ nullable: true })
     notes?: string;

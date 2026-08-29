@@ -31,6 +31,25 @@ export function registerSettingsHandlers() {
     }
   });
 
+  /** App/runtime metadata for Ajustes → Acerca de. No sensitive data. */
+  ipcMain.handle('app:info', async () => {
+    try {
+      return {
+        success: true,
+        data: {
+          version: app.getVersion(),
+          electron: process.versions.electron,
+          chrome: process.versions.chrome,
+          node: process.versions.node,
+          platform: process.platform,
+          arch: process.arch,
+        },
+      };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
   // ─── Logo handlers ────────────────────────────────────────────────────────
 
   ipcMain.handle('upload-logo', async (_event, { fileName, fileData }: { fileName: string; fileData: string }) => {

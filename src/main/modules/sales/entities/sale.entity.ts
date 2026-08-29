@@ -1,10 +1,16 @@
-import { Entity, PrimaryColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, OneToMany } from "typeorm";
+import { Entity, PrimaryColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, OneToMany, Index } from "typeorm";
 import { User } from "@main/modules/users/entities/user.entity";
 import { Shift } from "@main/modules/shifts/entities/shift.entity";
 import { SaleItem } from "@main/modules/sales/entities/sale-item.entity";
 import { Customer } from "@main/modules/customers/entities/customer.entity";
 
 @Entity("sales")
+// Hot paths: reports filter by created_at range + status, shift views by
+// shift_id, customer aggregates by customer_id. SQLite creates none of these.
+@Index("idx_sales_created_at", ["created_at"])
+@Index("idx_sales_status", ["status"])
+@Index("idx_sales_shift", ["shift_id"])
+@Index("idx_sales_customer", ["customer_id"])
 export class Sale {
     @PrimaryColumn()
     id!: string;

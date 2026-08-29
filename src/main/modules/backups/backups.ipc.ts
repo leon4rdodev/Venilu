@@ -2,7 +2,7 @@ import { ipcMain, dialog, app } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import { BackupsService } from '@main/modules/backups/services/backups.service';
-import { requirePermission } from '@main/shared/session';
+import { requirePermission, clearSession } from '@main/shared/session';
 import { auditService } from '@main/modules/audit/services/audit.service';
 
 const backupsService = new BackupsService();
@@ -37,7 +37,14 @@ export function registerBackupsHandlers() {
     try {
       requirePermission('backups:manage');
       const result = await backupsService.restoreBackup(fileName);
-      auditService.log('backup:restore', undefined, fileName);
+      if (result.success) {
+        // The restored DB is a different world: the session user, their token
+        // and any open shift may not exist in it. Keeping the in-memory
+        // session alive produced ghosts like "Shift is not open or invalid".
+        // Force a clean re-login against the restored data.
+        auditService.log('backup:restore', undefined, fileName);
+        clearSession();
+      }
       return result;
     } catch (err: any) {
       return { success: false, message: err.message };

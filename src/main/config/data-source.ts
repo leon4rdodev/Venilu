@@ -14,6 +14,9 @@ import { Setting } from "@main/modules/settings/entities/setting.entity";
 import { Customer } from "@main/modules/customers/entities/customer.entity";
 import { Role } from "@main/modules/users/entities/role.entity";
 import { AuditLog } from "@main/modules/audit/entities/audit-log.entity";
+import { StockMovement } from "@main/modules/products/entities/stock-movement.entity";
+import { InitialSchema1756150000000 } from "@main/migrations/1756150000000-InitialSchema";
+import { DebtPaymentRefunds1756250000000 } from "@main/migrations/1756250000000-DebtPaymentRefunds";
 
 const isDev = process.env.NODE_ENV === 'development';
 const dbPath = path.join(app.getPath('userData'), 'database.sqlite');
@@ -21,7 +24,10 @@ const dbPath = path.join(app.getPath('userData'), 'database.sqlite');
 export const AppDataSource = new DataSource({
     type: "sqlite",
     database: dbPath,
-    synchronize: true, // Auto-create tables (dev only ideally, but good for MVP)
+    // Schema is managed by MIGRATIONS (run at boot via runMigrationsWithBaseline).
+    // synchronize stays OFF: on customer installs it could silently alter or
+    // drop columns. Every schema change must ship as a new migration file.
+    synchronize: false,
     logging: isDev,
     entities: [
         User,
@@ -36,7 +42,9 @@ export const AppDataSource = new DataSource({
         Setting,
         Customer,
         AuditLog,
+        StockMovement,
     ],
-    migrations: [],
+    migrations: [InitialSchema1756150000000, DebtPaymentRefunds1756250000000],
+    migrationsTableName: "migrations",
     subscribers: [],
 });

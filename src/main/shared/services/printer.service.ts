@@ -334,8 +334,10 @@ export class PrinterService {
 
     <div class="footer">
         <div class="thank-you">*** Gracias por su compra ***</div>
-        <div>Revise su mercancía antes de salir.</div>
-        <div>No se aceptan devoluciones después de 24h.</div>
+        ${settings.receipt_footer
+            ? String(settings.receipt_footer).split('\n').filter(Boolean).map((line: string) => `<div>${esc(line)}</div>`).join('')
+            : `<div>Revise su mercancía antes de salir.</div>
+        <div>No se aceptan devoluciones después de 24h.</div>`}
         <div class="pos-brand">Sistema POS Venilu</div>
     </div>
 </body>

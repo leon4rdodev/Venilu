@@ -17,6 +17,32 @@ export function registerShiftsHandlers() {
         }
     });
 
+    /**
+     * The session user's most recent CLOSED shift — the open-shift dialog uses
+     * its final cash as the suggested opening float. Only safe summary fields
+     * are returned.
+     */
+    ipcMain.handle('shifts:getLastClosed', async () => {
+        try {
+            const session = requireAuth();
+            const shift = await shiftsService.getLastClosedShift(session.id);
+            if (!shift) return { success: true, data: null };
+            return {
+                success: true,
+                data: {
+                    id: shift.id,
+                    end_time: shift.end_time,
+                    initial_cash: shift.initial_cash,
+                    final_cash: shift.final_cash,
+                    expected_cash: shift.expected_cash,
+                    difference: shift.difference,
+                },
+            };
+        } catch (error: any) {
+            return { success: false, message: error.message };
+        }
+    });
+
     // Guarded by pos:open_shift permission — opens a shift for the session user
     ipcMain.handle('shifts:open', async (_event, { initialCash }) => {
         try {

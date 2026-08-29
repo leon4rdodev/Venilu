@@ -40,6 +40,24 @@ export class UsersService {
         return users.map(UsersService.toSafeUser);
     }
 
+    /**
+     * Minimal profiles for the login user picker — the standard pattern on a
+     * shared POS terminal (like an OS lock screen). Exposes ONLY display data:
+     * no password hashes, tokens, permissions or timestamps.
+     */
+    async listLoginProfiles(): Promise<Array<{ id: string; name: string; username: string; roleLabel: string }>> {
+        const users = await this.userRepository.find({
+            relations: ['role_entity'],
+            order: { name: 'ASC' },
+        });
+        return users.map(u => ({
+            id: u.id,
+            name: u.name,
+            username: u.username,
+            roleLabel: u.role_entity?.name ?? (u.role === 'admin' ? 'Administrador' : 'Empleado'),
+        }));
+    }
+
     async findOne(id: string): Promise<UserEntity | null> {
         return this.userRepository.findOneBy({ id });
     }

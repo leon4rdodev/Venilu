@@ -1,4 +1,5 @@
 import { AppDataSource } from "@main/config/data-source";
+import { SettingsService } from "@main/modules/settings/services/settings.service";
 import { app } from "electron";
 import path from "path";
 import fs from "fs";
@@ -27,9 +28,15 @@ export class BackupsService {
         try {
             const backupsDir = this.getBackupsDir();
             const now = new Date();
-            const timestamp = now.toISOString().replace(/:/g, '-').replace(/\./g, '-').substring(0, 19);
-            const fileName = `backup_${type}_${timestamp}.sqlite`;
-            const backupPath = path.join(backupsDir, fileName);
+            // Millisecond resolution + collision guard: VACUUM INTO fails if the
+            // target exists (e.g. two backups requested within the same second).
+            const timestamp = now.toISOString().replace(/[:.]/g, '-').replace(/Z$/, '');
+            let fileName = `backup_${type}_${timestamp}.sqlite`;
+            let backupPath = path.join(backupsDir, fileName);
+            for (let n = 1; fs.existsSync(backupPath); n++) {
+                fileName = `backup_${type}_${timestamp}-${n}.sqlite`;
+                backupPath = path.join(backupsDir, fileName);
+            }
 
             // Use TypeORM's query runner to execute VACUUM INTO
             await AppDataSource.query(`VACUUM INTO ?`, [backupPath]);
@@ -71,6 +78,52 @@ export class BackupsService {
             return { success: true, backups };
         } catch (error: any) {
             return { success: false, message: error.message };
+        }
+    }
+
+    /**
+     * Runs the scheduled automatic backup if one is due according to settings
+     * (auto_backup: 'off' | 'daily' | 'weekly'), then prunes old auto backups
+     * beyond auto_backup_retention. Called at boot — never throws.
+     */
+    async runAutoBackupIfDue(): Promise<void> {
+        try {
+            const settings = await new SettingsService().get();
+            const cadence = settings.auto_backup ?? 'daily';
+            if (cadence === 'off') return;
+
+            const intervalMs = cadence === 'weekly'
+                ? 7 * 24 * 60 * 60 * 1000
+                : 24 * 60 * 60 * 1000;
+
+            const backupsDir = this.getBackupsDir();
+            const autoBackups = fs.readdirSync(backupsDir)
+                .filter(f => f.startsWith('backup_auto_') && f.endsWith('.sqlite'))
+                .map(f => ({ name: f, mtime: fs.statSync(path.join(backupsDir, f)).mtime.getTime() }))
+                .sort((a, b) => b.mtime - a.mtime);
+
+            const newest = autoBackups[0];
+            if (newest && Date.now() - newest.mtime < intervalMs) return;
+
+            const result = await this.createBackup('auto');
+            if (!result.success) {
+                console.error('[BackupsService] Auto backup failed:', result.message);
+                return;
+            }
+            console.log('[BackupsService] Auto backup created:', result.fileName);
+
+            // Prune: keep the N most recent auto backups (the one just created counts)
+            const retention = Math.max(1, Number(settings.auto_backup_retention) || 7);
+            const updated = fs.readdirSync(backupsDir)
+                .filter(f => f.startsWith('backup_auto_') && f.endsWith('.sqlite'))
+                .map(f => ({ name: f, mtime: fs.statSync(path.join(backupsDir, f)).mtime.getTime() }))
+                .sort((a, b) => b.mtime - a.mtime);
+
+            for (const old of updated.slice(retention)) {
+                try { fs.unlinkSync(path.join(backupsDir, old.name)); } catch { /* best effort */ }
+            }
+        } catch (err) {
+            console.error('[BackupsService] runAutoBackupIfDue:', err);
         }
     }
 

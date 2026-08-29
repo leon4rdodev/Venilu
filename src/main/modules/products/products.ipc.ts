@@ -2,6 +2,10 @@ import { ipcMain } from 'electron';
 import { ProductsService } from '@main/modules/products/services/products.service';
 import { requirePermission, hasPermission } from '@main/shared/session';
 import { auditService } from '@main/modules/audit/services/audit.service';
+import { AppDataSource } from '@main/config/data-source';
+import { Product as ProductEntity } from '@main/modules/products/entities/product.entity';
+import { csvRow, saveCsv } from '@main/shared/services/csv.util';
+import { stockMovementsService } from '@main/modules/products/services/stock-movements.service';
 
 const productsService = new ProductsService();
 
@@ -109,6 +113,62 @@ export function registerProductsHandlers() {
       requirePermission('inventory:view');
       const stats = await productsService.getInventoryStats();
       return { success: true, data: stats };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  /**
+   * Kardex for one product — paginated, newest first.
+   * Payload: { productId, page?, pageSize? }
+   */
+  ipcMain.handle('get-stock-movements', async (_event, { productId, page, pageSize } = {}) => {
+    try {
+      requirePermission('inventory:view');
+      if (typeof productId !== 'string' || !productId) {
+        throw new Error('Producto requerido');
+      }
+      const data = await stockMovementsService.listByProduct(productId, page, pageSize);
+      return { success: true, data };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  /** Full inventory dump as spreadsheet-friendly CSV (native save dialog). */
+  ipcMain.handle('export-products-csv', async () => {
+    try {
+      requirePermission('inventory:view');
+      const showCosts = hasPermission('inventory:view_costs');
+
+      const products = await AppDataSource.getRepository(ProductEntity).find({
+        relations: ['category'],
+        order: { name: 'ASC' },
+      });
+
+      const num = (n: unknown) => (Math.round((Number(n) || 0) * 100) / 100).toFixed(2);
+      const lines: string[] = [];
+      lines.push(csvRow(
+        'Nombre', 'Categoría', 'Código de barras', 'SKU', 'Precio',
+        ...(showCosts ? ['Costo'] : []),
+        'Stock', 'Stock mínimo', 'Valor en stock',
+      ));
+      for (const p of products) {
+        lines.push(csvRow(
+          p.name,
+          p.category?.name ?? '',
+          p.barcode ?? '',
+          p.sku ?? '',
+          num(p.sale_price),
+          ...(showCosts ? [num(p.cost_price)] : []),
+          p.stock,
+          p.min_stock,
+          num(Number(p.sale_price) * Number(p.stock)),
+        ));
+      }
+
+      const stamp = new Date().toISOString().slice(0, 10);
+      return await saveCsv(`Inventario_${stamp}.csv`, lines);
     } catch (err: any) {
       return { success: false, message: err.message };
     }

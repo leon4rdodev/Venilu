@@ -176,4 +176,38 @@ export interface Setting {
   printer_name: string | null;
   paper_size: string;
   currency: string;
+  /** Custom message printed at the bottom of every receipt (multi-line). */
+  receipt_footer?: string | null;
+  /** Print the receipt automatically right after each completed sale. */
+  auto_print_receipt?: boolean;
+  /** Automatic backup cadence: 'off' | 'daily' | 'weekly'. */
+  auto_backup?: string;
+  /** How many automatic backups to keep before pruning the oldest. */
+  auto_backup_retention?: number;
+}
+
+/** One kardex row (Inventario → Movimientos de stock). */
+export interface StockMovementEntry {
+  id: string;
+  product_id: string;
+  type: 'sale' | 'void' | 'adjustment' | 'initial';
+  quantity_delta: number;
+  stock_after: number;
+  reference?: string | null;
+  user_id?: string | null;
+  username?: string | null;
+  note?: string | null;
+  created_at: string;
+}
+
+/** One row of the audit trail (Ajustes → Actividad). */
+export interface AuditLogEntry {
+  id: string;
+  user_id: string;
+  username: string;
+  action: string;
+  target_id?: string | null;
+  target_label?: string | null;
+  metadata?: string | null;
+  created_at: string;
 }
