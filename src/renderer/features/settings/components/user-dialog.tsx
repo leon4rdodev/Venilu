@@ -163,9 +163,9 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="p-6 pb-4 border-b border-border space-y-1">
+        <div className="p-6 pb-4 border-b border-border space-y-1 shrink-0">
           <h2 className="text-lg font-semibold tracking-tight">
             {user ? 'Editar Usuario' : 'Agregar Usuario'}
           </h2>
@@ -175,7 +175,7 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 flex-1 overflow-y-auto min-h-0">
           <div className="space-y-2">
             <Label htmlFor="name">Nombre *</Label>
             <Input
@@ -229,7 +229,7 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
         </div>
 
         {/* Footer */}
-        <div className="p-6 pt-4 border-t border-border flex gap-3">
+        <div className="p-6 pt-4 border-t border-border flex gap-3 shrink-0">
           <Button variant="outline" onClick={onClose} disabled={isSaving} className="flex-1 h-10">
             Cancelar
           </Button>

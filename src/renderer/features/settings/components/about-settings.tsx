@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Info, MonitorCog, Store } from "lucide-react";
+import { ChevronDown, Info, KeyRound, MonitorCog, Store } from "lucide-react";
 import { WidgetHeader } from "@renderer/shared/components/widget-header";
 import { Skeleton } from "@components/ui/skeleton";
+import { cn } from "@lib/utils";
+import { LicenseKeyForm, useLicense, type LicenseStatus } from "@renderer/features/license";
 import { useSettings } from "../hooks/use-settings";
 
 interface AppInfo {
@@ -18,6 +21,108 @@ const PLATFORM_LABELS: Record<string, string> = {
   darwin: "macOS",
   linux: "Linux",
 };
+
+function licensePill(status: LicenseStatus): { label: string; className: string } {
+  const { state, license, trialDaysLeft, daysToExpiry } = status;
+  if (state === "trial") {
+    const days = trialDaysLeft ?? 0;
+    return {
+      label: `Prueba — ${days} ${days === 1 ? "día restante" : "días restantes"}`,
+      className: "bg-muted text-muted-foreground",
+    };
+  }
+  if (state === "active") {
+    if (license?.type === "anual") {
+      const expiringSoon = typeof daysToExpiry === "number" && daysToExpiry <= 30;
+      return {
+        label: `Activa — Anual, vence ${license.expires ?? "—"}`,
+        className: expiringSoon
+          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+          : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+      };
+    }
+    return {
+      label: "Activa — Perpetua",
+      className: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    };
+  }
+  return { label: "Vencida", className: "bg-destructive/10 text-destructive" };
+}
+
+function LicenseCard() {
+  const { status, isLoading } = useLicense();
+  const [showForm, setShowForm] = useState(false);
+
+  const pill = status ? licensePill(status) : null;
+  const license = status?.license;
+
+  const licenseRows: { label: string; value: string }[] = license
+    ? [
+        { label: "Cliente", value: license.customer },
+        ...(license.business ? [{ label: "Negocio", value: license.business }] : []),
+        { label: "Tipo", value: license.type === "perpetua" ? "Perpetua" : "Anual" },
+        { label: "Emitida", value: license.issued },
+        ...(license.expires ? [{ label: "Vence", value: license.expires }] : []),
+        { label: "ID", value: license.id },
+      ]
+    : [];
+
+  return (
+    <div className="bg-card border border-border rounded-lg p-6">
+      <WidgetHeader
+        icon={KeyRound}
+        title="Licencia"
+        subtitle="Estado de tu licencia de Venilu"
+        action={
+          isLoading ? (
+            <Skeleton className="h-6 w-32 rounded-full" />
+          ) : pill ? (
+            <span
+              className={cn(
+                "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap",
+                pill.className
+              )}
+            >
+              {pill.label}
+            </span>
+          ) : null
+        }
+      />
+
+      {licenseRows.length > 0 && (
+        <div className="mt-4 rounded-lg border border-border overflow-hidden">
+          <div className="divide-y divide-border">
+            {licenseRows.map((row) => (
+              <div key={row.label} className="flex items-center justify-between gap-4 px-4 py-2.5">
+                <span className="text-sm text-muted-foreground shrink-0">{row.label}</span>
+                <span className="text-sm font-mono tabular-nums truncate">{row.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4">
+        <button
+          type="button"
+          onClick={() => setShowForm((v) => !v)}
+          className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ChevronDown
+            className={cn("h-4 w-4 transition-transform", showForm && "rotate-180")}
+            strokeWidth={1.75}
+          />
+          Activar / cambiar licencia
+        </button>
+        {showForm && (
+          <div className="mt-3 max-w-md">
+            <LicenseKeyForm onActivated={() => setShowForm(false)} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function AboutSettings() {
   const { settings } = useSettings();
@@ -102,6 +207,9 @@ export function AboutSettings() {
           </p>
         </div>
       </div>
+
+      {/* License */}
+      <LicenseCard />
 
       {/* Runtime information */}
       <div className="bg-card border border-border rounded-lg p-6">

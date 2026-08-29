@@ -9,6 +9,7 @@ import { UserProvider, useUser } from '@renderer/features/auth';
 import { ShiftProvider } from '@renderer/features/pos';
 import { MainLayout, AnimatedPage, useTheme } from '@renderer/features/layout';
 import { useOnboarding } from '@renderer/features/onboarding';
+import { ActivationScreen, useLicense } from '@renderer/features/license';
 import { ThemeProvider } from '@hooks/use-theme';
 import { ErrorBoundary } from '@renderer/shared/components/error-boundary';
 import { CurrencyProvider } from '@renderer/shared/context/currency-context';
@@ -102,6 +103,7 @@ function ToasterWithTheme() {
 function AppRoutes() {
   const { user, setUser, sessionReady } = useUser();
   const { onboardingCompleted, completeOnboarding } = useOnboarding();
+  const { status: licenseStatus, isLoading: licenseLoading } = useLicense();
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
 
   useEffect(() => {
@@ -113,11 +115,16 @@ function AppRoutes() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Structural readiness
-  const isReadyToRender = onboardingCompleted !== null && sessionReady;
-  
+  // Structural readiness — the license check joins the existing criteria so
+  // the splash covers it too (it resolves instantly on error / null data).
+  const isReadyToRender = onboardingCompleted !== null && sessionReady && !licenseLoading;
+
   // Visual readiness
   const showApp = isReadyToRender && minTimeElapsed;
+
+  // License gate: expired trial/license blocks the WHOLE app (login included).
+  // Courtesy only — the main process also refuses sales while blocked.
+  const isLicenseBlocked = licenseStatus?.blocked === true;
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden">
@@ -129,6 +136,10 @@ function AppRoutes() {
             visibility: showApp ? 'visible' : 'hidden' 
           }}
         >
+          {isLicenseBlocked ? (
+            <ActivationScreen />
+          ) : (
+          <>
           {/* No key here — remounting the whole tree per navigation re-ran
               every data fetch and rebuilt MainLayout on each route change */}
           <Routes>
@@ -183,6 +194,8 @@ function AppRoutes() {
               element={<Navigate to={onboardingCompleted ? "/login" : "/onboarding"} />}
             />
           </Routes>
+          </>
+          )}
         </div>
       )}
     </div>

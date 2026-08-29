@@ -2,16 +2,13 @@ import { useState, useEffect } from "react";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
 import { Button } from "@components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select";
-import { Separator } from "@components/ui/separator";
-import { Upload, X, Image as ImageIcon, Building2, Globe } from "lucide-react";
+import { Upload, X, Image as ImageIcon, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { useSettings } from "../hooks/use-settings";
 import { useLogoUpload } from "../hooks/use-logo-upload";
 import { Skeleton } from "@components/ui/skeleton";
 import { WidgetHeader } from "@renderer/shared/components/widget-header";
 import { formatPhoneNumber, formatRNC } from "@lib/formatters";
-import { SUPPORTED_CURRENCIES } from "@lib/currency";
 
 export function BusinessSettings() {
   const { settings, isLoading, updateSettings } = useSettings();
@@ -169,38 +166,6 @@ export function BusinessSettings() {
                     </>
                   )}
                 </Button>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Currency */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                <Globe className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Moneda
-              </div>
-              <div className="space-y-1.5">
-                <Select
-                  value={formData.currency}
-                  onValueChange={(v) => handleInputChange("currency", v)}
-                  disabled={isSaving}
-                >
-                  <SelectTrigger id="currency" className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SUPPORTED_CURRENCIES.map((c) => (
-                      <SelectItem key={c.code} value={c.code}>
-                        <span className="font-mono font-semibold text-xs mr-2">{c.symbol}</span>
-                        <span className="text-muted-foreground">{c.code}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-muted-foreground">
-                  Se aplica en todo el sistema
-                </p>
               </div>
             </div>
           </div>

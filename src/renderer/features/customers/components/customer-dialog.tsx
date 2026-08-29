@@ -66,10 +66,10 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[480px] p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
         <form onSubmit={handleSubmit} className="flex flex-col">
           {/* Header */}
-          <div className="p-6 pb-4 border-b border-border space-y-1">
+          <div className="p-6 pb-4 border-b border-border space-y-1 shrink-0">
             <h2 className="text-lg font-semibold tracking-tight">
               {isEditing ? "Editar Cliente" : "Nuevo Cliente"}
             </h2>
@@ -81,7 +81,7 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
           </div>
 
           {/* Body */}
-          <div className="p-6 space-y-4">
+          <div className="p-6 space-y-4 flex-1 overflow-y-auto min-h-0">
             <div className="space-y-2">
               <Label htmlFor="customer-name">Nombre *</Label>
               <Input
@@ -157,7 +157,7 @@ export function CustomerDialog({ open, onOpenChange, customer, onSave }: Custome
           </div>
 
           {/* Footer */}
-          <div className="p-6 pt-4 border-t border-border flex gap-3">
+          <div className="p-6 pt-4 border-t border-border flex gap-3 shrink-0">
             <Button
               type="button"
               variant="outline"

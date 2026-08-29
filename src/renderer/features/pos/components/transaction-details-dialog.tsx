@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, DialogContent } from '@components/ui/dialog';
 import { Button } from '@components/ui/button';
 import { formatCurrency } from '@lib/currency';
 import { formatDateTime } from '@lib/formatters';
-import { Receipt, Banknote, CreditCard, ArrowRightLeft, Printer, ShoppingBag, HandCoins, User2, Trash2 } from 'lucide-react';
+import { Receipt, Banknote, CreditCard, ArrowRightLeft, Printer, ShoppingBag, HandCoins, User2, Trash2, ReceiptText, Undo2 } from 'lucide-react';
 import { Skeleton } from "@components/ui/skeleton";
 import { cn } from '@lib/utils';
 import { toast } from 'sonner';
@@ -11,11 +11,48 @@ import { Sale } from '@shared/types/models';
 import { usePermission } from '@renderer/features/auth/hooks/use-permission';
 import { PERMISSIONS } from '@shared/permissions';
 import { ConfirmDialog } from '@renderer/shared/components/confirm-dialog';
+import { ReturnItemsDialog } from './return-items-dialog';
 
 interface SaleItem {
+  id?: string;
   product_name: string;
   quantity: number;
   unit_price: number;
+}
+
+interface SaleReturnItem {
+  sale_item_id: string;
+  product_name: string;
+  quantity: number;
+  amount_refunded: number;
+}
+
+interface SaleReturn {
+  id: string;
+  sale_id: string;
+  username?: string;
+  total_refunded: number;
+  itbis_refunded: number;
+  credit_note_ncf?: string | null;
+  note?: string | null;
+  /** Llega como Date por IPC, pero puede serializarse como string — sé defensivo. */
+  created_at: string | Date;
+  items: SaleReturnItem[];
+}
+
+/** Fecha relativa compacta en español, defensiva ante Date | string por IPC. */
+function formatRelativeDate(value: string | Date | null | undefined): string {
+  if (!value) return 'N/A';
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return 'N/A';
+  const days = Math.floor((Date.now() - date.getTime()) / 86_400_000);
+  if (days <= 0) return 'Hoy';
+  if (days === 1) return 'Ayer';
+  if (days < 30) return `Hace ${days} días`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return months === 1 ? 'Hace 1 mes' : `Hace ${months} meses`;
+  const years = Math.floor(days / 365);
+  return years === 1 ? 'Hace 1 año' : `Hace ${years} años`;
 }
 
 interface TransactionDetailsDialogProps {
@@ -43,10 +80,12 @@ export function TransactionDetailsDialog({
   onVoidSuccess
 }: TransactionDetailsDialogProps) {
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
+  const [saleReturns, setSaleReturns] = useState<SaleReturn[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isVoiding, setIsVoiding] = useState(false);
   const [confirmVoidOpen, setConfirmVoidOpen] = useState(false);
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const canVoid = usePermission(PERMISSIONS.SALES_VOID);
 
   const fetchSaleItems = useCallback(async () => {
@@ -78,11 +117,61 @@ export function TransactionDetailsDialog({
     }
   }, [transaction]);
 
+  const fetchSaleReturns = useCallback(async () => {
+    if (!transaction) return;
+
+    try {
+      if (!window.ipcRenderer) {
+        throw new Error('IPC Renderer not available');
+      }
+
+      const result = await window.ipcRenderer.invoke('get-sale-returns', { saleId: transaction.id }) as {
+        success: boolean;
+        data?: SaleReturn[];
+        message?: string;
+      };
+
+      setSaleReturns(result.success ? (result.data || []) : []);
+    } catch (err) {
+      console.error('Error fetching sale returns:', err);
+      setSaleReturns([]);
+    }
+  }, [transaction]);
+
   useEffect(() => {
     if (open && transaction) {
       fetchSaleItems();
+      fetchSaleReturns();
     }
-  }, [open, transaction, fetchSaleItems]);
+  }, [open, transaction, fetchSaleItems, fetchSaleReturns]);
+
+  /** Unidades ya devueltas por sale_item_id, sumando sobre todas las devoluciones. */
+  const alreadyReturned = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const ret of saleReturns) {
+      for (const item of ret.items || []) {
+        map.set(item.sale_item_id, (map.get(item.sale_item_id) ?? 0) + item.quantity);
+      }
+    }
+    return map;
+  }, [saleReturns]);
+
+  /** Quedan unidades por devolver: suma vendida > suma devuelta. */
+  const hasReturnableUnits = useMemo(() => {
+    const soldUnits = saleItems.reduce((sum, item) => sum + item.quantity, 0);
+    let returnedUnits = 0;
+    alreadyReturned.forEach((qty) => { returnedUnits += qty; });
+    return soldUnits > returnedUnits;
+  }, [saleItems, alreadyReturned]);
+
+  const handleReturnSuccess = useCallback(() => {
+    // Recarga items y devoluciones del diálogo (sin cerrarlo)
+    fetchSaleItems();
+    fetchSaleReturns();
+    // La devolución repone stock — notifica al inventario y al padre
+    window.dispatchEvent(new CustomEvent('inventory-updated'));
+    onVoidSuccess?.();
+  }, [fetchSaleItems, fetchSaleReturns, onVoidSuccess]);
 
   const handlePrint = async () => {
     if (!transaction || !window.ipcRenderer) {
@@ -231,6 +320,56 @@ export function TransactionDetailsDialog({
             )}
           </div>
 
+          {/* Comprobante Fiscal */}
+          {transaction.ncf && (
+            <div className="px-5 pb-3 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <ReceiptText className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Comprobante Fiscal
+              </div>
+              <div className="bg-card border border-border rounded-lg divide-y divide-border text-sm">
+                <div className="flex items-center justify-between px-3.5 py-2.5">
+                  <span className="text-muted-foreground">Tipo</span>
+                  <span className="font-medium text-right">
+                    {transaction.ncf_type === 'B01' ? 'Factura de Crédito Fiscal (B01)' : 'Factura de Consumo (B02)'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between px-3.5 py-2.5">
+                  <span className="text-muted-foreground">NCF</span>
+                  <span className="font-medium font-mono tabular-nums text-right">{transaction.ncf}</span>
+                </div>
+                {transaction.fiscal_customer_rnc && (
+                  <div className="flex items-center justify-between px-3.5 py-2.5">
+                    <span className="text-muted-foreground">RNC/Cédula</span>
+                    <span className="font-medium font-mono tabular-nums text-right">{transaction.fiscal_customer_rnc}</span>
+                  </div>
+                )}
+                {transaction.fiscal_customer_name && (
+                  <div className="flex items-center justify-between px-3.5 py-2.5 gap-3">
+                    <span className="text-muted-foreground shrink-0">Razón Social</span>
+                    <span className="font-medium text-right truncate" title={transaction.fiscal_customer_name}>
+                      {transaction.fiscal_customer_name}
+                    </span>
+                  </div>
+                )}
+                {transaction.itbis_amount != null && (
+                  <div className="flex items-center justify-between px-3.5 py-2.5">
+                    <span className="text-muted-foreground">ITBIS incluido</span>
+                    <span className="font-medium font-mono tabular-nums text-right">{formatCurrency(transaction.itbis_amount)}</span>
+                  </div>
+                )}
+                {isVoided && transaction.credit_note_ncf && (
+                  <div className="flex items-center justify-between px-3.5 py-2.5 gap-3">
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-destructive/10 text-destructive shrink-0">
+                      Nota de Crédito (B04)
+                    </span>
+                    <span className="font-medium font-mono tabular-nums text-right">{transaction.credit_note_ncf}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Products */}
           <div className="px-5 pb-4 space-y-2">
             <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
@@ -280,6 +419,41 @@ export function TransactionDetailsDialog({
               </div>
             )}
           </div>
+
+          {/* Devoluciones */}
+          {saleReturns.length > 0 && (
+            <div className="px-5 pb-4 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <Undo2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Devoluciones ({saleReturns.length})
+              </div>
+              <div className="bg-card border border-border rounded-lg divide-y divide-border">
+                {saleReturns.map((ret) => {
+                  const units = (ret.items || []).reduce((sum, item) => sum + item.quantity, 0);
+                  return (
+                    <div key={ret.id} className="flex items-center justify-between px-3.5 py-2.5 gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-medium">{formatRelativeDate(ret.created_at)}</p>
+                          {ret.credit_note_ncf && (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground font-mono tabular-nums">
+                              NC {ret.credit_note_ncf}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">
+                          #{ret.id} · {units} artículo{units === 1 ? '' : 's'}{ret.username ? ` · por ${ret.username}` : ''}
+                        </p>
+                      </div>
+                      <span className="text-sm font-medium font-mono tabular-nums text-red-600 dark:text-red-400 text-right shrink-0 whitespace-nowrap">
+                        -{formatCurrency(ret.total_refunded)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
@@ -309,24 +483,46 @@ export function TransactionDetailsDialog({
           </div>
 
           {!isVoided && canVoid && (
-            <Button
-              variant="ghost"
-              onClick={() => setConfirmVoidOpen(true)}
-              disabled={isVoiding}
-              className="w-full h-10 text-destructive hover:text-destructive hover:bg-destructive/10 gap-2 text-sm font-medium"
-            >
-              {isVoiding ? (
-                <>Anulando...</>
-              ) : (
-                <>
-                  <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-                  Anular esta venta
-                </>
+            <div className="flex gap-3 w-full">
+              {hasReturnableUnits && (
+                <Button
+                  variant="outline"
+                  onClick={() => setReturnDialogOpen(true)}
+                  disabled={isLoading}
+                  className="flex-1 h-10 gap-2 text-sm font-medium"
+                >
+                  <Undo2 className="h-4 w-4" strokeWidth={1.75} />
+                  Devolver artículos
+                </Button>
               )}
-            </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setConfirmVoidOpen(true)}
+                disabled={isVoiding}
+                className="flex-1 h-10 text-destructive hover:text-destructive hover:bg-destructive/10 gap-2 text-sm font-medium"
+              >
+                {isVoiding ? (
+                  <>Anulando...</>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                    Anular esta venta
+                  </>
+                )}
+              </Button>
+            </div>
           )}
         </div>
       </DialogContent>
+
+      <ReturnItemsDialog
+        open={returnDialogOpen}
+        onOpenChange={setReturnDialogOpen}
+        transaction={transaction}
+        saleItems={saleItems}
+        alreadyReturned={alreadyReturned}
+        onSuccess={handleReturnSuccess}
+      />
 
       <ConfirmDialog
         open={confirmVoidOpen}

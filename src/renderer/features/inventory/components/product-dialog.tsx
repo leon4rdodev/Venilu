@@ -4,6 +4,7 @@ import { Button } from "@components/ui/button"
 import { Input } from "@components/ui/input"
 import { Label } from "@components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select"
+import { Switch } from "@components/ui/switch"
 import { useCategories } from "@renderer/features/settings"
 import { Skeleton } from "@components/ui/skeleton"
 import { capitalizeWords } from "@lib/utils"
@@ -35,6 +36,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
         stock: (product.stock || 0).toString(),
         sku: product.sku || "",
         min_stock: (product.min_stock || 5).toString(),
+        itbis_exempt: product.itbis_exempt ?? false,
       }
     }
     const defaultCategoryId = categories && categories.length > 0 ? categories[0].id.toString() : "";
@@ -46,6 +48,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
       stock: "",
       sku: "",
       min_stock: "5",
+      itbis_exempt: false,
     }
   })
 
@@ -79,6 +82,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
             stock: (product.stock || 0).toString(),
             sku: product.sku || "",
             min_stock: (product.min_stock || 5).toString(),
+            itbis_exempt: product.itbis_exempt ?? false,
           }
         : {
             name: "",
@@ -88,6 +92,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
             stock: "",
             sku: "",
             min_stock: "5",
+            itbis_exempt: false,
           }
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,6 +154,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
       stock: Number.parseInt(formData.stock) || 0,
       sku: formData.sku,
       min_stock: Number.parseInt(formData.min_stock) || 5,
+      itbis_exempt: formData.itbis_exempt,
     };
 
     if (imageData !== undefined) data.image = imageData;
@@ -160,9 +166,9 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
+        <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
           {/* Header */}
-          <div className="p-6 pb-4 border-b border-border space-y-1">
+          <div className="p-6 pb-4 border-b border-border space-y-1 shrink-0">
             <h2 className="text-lg font-semibold tracking-tight">
               {product ? "Editar Producto" : "Agregar Producto"}
             </h2>
@@ -172,7 +178,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
           </div>
 
           {/* Body */}
-          <div className="p-6 space-y-4">
+          <div className="p-6 space-y-4 flex-1 overflow-y-auto min-h-0">
             {/* Product photo — auto-converted to compressed WebP */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Foto del Producto</Label>
@@ -335,10 +341,28 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
                 />
               </div>
             </div>
+
+            {/* Exención de ITBIS (fiscal RD) */}
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-3.5">
+              <div className="min-w-0 space-y-0.5">
+                <Label htmlFor="itbis_exempt" className="text-sm font-medium">Exento de ITBIS</Label>
+                <p className="text-xs text-muted-foreground">
+                  Actívalo solo para productos exentos según la DGII (víveres básicos, medicinas...).
+                </p>
+              </div>
+              <Switch
+                id="itbis_exempt"
+                checked={formData.itbis_exempt}
+                onCheckedChange={(checked) =>
+                  setFormData((prev) => ({ ...prev, itbis_exempt: checked }))
+                }
+                disabled={isSaving}
+              />
+            </div>
           </div>
 
           {/* Footer */}
-          <div className="p-6 pt-4 border-t border-border flex gap-3">
+          <div className="p-6 pt-4 border-t border-border flex gap-3 shrink-0">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}

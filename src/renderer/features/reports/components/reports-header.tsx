@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { DateRangePicker } from "@components/ui/date-range-picker";
 import { Button } from "@components/ui/button";
 import {
@@ -9,10 +9,11 @@ import {
 } from "@components/ui/dropdown-menu";
 import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { FileDown, FileText, FileSpreadsheet, ChevronDown } from "lucide-react";
+import { FileDown, FileText, FileSpreadsheet, ChevronDown, Landmark } from "lucide-react";
 import { usePermissions } from "@renderer/features/auth/hooks/use-permission";
 import { cn } from "@lib/utils";
 import type { ExportKind } from "../hooks/use-reports";
+import { Export607Dialog } from "./export-607-dialog";
 
 interface ReportsHeaderProps {
   dateRange: DateRange;
@@ -70,6 +71,7 @@ export function ReportsHeader({
 }: ReportsHeaderProps) {
   const perms = usePermissions("reports:export_pdf");
   const canExport = perms["reports:export_pdf"];
+  const [export607Open, setExport607Open] = useState(false);
 
   const activePresetKey = useMemo(() => {
     if (!dateRange.from || !dateRange.to) return null;
@@ -135,8 +137,16 @@ export function ReportsHeader({
               <FileSpreadsheet className="h-4 w-4" strokeWidth={1.75} />
               Exportar CSV
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setExport607Open(true)} disabled={exporting !== null}>
+              <Landmark className="h-4 w-4" strokeWidth={1.75} />
+              Reporte 607 (DGII)
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+      )}
+
+      {canExport && (
+        <Export607Dialog open={export607Open} onOpenChange={setExport607Open} />
       )}
     </div>
   );

@@ -1,7 +1,7 @@
 import { createElement, useMemo, memo } from "react";
 import { Card } from "@components/ui/card";
 import { Button } from "@components/ui/button";
-import { Pencil, Trash2, Boxes, History } from "lucide-react";
+import { Pencil, Trash2, Boxes, History, Barcode } from "lucide-react";
 import { formatCurrency } from "@lib/currency";
 import { productImageSrc } from "@lib/image";
 import { cn } from "@lib/utils";
@@ -16,6 +16,8 @@ interface InventoryProductCardProps {
   onAdjustStock?: (product: Product) => void;
   /** Opens the kardex (stock movements history) for this product */
   onViewMovements?: (product: Product) => void;
+  /** Opens the barcode label printing dialog for this product */
+  onPrintLabels?: (product: Product) => void;
   isLoading?: boolean;
 }
 
@@ -24,7 +26,7 @@ interface InventoryProductCardProps {
  * full-width 1:1 photo on top (category icon as fallback), info below,
  * plus the management-only data (SKU, cost price) and edit/delete actions.
  */
-export const InventoryProductCard = memo(function InventoryProductCard({ product, onEdit, onDelete, onAdjustStock, onViewMovements, isLoading = false }: InventoryProductCardProps) {
+export const InventoryProductCard = memo(function InventoryProductCard({ product, onEdit, onDelete, onAdjustStock, onViewMovements, onPrintLabels, isLoading = false }: InventoryProductCardProps) {
   const categoryIcon = useMemo(() => getCategoryIcon(product.category?.name || ""), [product.category]);
   const colorClasses = useMemo(() => getCategoryColor(product.category?.name || ""), [product.category]);
   const isOutOfStock = product.stock === 0;
@@ -114,6 +116,18 @@ export const InventoryProductCard = memo(function InventoryProductCard({ product
             <Pencil className="h-3.5 w-3.5" />
             Editar
           </Button>
+          {onPrintLabels && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+              onClick={() => onPrintLabels(product)}
+              disabled={isLoading}
+              title="Imprimir etiquetas"
+            >
+              <Barcode className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </Button>
+          )}
           {onViewMovements && (
             <Button
               variant="outline"

@@ -18,6 +18,8 @@ export type CartItemType = {
   category: Category | null
   /** Product photo (managed file name or legacy data URL) */
   image?: string | null
+  /** true = exento de ITBIS — alimenta el desglose del panel del pedido */
+  itbis_exempt?: boolean
 }
 
 interface CartItemProps {

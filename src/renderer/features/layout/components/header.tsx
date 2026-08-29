@@ -1,8 +1,11 @@
 import { useState, useMemo } from "react"
-import { LogOut, Sun, Moon, ChevronRight } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { LogOut, Sun, Moon, ChevronRight, Lock } from "lucide-react"
 import { useTheme } from "@hooks/use-theme"
 import { CloseShiftDialog, useShift } from "@renderer/features/pos"
 import { useUser } from "@renderer/features/auth"
+import { useLock } from "@renderer/features/lock"
+import { useLicense } from "@renderer/features/license"
 import { formatCurrency } from "@lib/currency"
 
 interface HeaderProps {
@@ -16,10 +19,30 @@ interface HeaderProps {
  * no shadows.
  */
 export function Header({ userName, userRole }: HeaderProps) {
+  const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
   const { activeShift, shiftSales, shiftDebtPayments, shiftExpenses } = useShift();
   const { logout } = useUser();
+  const { lock } = useLock();
+  const { status: licenseStatus } = useLicense();
   const [isCloseShiftDialogOpen, setCloseShiftDialogOpen] = useState(false);
+
+  // License chip: trial countdown, or annual-renewal warning within 30 days.
+  const licenseChip = useMemo(() => {
+    if (!licenseStatus) return null;
+    if (licenseStatus.state === "trial" && typeof licenseStatus.trialDaysLeft === "number") {
+      return { kind: "trial" as const, days: licenseStatus.trialDaysLeft };
+    }
+    if (
+      licenseStatus.state === "active" &&
+      licenseStatus.license?.type === "anual" &&
+      typeof licenseStatus.daysToExpiry === "number" &&
+      licenseStatus.daysToExpiry <= 30
+    ) {
+      return { kind: "renewal" as const, days: licenseStatus.daysToExpiry };
+    }
+    return null;
+  }, [licenseStatus]);
 
   const currentCashInDrawer = useMemo(() => {
     if (!activeShift) return 0;
@@ -76,6 +99,42 @@ export function Header({ userName, userRole }: HeaderProps) {
 
         {/* Right: icon buttons + user pill */}
         <div className="flex items-center gap-3 shrink-0">
+          {licenseChip && (
+            <button
+              onClick={() => navigate("/settings")}
+              title="Ver licencia en Ajustes"
+              className="hidden md:flex items-center gap-1.5 rounded-full border border-border pl-3 pr-3 py-1 text-xs hover:bg-muted transition-colors whitespace-nowrap"
+            >
+              {licenseChip.kind === "trial" ? (
+                <>
+                  <span className="text-muted-foreground">Prueba ·</span>
+                  <span
+                    className={
+                      licenseChip.days <= 5
+                        ? "font-medium tabular-nums text-amber-600 dark:text-amber-400"
+                        : "font-medium tabular-nums text-muted-foreground"
+                    }
+                  >
+                    {licenseChip.days} {licenseChip.days === 1 ? "día" : "días"}
+                  </span>
+                </>
+              ) : (
+                <span className="font-medium tabular-nums text-amber-600 dark:text-amber-400">
+                  Licencia vence en {licenseChip.days} {licenseChip.days === 1 ? "día" : "días"}
+                </span>
+              )}
+            </button>
+          )}
+
+          <button
+            onClick={lock}
+            title="Bloquear caja (Ctrl+L)"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <Lock className="h-4 w-4" strokeWidth={1.75} />
+            <span className="sr-only">Bloquear caja</span>
+          </button>
+
           <button
             onClick={toggleTheme}
             className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"

@@ -24,6 +24,7 @@ const TYPE_LABELS: Record<StockMovementEntry["type"], string> = {
   void: "Anulación",
   adjustment: "Ajuste",
   initial: "Inicial",
+  return: "Devolución",
 };
 
 /** "Hoy HH:mm" / "Ayer HH:mm" / "dd MMM yyyy, HH:mm" */
@@ -109,9 +110,9 @@ export function StockMovementsDialog({ open, onOpenChange, product }: StockMovem
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="p-0 gap-0 overflow-hidden sm:max-w-2xl">
+      <DialogContent className="p-0 gap-0 overflow-hidden sm:max-w-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="p-6 pb-4 border-b border-border space-y-1">
+        <div className="p-6 pb-4 border-b border-border space-y-1 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-muted text-foreground flex items-center justify-center shrink-0">
               <History className="h-4 w-4" strokeWidth={1.75} />
@@ -125,7 +126,7 @@ export function StockMovementsDialog({ open, onOpenChange, product }: StockMovem
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-3">
+        <div className="p-6 space-y-3 flex-1 overflow-y-auto min-h-0">
           <div className="rounded-lg border border-border overflow-hidden">
             <Table>
               <TableHeader>

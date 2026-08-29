@@ -7,7 +7,7 @@ import { OpenShiftDialog } from "./open-shift-dialog";
 import { NoShiftPrompt } from "./no-shift-prompt";
 import { AddExpenseDialog } from "./add-expense-dialog";
 import { ViewExpensesDialog } from "./view-expenses-dialog";
-import { useCart } from "../hooks/use-cart";
+import { useCart, type FiscalData } from "../hooks/use-cart";
 import { usePOSProducts } from "../hooks/use-pos-products";
 import { useShift } from "../hooks/use-shift";
 import { useBarcodeScanner } from "../hooks/use-barcode-scanner";
@@ -158,8 +158,8 @@ export function POSInterface() {
                 setDiscountAmount={setDiscountAmount}
                 selectedCustomer={selectedCustomer}
                 onSelectCustomer={setSelectedCustomer}
-                onProcessSale={(paymentMethod: PaymentMethod, amountPaid: number, changeGiven: number) =>
-                  handleProcessSale(paymentMethod, amountPaid, changeGiven, refresh)
+                onProcessSale={(paymentMethod: PaymentMethod, amountPaid: number, changeGiven: number, fiscal?: FiscalData) =>
+                  handleProcessSale(paymentMethod, amountPaid, changeGiven, refresh, fiscal)
                 }
                 parkedSales={parkedSales}
                 onParkSale={parkSale}

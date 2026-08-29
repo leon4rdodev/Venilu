@@ -3,7 +3,7 @@ import { Dialog, DialogContent } from "@components/ui/dialog"
 import { Button } from "@components/ui/button"
 import { Input } from "@components/ui/input"
 import { Skeleton } from "@components/ui/skeleton"
-import { CreditCard, Banknote, ArrowRightLeft, Printer, CheckCircle2, HandCoins, User2, Search, X, AlertCircle } from "lucide-react"
+import { CreditCard, Banknote, ArrowRightLeft, Printer, CheckCircle2, HandCoins, User2, Search, X, AlertCircle, ReceiptText } from "lucide-react"
 import { formatCurrency, getCurrencySymbol } from "@lib/currency"
 import { cn } from "@lib/utils"
 import { toast } from "sonner"
@@ -11,6 +11,9 @@ import { PaymentMethod, Customer } from "@shared/types/models"
 import { ipc } from "@lib/ipc"
 import { formatPhone } from "@lib/formatters"
 import { useSettings } from "@renderer/features/settings"
+import type { FiscalData } from "../hooks/use-cart"
+
+type NcfChoice = "none" | "B02" | "B01"
 
 type PaymentDialogProps = {
   open: boolean
@@ -19,8 +22,10 @@ type PaymentDialogProps = {
   discountAmount: number
   total: number
   selectedCustomer: Customer | null
+  /** ITBIS incluido en el total (calculado por el carrito) — solo se muestra con facturación activa */
+  itbisIncluded?: number
   onSelectCustomer: (customer: Customer | null) => void
-  onComplete: (paymentMethod: PaymentMethod, amountPaid: number, changeGiven: number) => Promise<{ success: boolean, saleId?: string, message?: string }>
+  onComplete: (paymentMethod: PaymentMethod, amountPaid: number, changeGiven: number, fiscal?: FiscalData) => Promise<{ success: boolean, saleId?: string, ncf?: string, message?: string }>
 }
 
 // Inline customer selector for the payment dialog
@@ -168,7 +173,7 @@ function InlineCustomerSelector({ selectedCustomer, onSelectCustomer }: { select
   )
 }
 
-export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, total, selectedCustomer, onSelectCustomer, onComplete }: PaymentDialogProps) {
+export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, total, selectedCustomer, itbisIncluded, onSelectCustomer, onComplete }: PaymentDialogProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash")
   const [amountReceived, setAmountReceived] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
@@ -178,6 +183,12 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
   const [isPrinting, setIsPrinting] = useState(false)
   const amountInputRef = useRef<HTMLInputElement>(null)
   const { settings } = useSettings()
+
+  // Comprobante fiscal (NCF) — solo cuando settings.fiscal_enabled
+  const [ncfChoice, setNcfChoice] = useState<NcfChoice>("none")
+  const [fiscalRnc, setFiscalRnc] = useState("")
+  const [fiscalName, setFiscalName] = useState("")
+  const [issuedNcf, setIssuedNcf] = useState<string | undefined>(undefined)
 
   // Focus the cash amount input when the dialog opens with cash selected,
   // or when the user switches back to the cash payment method
@@ -196,6 +207,7 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
     change: number
     isCredit: boolean
     customerName?: string
+    ncfType?: NcfChoice
   } | null>(null)
 
   useEffect(() => {
@@ -209,6 +221,10 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
         setSaleId(undefined)
         setIsPrinting(false)
         setConfirmedDetails(null)
+        setNcfChoice("none")
+        setFiscalRnc("")
+        setFiscalName("")
+        setIssuedNcf(undefined)
       }, 300)
       return () => clearTimeout(timer)
     }
@@ -229,11 +245,18 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
   const amountPaid = parseAmount(amountReceived)
   const change = paymentMethod === "cash" ? Math.max(0, Math.round((amountPaid - total) * 100) / 100) : 0
   const isCredit = paymentMethod === "credit"
+
+  // B01 exige RNC (9 dígitos) o cédula (11 dígitos) del cliente
+  const fiscalEnabled = Boolean(settings?.fiscal_enabled)
+  const rncValid = /^(\d{9}|\d{11})$/.test(fiscalRnc)
+  const isFiscalValid = !fiscalEnabled || ncfChoice !== "B01" || rncValid
+
   // Epsilon avoids float artifacts (e.g. 3 × 0.1) rejecting an exact payment
-  const isValidPayment = isCredit
+  const isValidPayment = (isCredit
     || paymentMethod === "card"
     || paymentMethod === "transfer"
-    || (amountReceived && amountPaid >= total - 0.005)
+    || (amountReceived && amountPaid >= total - 0.005))
+    && isFiscalValid
 
   const handleConfirm = async () => {
     setIsLoading(true)
@@ -249,18 +272,34 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
       change,
       isCredit,
       customerName: selectedCustomer?.name,
+      ncfType: fiscalEnabled ? ncfChoice : "none",
     }
+
+    const fiscal: FiscalData | undefined =
+      fiscalEnabled && ncfChoice !== "none"
+        ? {
+            ncfType: ncfChoice,
+            ...(ncfChoice === "B01"
+              ? {
+                  customerRnc: fiscalRnc,
+                  customerName: fiscalName.trim() || undefined,
+                }
+              : {}),
+          }
+        : undefined
 
     try {
       const result = await onComplete(
         paymentMethod,
         isCredit ? 0 : (paymentMethod === "cash" ? amountPaid : total),
-        isCredit ? 0 : change
+        isCredit ? 0 : change,
+        fiscal
       )
 
       if (result.success) {
         setConfirmedDetails(currentDetails)
         setSaleId(result.saleId)
+        setIssuedNcf(result.ncf)
         setShowSuccess(true)
         // Auto-print (Ajustes → Impresora): fire-and-forget so the success
         // screen never waits on the printer.
@@ -338,6 +377,70 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                 />
               </div>
 
+              {/* Comprobante Fiscal (NCF) */}
+              {fiscalEnabled && (
+                <div className="px-6 pt-1 pb-3 space-y-2.5">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <ReceiptText className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    Comprobante Fiscal
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {([
+                      { id: "none", label: "Sin comprobante" },
+                      { id: "B02", label: "Consumo (B02)" },
+                      { id: "B01", label: "Crédito Fiscal (B01)" },
+                    ] as const).map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setNcfChoice(option.id)}
+                        disabled={isLoading}
+                        className={cn(
+                          "px-3.5 h-9 rounded-full border text-xs font-medium transition-colors whitespace-nowrap",
+                          "disabled:opacity-50 disabled:cursor-not-allowed",
+                          ncfChoice === option.id
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-card text-muted-foreground border-border hover:text-foreground hover:bg-muted"
+                        )}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                  {ncfChoice === "B01" && (
+                    <div className="space-y-2 pt-0.5">
+                      <div className="space-y-1">
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="RNC/Cédula del cliente"
+                          value={fiscalRnc}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            if (/^\d{0,11}$/.test(value)) setFiscalRnc(value)
+                          }}
+                          disabled={isLoading}
+                          className="h-9 text-sm font-mono tabular-nums bg-background"
+                        />
+                        {fiscalRnc.length > 0 && !rncValid && (
+                          <p className="text-xs text-destructive px-1">
+                            Debe tener 9 dígitos (RNC) u 11 dígitos (cédula)
+                          </p>
+                        )}
+                      </div>
+                      <Input
+                        type="text"
+                        placeholder="Razón Social (opcional)"
+                        value={fiscalName}
+                        onChange={(e) => setFiscalName(e.target.value)}
+                        disabled={isLoading}
+                        className="h-9 text-sm bg-background"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Total Section */}
               <div className="px-6 pt-2 pb-3">
                 <div className="rounded-lg border border-border divide-y divide-border">
@@ -352,6 +455,12 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                         <span className="text-sm font-medium font-mono tabular-nums text-muted-foreground">-{formatCurrency(discountAmount)}</span>
                       </div>
                     </>
+                  )}
+                  {settings?.fiscal_enabled && itbisIncluded !== undefined && (
+                    <div className="flex items-baseline justify-between px-4 py-2.5">
+                      <span className="text-sm text-muted-foreground">ITBIS incluido</span>
+                      <span className="text-sm font-medium font-mono tabular-nums text-muted-foreground">{formatCurrency(itbisIncluded)}</span>
+                    </div>
                   )}
                   <div className="flex items-baseline justify-between px-4 py-3 bg-muted/50">
                     <span className="text-sm text-muted-foreground font-medium">Total a cobrar</span>
@@ -527,6 +636,14 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                     <div className="flex items-center justify-between px-4 py-3">
                       <span className="text-muted-foreground">Venta #</span>
                       <span className="font-medium font-mono tabular-nums">{saleId}</span>
+                    </div>
+                  )}
+                  {issuedNcf && (
+                    <div className="flex items-center justify-between px-4 py-3 bg-muted/50">
+                      <span className="text-muted-foreground font-medium">
+                        {confirmedDetails?.ncfType === "B01" ? "NCF Crédito Fiscal (B01)" : "NCF Consumo (B02)"}
+                      </span>
+                      <span className="font-semibold font-mono tabular-nums">{issuedNcf}</span>
                     </div>
                   )}
                   {confirmedDetails?.customerName && (

@@ -5,6 +5,13 @@ import { toast } from "sonner";
 import { round2 } from "@shared/money";
 import { useShift } from "./use-shift";
 
+/** Datos del comprobante fiscal (NCF) solicitados al cobrar. */
+export interface FiscalData {
+  ncfType: 'B01' | 'B02';
+  customerRnc?: string;
+  customerName?: string;
+}
+
 /** A parked ("on hold") ticket — mature-POS feature to serve another customer mid-sale. */
 export interface ParkedSale {
   id: string;
@@ -151,8 +158,9 @@ export function useCart() {
       paymentMethod: PaymentMethod,
       amountPaid: number,
       changeGiven: number,
-      onSuccess: () => void
-    ): Promise<{ success: boolean; saleId?: string; message?: string }> => {
+      onSuccess: () => void,
+      fiscal?: FiscalData
+    ): Promise<{ success: boolean; saleId?: string; ncf?: string; message?: string }> => {
       if (!activeShift) {
         toast.error("No hay turno activo", {
           description: "No se puede procesar la venta porque no hay un turno abierto.",
@@ -189,19 +197,25 @@ export function useCart() {
         saleData.customer_id = selectedCustomer.id;
       }
 
+      if (fiscal) {
+        saleData.fiscal = fiscal;
+      }
+
       try {
         const result = (await window.ipcRenderer.invoke("process-sale", { saleData, saleItems })) as {
           success: boolean;
           saleId?: string;
+          ncf?: string;
           message?: string;
         };
 
         if (result.success) {
           const isCredit = paymentMethod === 'credit';
+          const ncfSuffix = result.ncf ? ` · NCF ${result.ncf}` : "";
           toast.success(isCredit ? "Venta a crédito registrada" : "Venta exitosa", {
             description: isCredit
-              ? `Venta #${result.saleId} registrada a crédito para ${selectedCustomer?.name}.`
-              : `Venta #${result.saleId} procesada correctamente.`,
+              ? `Venta #${result.saleId} registrada a crédito para ${selectedCustomer?.name}.${ncfSuffix}`
+              : `Venta #${result.saleId} procesada correctamente.${ncfSuffix}`,
           });
           addSaleToShift({
             total_amount: totalAmount,
@@ -210,7 +224,7 @@ export function useCart() {
           });
           clearCart();
           onSuccess();
-          return { success: true, saleId: result.saleId };
+          return { success: true, saleId: result.saleId, ncf: result.ncf };
         } else {
           // Stale shift (e.g. after a backup restore replaced the DB): re-sync
           // so the POS shows the real state instead of a ghost open shift.

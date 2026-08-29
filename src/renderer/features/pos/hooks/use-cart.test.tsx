@@ -237,6 +237,52 @@ describe("useCart · handleProcessSale", () => {
     expect(h.toastSuccess).toHaveBeenCalled();
   });
 
+  it("sends fiscal data when provided and returns the issued NCF", async () => {
+    const invoke = vi.fn(async () => ({ success: true, saleId: "S10", ncf: "B0100000042" }));
+    (window as any).ipcRenderer.invoke = invoke;
+    const { result } = renderHook(() => useCart());
+    act(() => result.current.addToCart(product()));
+
+    let res: any;
+    await act(async () => {
+      res = await result.current.handleProcessSale("cash" as any, 10, 0, () => {}, {
+        ncfType: "B01",
+        customerRnc: "131234567",
+        customerName: "Empresa SRL",
+      });
+    });
+
+    expect(invoke).toHaveBeenCalledWith(
+      "process-sale",
+      expect.objectContaining({
+        saleData: expect.objectContaining({
+          fiscal: { ncfType: "B01", customerRnc: "131234567", customerName: "Empresa SRL" },
+        }),
+      })
+    );
+    expect(res).toEqual({ success: true, saleId: "S10", ncf: "B0100000042" });
+    expect(h.toastSuccess).toHaveBeenCalledWith(
+      "Venta exitosa",
+      expect.objectContaining({ description: expect.stringContaining("NCF B0100000042") })
+    );
+  });
+
+  it("omits fiscal from saleData when not provided", async () => {
+    const invoke = vi.fn(async () => ({ success: true, saleId: "S11" }));
+    (window as any).ipcRenderer.invoke = invoke;
+    const { result } = renderHook(() => useCart());
+    act(() => result.current.addToCart(product()));
+
+    let res: any;
+    await act(async () => {
+      res = await result.current.handleProcessSale("cash" as any, 10, 0, () => {});
+    });
+
+    const payload = (invoke as any).mock.calls[0][1];
+    expect(payload.saleData).not.toHaveProperty("fiscal");
+    expect(res).toEqual({ success: true, saleId: "S11", ncf: undefined });
+  });
+
   it("on backend failure keeps the cart and returns the message", async () => {
     (window as any).ipcRenderer.invoke = vi.fn(async () => ({ success: false, message: "Sin stock" }));
     const onSuccess = vi.fn();

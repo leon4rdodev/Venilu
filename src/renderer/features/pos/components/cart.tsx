@@ -3,12 +3,14 @@ import { CartItem, CartItemType } from "./cart-item";
 import { PaymentDialog } from "./payment-dialog";
 import { ParkedSalesDialog } from "./parked-sales-dialog";
 import { formatCurrency, getCurrencySymbol } from "@lib/currency";
+import { useSettings } from "@renderer/features/settings";
+import { round2 } from "@shared/money";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import { PaymentMethod, Customer } from "@shared/types/models";
 import { usePermission } from "@renderer/features/auth/hooks/use-permission";
 import { cn } from "@lib/utils";
-import type { ParkedSale } from "../hooks/use-cart";
+import type { ParkedSale, FiscalData } from "../hooks/use-cart";
 
 interface CartProps {
   cart: CartItemType[];
@@ -19,7 +21,7 @@ interface CartProps {
   setDiscountAmount: (val: number) => void;
   selectedCustomer: Customer | null;
   onSelectCustomer: (customer: Customer | null) => void;
-  onProcessSale: (paymentMethod: PaymentMethod, amountPaid: number, changeGiven: number) => Promise<{ success: boolean, saleId?: string, message?: string }>;
+  onProcessSale: (paymentMethod: PaymentMethod, amountPaid: number, changeGiven: number, fiscal?: FiscalData) => Promise<{ success: boolean, saleId?: string, ncf?: string, message?: string }>;
   parkedSales: ParkedSale[];
   onParkSale: () => void;
   onResumeParked: (id: string) => void;
@@ -51,9 +53,20 @@ export default function Cart({
   onParkedDialogOpenChange,
 }: CartProps) {
   const canDiscount = usePermission('pos:apply_discount');
+  const { settings } = useSettings();
   const subtotal = cart.reduce((sum, item) => sum + item.sale_price * item.quantity, 0);
   const total = Math.max(0, subtotal - discountAmount);
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Desglose de ITBIS (incluido en los precios) — solo con facturación activa.
+  // Espeja el cálculo del backend: exentos en 0 y descuento prorrateado.
+  const fiscalEnabled = !!settings?.fiscal_enabled;
+  const itbisRate = Number(settings?.itbis_rate ?? 18);
+  const taxedAmount = cart.reduce(
+    (sum, item) => sum + (item.itbis_exempt ? 0 : item.sale_price * item.quantity), 0,
+  );
+  const discountFactor = subtotal > 0 ? total / subtotal : 1;
+  const itbisIncluded = round2(taxedAmount * discountFactor * itbisRate / (100 + itbisRate));
 
   return (
     <div className="w-96">
@@ -203,6 +216,17 @@ export default function Cart({
             </div>
           </div>
 
+          {fiscalEnabled && (
+            <div className="flex justify-between items-center text-sm mb-2">
+              <span className="text-muted-foreground">
+                ITBIS incluido ({itbisRate % 1 === 0 ? itbisRate : itbisRate.toFixed(2)}%)
+              </span>
+              <span className="text-muted-foreground font-mono tabular-nums">
+                {formatCurrency(itbisIncluded)}
+              </span>
+            </div>
+          )}
+
           <div className="w-full h-px bg-border" />
 
           {/* Total */}
@@ -235,10 +259,11 @@ export default function Cart({
         subtotal={subtotal}
         discountAmount={discountAmount}
         total={total}
+        itbisIncluded={fiscalEnabled ? itbisIncluded : undefined}
         selectedCustomer={selectedCustomer}
         onSelectCustomer={onSelectCustomer}
-        onComplete={async (paymentMethod, amountPaid, changeGiven) => {
-          const result = await onProcessSale(paymentMethod as PaymentMethod, amountPaid, changeGiven);
+        onComplete={async (paymentMethod, amountPaid, changeGiven, fiscal) => {
+          const result = await onProcessSale(paymentMethod as PaymentMethod, amountPaid, changeGiven, fiscal);
           return result;
         }}
       />

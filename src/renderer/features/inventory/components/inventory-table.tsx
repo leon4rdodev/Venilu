@@ -6,7 +6,7 @@ import { Skeleton } from "@components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@components/ui/table";
 import {
   Plus, Search, Tag, Package, X, LayoutGrid, List,
-  ArrowUpNarrowWide, ArrowDownWideNarrow, Pencil, Trash2, Boxes, Download, History,
+  ArrowUpNarrowWide, ArrowDownWideNarrow, Pencil, Trash2, Boxes, Download, History, Barcode,
 } from "lucide-react";
 import { toast } from "sonner";
 import { InventoryStats } from "./inventory-stats";
@@ -15,6 +15,7 @@ import { InventoryProductCard } from "./inventory-product-card";
 import { CategoryManagerDialog } from "./category-manager-dialog";
 import { AdjustStockDialog } from "./adjust-stock-dialog";
 import { StockMovementsDialog } from "./stock-movements-dialog";
+import { PrintLabelsDialog } from "./print-labels-dialog";
 import { DeleteConfirmDialog } from "@renderer/shared/components/delete-confirm-dialog";
 import { WidgetHeader } from "@renderer/shared/components/widget-header";
 import { TablePagination } from "@renderer/shared/components/table-pagination";
@@ -94,6 +95,8 @@ export function InventoryTable() {
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [movementsProduct, setMovementsProduct] = useState<Product | null>(null);
   const [movementsOpen, setMovementsOpen] = useState(false);
+  const [labelsProduct, setLabelsProduct] = useState<Product | null>(null);
+  const [labelsOpen, setLabelsOpen] = useState(false);
 
   const handleBarcodeScan = useCallback((barcode: string) => {
     setSearchQuery(barcode);
@@ -119,6 +122,11 @@ export function InventoryTable() {
   const handleViewMovements = useCallback((product: Product) => {
     setMovementsProduct(product);
     setMovementsOpen(true);
+  }, []);
+
+  const handlePrintLabels = useCallback((product: Product) => {
+    setLabelsProduct(product);
+    setLabelsOpen(true);
   }, []);
 
   const handleDeleteConfirm = async () => {
@@ -358,6 +366,7 @@ export function InventoryTable() {
                 onDelete={handleDeleteClick}
                 onAdjustStock={handleAdjustClick}
                 onViewMovements={handleViewMovements}
+                onPrintLabels={handlePrintLabels}
                 isLoading={isSaving}
               />
             ))}
@@ -435,6 +444,15 @@ export function InventoryTable() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            onClick={() => handlePrintLabels(product)}
+                            title="Imprimir etiquetas"
+                          >
+                            <Barcode className="h-4 w-4" strokeWidth={1.75} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
                             onClick={() => handleViewMovements(product)}
                             title="Movimientos de stock"
                           >
@@ -508,6 +526,12 @@ export function InventoryTable() {
         open={movementsOpen}
         onOpenChange={setMovementsOpen}
         product={movementsProduct}
+      />
+
+      <PrintLabelsDialog
+        open={labelsOpen}
+        onOpenChange={setLabelsOpen}
+        product={labelsProduct}
       />
 
       <DeleteConfirmDialog

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react"
 import { Sidebar, Header } from "@renderer/features/layout"
 import { useUser } from "@renderer/features/auth"
+import { LockProvider, LockScreen } from "@renderer/features/lock"
 import { Outlet, useLocation } from "react-router-dom"
 
 /**
@@ -23,16 +24,22 @@ export function MainLayout() {
   const name = user?.name || null;
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background">
-      <Header userName={name} userRole={role} />
+    // Provider + overlay viven aquí: MainLayout solo se renderiza con usuario,
+    // así el bloqueo cubre todo el árbol autenticado sin tocar main.tsx.
+    <LockProvider>
+      <div className="flex h-screen flex-col overflow-hidden bg-background">
+        <Header userName={name} userRole={role} />
 
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
+        <div className="flex flex-1 overflow-hidden">
+          <Sidebar />
 
-        <main ref={mainRef} className="flex-1 overflow-y-auto overflow-x-hidden ml-16 p-5">
-          <Outlet />
-        </main>
+          <main ref={mainRef} className="flex-1 overflow-y-auto overflow-x-hidden ml-16 p-5">
+            <Outlet />
+          </main>
+        </div>
       </div>
-    </div>
+
+      <LockScreen />
+    </LockProvider>
   )
 }

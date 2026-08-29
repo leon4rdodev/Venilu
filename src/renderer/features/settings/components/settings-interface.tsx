@@ -4,6 +4,7 @@ import {
   Database,
   History,
   Info,
+  Landmark,
   LucideIcon,
   Printer,
   ShieldCheck,
@@ -11,6 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { BusinessSettings } from "./business-settings";
+import { FiscalSettings } from "./fiscal-settings";
 import { AppearanceSettings } from "./appearance-settings";
 import { UserSettings } from "./user-settings";
 import { RolesSettings } from "./roles-settings";
@@ -24,6 +26,7 @@ import { cn } from "@lib/utils";
 
 type SectionId =
   | "business"
+  | "fiscal"
   | "appearance"
   | "users"
   | "roles"
@@ -41,6 +44,7 @@ interface Section {
 
 const SECTIONS: Section[] = [
   { id: "business", label: "Negocio", icon: Building2, content: () => <BusinessSettings /> },
+  { id: "fiscal", label: "Fiscal", icon: Landmark, content: () => <FiscalSettings /> },
   { id: "appearance", label: "Apariencia", icon: SunMoon, content: () => <AppearanceSettings /> },
   { id: "users", label: "Usuarios", icon: Users, content: () => <UserSettings /> },
   { id: "roles", label: "Roles y Permisos", icon: ShieldCheck, content: () => <RolesSettings /> },
@@ -65,6 +69,7 @@ export function SettingsInterface() {
   const visibleSections = useMemo(() => {
     const allowed: Record<SectionId, boolean> = {
       business: perms["settings:view"],
+      fiscal: perms["settings:view"],
       appearance: true,
       users: perms["users:view"],
       roles: perms["users:roles"],
