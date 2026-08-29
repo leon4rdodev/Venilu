@@ -20,5 +20,5 @@
     }
   },
   "include": ["src/main/**/*", "src/shared/**/*", "src/preload.ts"],
-  "exclude": ["node_modules"] 
+  "exclude": ["node_modules", "src/test", "**/*.test.ts"] 
 }

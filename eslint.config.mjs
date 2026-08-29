@@ -100,7 +100,7 @@ export default [
 
   // TypeScript renderer files configuration
   {
-    files: ["src/renderer/**/*.{ts,tsx}", "src/shared/**/*.{ts,tsx}"],
+    files: ["src/renderer/**/*.{ts,tsx}", "src/shared/**/*.{ts,tsx}", "src/test/**/*.{ts,tsx}"],
     languageOptions: {
       parser: tseslintParser,
       parserOptions: {
@@ -187,4 +187,4 @@ export default [
       "no-undef": "off",
     },
   },
-];
+];
