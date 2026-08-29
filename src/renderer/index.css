@@ -275,3 +275,47 @@ button:disabled,
 [role="button"]:disabled {
   cursor: not-allowed;
 }
+
+/* === Theme switch transition ===
+   The theme swap runs inside a View Transition, so the WHOLE screen changes
+   as one piece. Default: a soft cross-fade. When use-theme drives a circular
+   reveal (data-theme-reveal), the built-in fade is disabled and the clip-path
+   animation from the click point takes over. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme-reveal]::view-transition-old(root),
+[data-theme-reveal]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* While the reveal runs, Chromium suspends hit-testing on the captured page
+   and the cursor would fall back to the arrow — hold the pointer instead:
+   the user just clicked a theme control and is still hovering it. */
+[data-theme-reveal] {
+  cursor: pointer;
+}
+
+/* → light: the NEW (light) snapshot expands ON TOP from the click point */
+[data-theme-reveal="expand"]::view-transition-new(root) {
+  z-index: 1;
+}
+
+/* → dark: the OLD (light) snapshot collapses ON TOP into the click point,
+   revealing the dark theme that is already painted underneath */
+[data-theme-reveal="collapse"]::view-transition-old(root) {
+  z-index: 1;
+}
+
+/* While the theme swaps, every per-element transition (hover color tweens,
+   transforms) is silenced so the change lands as ONE piece — the View
+   Transition provides all the motion. Removed right after the swap finishes. */
+[data-theme-switching] *,
+[data-theme-switching] *::before,
+[data-theme-switching] *::after {
+  transition: none !important;
+}

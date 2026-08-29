@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { PaymentMethod, Customer } from "@shared/types/models"
 import { ipc } from "@lib/ipc"
 import { formatPhone } from "@lib/formatters"
+import { useSettings } from "@renderer/features/settings"
 
 type PaymentDialogProps = {
   open: boolean
@@ -176,6 +177,7 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
   const [saleId, setSaleId] = useState<string | undefined>(undefined)
   const [isPrinting, setIsPrinting] = useState(false)
   const amountInputRef = useRef<HTMLInputElement>(null)
+  const { settings } = useSettings()
 
   // Focus the cash amount input when the dialog opens with cash selected,
   // or when the user switches back to the cash payment method
@@ -260,6 +262,11 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
         setConfirmedDetails(currentDetails)
         setSaleId(result.saleId)
         setShowSuccess(true)
+        // Auto-print (Ajustes → Impresora): fire-and-forget so the success
+        // screen never waits on the printer.
+        if (settings?.auto_print_receipt && result.saleId) {
+          void printTicket(result.saleId)
+        }
       } else {
         setError(result.message || "Error al procesar la venta")
       }
@@ -270,15 +277,15 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
     }
   }
 
-  const handlePrintTicket = async () => {
-    if (!saleId || !window.ipcRenderer) {
+  const printTicket = async (id: string) => {
+    if (!window.ipcRenderer) {
       toast.error("Error al imprimir", { description: "Sistema de impresión no disponible" })
       return
     }
 
     try {
       setIsPrinting(true)
-      const result = await window.ipcRenderer.invoke("print-receipt", { saleId }) as { success: boolean; message?: string }
+      const result = await window.ipcRenderer.invoke("print-receipt", { saleId: id }) as { success: boolean; message?: string }
 
       if (result.success) {
         toast.success("Ticket impreso correctamente")
@@ -290,6 +297,14 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
     } finally {
       setIsPrinting(false)
     }
+  }
+
+  const handlePrintTicket = async () => {
+    if (!saleId) {
+      toast.error("Error al imprimir", { description: "Sistema de impresión no disponible" })
+      return
+    }
+    await printTicket(saleId)
   }
 
   return (

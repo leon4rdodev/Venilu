@@ -22,9 +22,13 @@ import {
   LockKeyhole,
   HandCoins,
   Eye,
+  Calculator,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { cn } from '@lib/utils';
 import { ViewExpensesDialog } from './view-expenses-dialog';
+import { getDenominations, denominationSubtotal, computeCashCountTotal } from './cash-denominations';
 
 interface CloseShiftDialogProps {
   isOpen: boolean;
@@ -35,16 +39,50 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
   const [finalCash, setFinalCash] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showExpensesList, setShowExpensesList] = useState(false);
+  const [showCounter, setShowCounter] = useState(false);
+  const [counts, setCounts] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
   const { activeShift, shiftSales, shiftDebtPayments, shiftExpenses, closeShift } = useShift();
 
-  // Focus the cash input when the dialog opens
+  // Focus the cash input when the dialog opens; reset the denomination counter
   useEffect(() => {
     if (isOpen) {
+      setShowCounter(false);
+      setCounts({});
       const id = setTimeout(() => inputRef.current?.focus(), 50);
       return () => clearTimeout(id);
     }
   }, [isOpen]);
+
+  // Denominations for the active currency (re-read each time the dialog opens)
+  const denominations = useMemo(
+    () => getDenominations(localStorage.getItem('venilu_currency') ?? 'DOP'),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isOpen]
+  );
+
+  const countTotal = useMemo(() => {
+    const numeric: Record<string, number> = {};
+    for (const [denomination, qty] of Object.entries(counts)) {
+      numeric[denomination] = parseInt(qty, 10) || 0;
+    }
+    return computeCashCountTotal(numeric);
+  }, [counts]);
+
+  const hasCounted = useMemo(() => Object.values(counts).some(v => v !== ''), [counts]);
+
+  const handleCountChange = (denomination: number, value: string) => {
+    if (value === '' || /^\d{1,4}$/.test(value)) {
+      setCounts(prev => ({ ...prev, [String(denomination)]: value }));
+    }
+  };
+
+  const handleClearCounts = () => setCounts({});
+
+  const handleUseCountTotal = () => {
+    setFinalCash(countTotal.toFixed(2));
+    setShowCounter(false);
+  };
 
   const { initialCash, cashSalesTotal, expectedCash, totalSales, otherSalesTotal, totalTransactions, cashDebtTotal, transferDebtTotal, totalDebtPayments, totalExpenses } = useMemo(() => {
     if (!activeShift) return { initialCash: 0, cashSalesTotal: 0, expectedCash: 0, totalSales: 0, otherSalesTotal: 0, totalTransactions: 0, cashDebtTotal: 0, transferDebtTotal: 0, totalDebtPayments: 0, totalExpenses: 0 };
@@ -306,6 +344,83 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
               disabled={isLoading}
             />
           </div>
+        </div>
+
+        {/* Denomination Counter (collapsible) */}
+        <div className="px-5 pb-3">
+          <button
+            type="button"
+            onClick={() => setShowCounter(v => !v)}
+            disabled={isLoading}
+            aria-expanded={showCounter}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+          >
+            <Calculator className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Contar efectivo
+            {showCounter ? (
+              <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.75} />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+            )}
+          </button>
+
+          {showCounter && (
+            <div className="mt-2 rounded-lg border border-border">
+              <div className="max-h-64 overflow-y-auto divide-y divide-border">
+                {denominations.map((denomination) => {
+                  const key = String(denomination);
+                  const qty = parseInt(counts[key] ?? '', 10) || 0;
+                  return (
+                    <div
+                      key={key}
+                      className="grid grid-cols-[1fr_5rem_1fr] items-center gap-3 px-3.5 py-1.5"
+                    >
+                      <span className="text-sm text-muted-foreground font-mono tabular-nums truncate">
+                        {formatCurrency(denomination)}
+                      </span>
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        value={counts[key] ?? ''}
+                        onChange={(e) => handleCountChange(denomination, e.target.value)}
+                        placeholder="0"
+                        aria-label={`Cantidad de ${formatCurrency(denomination)}`}
+                        className="h-9 text-right font-mono tabular-nums"
+                        disabled={isLoading}
+                      />
+                      <span className="text-sm font-mono tabular-nums text-muted-foreground text-right truncate" title={formatCurrency(denominationSubtotal(denomination, qty))}>
+                        {formatCurrency(denominationSubtotal(denomination, qty))}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-t border-border bg-muted/50">
+                <span className="text-sm font-semibold shrink-0">Total contado</span>
+                <span className="text-sm font-semibold font-mono tabular-nums truncate" title={formatCurrency(countTotal)}>
+                  {formatCurrency(countTotal)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 px-3.5 py-2.5 border-t border-border">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearCounts}
+                  disabled={isLoading || !hasCounted}
+                  className="h-9"
+                >
+                  Limpiar
+                </Button>
+                <Button
+                  onClick={handleUseCountTotal}
+                  disabled={isLoading || !hasCounted}
+                  className="h-9 flex-1"
+                >
+                  Usar este total
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Difference Indicator */}

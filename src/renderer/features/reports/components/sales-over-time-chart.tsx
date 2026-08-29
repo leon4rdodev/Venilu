@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -12,12 +12,16 @@ import { formatCurrency, getCurrencySymbol } from "@lib/currency";
 import { useCurrency } from "@renderer/shared/context/currency-context";
 import { BarChart3 } from "lucide-react";
 import { WidgetHeader } from "@renderer/shared/components/widget-header";
+import { cn } from "@lib/utils";
+import type { SalesOverTimeData } from "../hooks/use-reports";
 
-interface SalesOverTimeData {
-  period: string;
-  totalSales: number;
-  totalTransactions: number;
-}
+type ChartMetric = "totalSales" | "totalProfit" | "totalTransactions";
+
+const METRIC_OPTIONS: { value: ChartMetric; label: string; isCurrency: boolean }[] = [
+  { value: "totalSales", label: "Ingresos", isCurrency: true },
+  { value: "totalProfit", label: "Ganancia", isCurrency: true },
+  { value: "totalTransactions", label: "Transacciones", isCurrency: false },
+];
 
 interface SalesOverTimeChartProps {
   salesOverTime: SalesOverTimeData[];
@@ -25,10 +29,16 @@ interface SalesOverTimeChartProps {
   interval?: "day" | "week" | "month";
 }
 
+/** Deterministic pseudo-random bar heights so the skeleton doesn't jitter between renders. */
+const SKELETON_HEIGHTS = [42, 68, 35, 76, 52, 61, 30, 80, 47, 58, 38, 71];
+
 export const SalesOverTimeChart = React.memo(
   ({ salesOverTime, loading, interval = "day" }: SalesOverTimeChartProps) => {
     // Re-render when currency changes so the Y-axis symbol updates
     const { currency } = useCurrency();
+    const [metric, setMetric] = useState<ChartMetric>("totalSales");
+
+    const activeOption = METRIC_OPTIONS.find((o) => o.value === metric) ?? METRIC_OPTIONS[0];
 
     const compactCurrency = (value: number) => {
       const sym = getCurrencySymbol(currency);
@@ -36,6 +46,9 @@ export const SalesOverTimeChart = React.memo(
       if (value >= 1_000) return `${sym}${(value / 1_000).toFixed(1)}K`;
       return `${sym}${value}`;
     };
+
+    const yTickFormatter = (value: number) =>
+      activeOption.isCurrency ? compactCurrency(value) : Math.round(value).toLocaleString("es-DO");
 
     const formatPeriodLabel = (value: string) => {
       // Check format: YYYY-W## (Week)
@@ -70,19 +83,37 @@ export const SalesOverTimeChart = React.memo(
         <WidgetHeader
           icon={BarChart3}
           title="Ventas en el Tiempo"
-          subtitle={`Resumen de ingresos y transacciones agrupado por ${
+          subtitle={`Resumen agrupado por ${
             interval === "week" ? "semana" : interval === "month" ? "mes" : "día"
           }.`}
+          action={
+            <div className="flex items-center gap-1 bg-muted rounded-full p-1 shrink-0">
+              {METRIC_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setMetric(option.value)}
+                  className={cn(
+                    "px-3 h-7 rounded-full text-xs font-medium transition-colors whitespace-nowrap",
+                    metric === option.value
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          }
         />
 
         <div className="h-[300px] w-full mt-6">
           {loading ? (
             <div className="w-full h-full flex items-end gap-2 p-4">
-              {Array.from({ length: 12 }).map((_, i) => (
+              {SKELETON_HEIGHTS.map((height, i) => (
                 <div
                   key={i}
                   className="flex-1 bg-muted animate-pulse rounded-t"
-                  style={{ height: `${Math.random() * 60 + 20}%` }}
+                  style={{ height: `${height}%` }}
                 />
               ))}
             </div>
@@ -111,7 +142,7 @@ export const SalesOverTimeChart = React.memo(
                   fontSize={11}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(value) => compactCurrency(value)}
+                  tickFormatter={yTickFormatter}
                   tickMargin={8}
                   width={60}
                 />
@@ -122,16 +153,29 @@ export const SalesOverTimeChart = React.memo(
                       const p = payload[0].payload as SalesOverTimeData;
                       return (
                         <div className="rounded-lg border border-border bg-popover p-3 shadow-md">
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5">
                             {formatPeriodLabel(p.period)}
                           </p>
-                          <p className="text-sm font-semibold tabular-nums">
-                            {formatCurrency(p.totalSales)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {p.totalTransactions} transacci
-                            {p.totalTransactions === 1 ? "ón" : "ones"}
-                          </p>
+                          <div className="space-y-0.5">
+                            <div className="flex items-center justify-between gap-6">
+                              <span className="text-xs text-muted-foreground">Ingresos</span>
+                              <span className={cn("text-xs font-mono tabular-nums", metric === "totalSales" ? "font-semibold" : "font-medium")}>
+                                {formatCurrency(p.totalSales)}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-6">
+                              <span className="text-xs text-muted-foreground">Ganancia</span>
+                              <span className={cn("text-xs font-mono tabular-nums", metric === "totalProfit" ? "font-semibold" : "font-medium")}>
+                                {formatCurrency(p.totalProfit ?? 0)}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-6">
+                              <span className="text-xs text-muted-foreground">Transacciones</span>
+                              <span className={cn("text-xs font-mono tabular-nums", metric === "totalTransactions" ? "font-semibold" : "font-medium")}>
+                                {p.totalTransactions}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       );
                     }
@@ -139,11 +183,11 @@ export const SalesOverTimeChart = React.memo(
                   }}
                 />
                 <Bar
-                  dataKey="totalSales"
+                  dataKey={metric}
                   fill="var(--primary)"
                   radius={[4, 4, 0, 0]}
                   maxBarSize={36}
-                  animationDuration={800}
+                  isAnimationActive={false}
                 />
               </BarChart>
             </ResponsiveContainer>

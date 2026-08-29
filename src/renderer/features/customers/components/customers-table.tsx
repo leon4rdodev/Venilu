@@ -5,8 +5,9 @@ import { Input } from "@components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select";
 import {
   Plus, Search, Pencil, Trash2, Users,
-  HandCoins, Eye, X, ArrowUpNarrowWide, ArrowDownWideNarrow,
+  HandCoins, Eye, X, ArrowUpNarrowWide, ArrowDownWideNarrow, Download,
 } from "lucide-react";
+import { toast } from "sonner";
 import { WidgetHeader } from "@renderer/shared/components/widget-header";
 import { TablePagination } from "@renderer/shared/components/table-pagination";
 import { CustomerDialog } from "./customer-dialog";
@@ -42,9 +43,12 @@ const SORT_OPTIONS: { value: CustomerSortBy; label: string }[] = [
 ];
 
 /** "Hoy" / "Ayer" / "Hace Nd" / short date — mature-POS relative recency. */
-function formatRecency(dateStr: string | null): string {
-  if (!dateStr) return "—";
-  const date = new Date(dateStr.includes("T") ? dateStr : dateStr.replace(" ", "T"));
+// Accepts Date too: IPC structured-clone delivers entity dates as Date objects.
+function formatRecency(value: string | Date | null): string {
+  if (!value) return "—";
+  const date = value instanceof Date
+    ? value
+    : new Date(value.includes("T") ? value : value.replace(" ", "T"));
   if (isNaN(date.getTime())) return "—";
   const days = Math.floor((Date.now() - date.getTime()) / 86_400_000);
   if (days <= 0) return "Hoy";
@@ -97,6 +101,25 @@ export function CustomersTable() {
   const { activeShift, addDebtPaymentToShift } = useShift();
 
   const handleAddNew = () => { setEditingCustomer(null); setDialogOpen(true); };
+
+  const [isExporting, setIsExporting] = useState(false);
+  const handleExportCsv = async () => {
+    setIsExporting(true);
+    try {
+      const result = await window.ipcRenderer.invoke("export-customers-csv") as {
+        success: boolean; filePath?: string; canceled?: boolean; message?: string;
+      };
+      if (result.success) {
+        toast.success("Clientes exportados", { description: result.filePath });
+      } else if (!result.canceled) {
+        toast.error("Error al exportar", { description: result.message });
+      }
+    } catch {
+      toast.error("Error al exportar clientes");
+    } finally {
+      setIsExporting(false);
+    }
+  };
   const handleEdit = (customer: Customer) => { setEditingCustomer(customer); setDialogOpen(true); };
   const handleDeleteClick = (customer: Customer) => { setCustomerToDelete(customer); setDeleteDialogOpen(true); };
   const handlePayDebtClick = (customer: Customer) => { setDebtCustomer(customer); setDebtDialogOpen(true); };
@@ -126,12 +149,24 @@ export function CustomersTable() {
           title="Lista de Clientes"
           subtitle={`${total} cliente${total !== 1 ? "s" : ""} registrado${total !== 1 ? "s" : ""}`}
           action={
-            canCreate ? (
-              <Button onClick={handleAddNew} size="sm" className="h-9 shrink-0">
-                <Plus className="h-4 w-4" strokeWidth={1.75} />
-                Nuevo Cliente
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9"
+                title="Exportar clientes a CSV"
+                onClick={handleExportCsv}
+                disabled={isExporting}
+              >
+                <Download className="h-4 w-4" strokeWidth={1.75} />
               </Button>
-            ) : undefined
+              {canCreate && (
+                <Button onClick={handleAddNew} size="sm" className="h-9">
+                  <Plus className="h-4 w-4" strokeWidth={1.75} />
+                  Nuevo Cliente
+                </Button>
+              )}
+            </div>
           }
         />
 

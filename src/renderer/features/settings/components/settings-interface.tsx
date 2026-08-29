@@ -1,16 +1,88 @@
-import { Building2, Users, Printer, Database, ShieldCheck } from "lucide-react"
-import { BusinessSettings } from "./business-settings"
-import { UserSettings } from "./user-settings"
-import { PrinterSettings } from "./printer-settings"
-import { BackupSettings } from "./backup-settings"
-import { RolesSettings } from "./roles-settings"
-import { PageHeader } from "@renderer/shared/components/page-header"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs"
+import { useMemo, useState, type ReactNode } from "react";
+import {
+  Building2,
+  Database,
+  History,
+  Info,
+  LucideIcon,
+  Printer,
+  ShieldCheck,
+  SunMoon,
+  Users,
+} from "lucide-react";
+import { BusinessSettings } from "./business-settings";
+import { AppearanceSettings } from "./appearance-settings";
+import { UserSettings } from "./user-settings";
+import { RolesSettings } from "./roles-settings";
+import { PrinterSettings } from "./printer-settings";
+import { BackupSettings } from "./backup-settings";
+import { ActivitySettings } from "./activity-settings";
+import { AboutSettings } from "./about-settings";
+import { PageHeader } from "@renderer/shared/components/page-header";
+import { usePermissions } from "@renderer/features/auth/hooks/use-permission";
+import { cn } from "@lib/utils";
 
-const TAB_TRIGGER_CLASS =
-  "flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 pt-1 pb-3 text-sm font-medium text-muted-foreground gap-2 shadow-none transition-colors hover:text-foreground data-[state=active]:border-foreground data-[state=active]:text-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none dark:data-[state=active]:border-foreground dark:data-[state=active]:bg-transparent"
+type SectionId =
+  | "business"
+  | "appearance"
+  | "users"
+  | "roles"
+  | "printer"
+  | "backup"
+  | "activity"
+  | "about";
+
+interface Section {
+  id: SectionId;
+  label: string;
+  icon: LucideIcon;
+  content: () => ReactNode;
+}
+
+const SECTIONS: Section[] = [
+  { id: "business", label: "Negocio", icon: Building2, content: () => <BusinessSettings /> },
+  { id: "appearance", label: "Apariencia", icon: SunMoon, content: () => <AppearanceSettings /> },
+  { id: "users", label: "Usuarios", icon: Users, content: () => <UserSettings /> },
+  { id: "roles", label: "Roles y Permisos", icon: ShieldCheck, content: () => <RolesSettings /> },
+  { id: "printer", label: "Impresora", icon: Printer, content: () => <PrinterSettings /> },
+  { id: "backup", label: "Copias de Seguridad", icon: Database, content: () => <BackupSettings /> },
+  { id: "activity", label: "Actividad", icon: History, content: () => <ActivitySettings /> },
+  { id: "about", label: "Acerca de", icon: Info, content: () => <AboutSettings /> },
+];
 
 export function SettingsInterface() {
+  const perms = usePermissions(
+    "settings:view",
+    "users:view",
+    "users:roles",
+    "settings:printer",
+    "backups:manage",
+    "audit:view",
+  );
+
+  // Which sections the current user can see. Appearance and About are open to
+  // everyone who can reach this page (the sidebar already gates on settings:view).
+  const visibleSections = useMemo(() => {
+    const allowed: Record<SectionId, boolean> = {
+      business: perms["settings:view"],
+      appearance: true,
+      users: perms["users:view"],
+      roles: perms["users:roles"],
+      printer: perms["settings:printer"],
+      backup: perms["backups:manage"],
+      activity: perms["audit:view"],
+      about: true,
+    };
+    return SECTIONS.filter((s) => allowed[s.id]);
+  }, [perms]);
+
+  const [activeId, setActiveId] = useState<SectionId>(
+    () => visibleSections[0]?.id ?? "appearance",
+  );
+
+  const active =
+    visibleSections.find((s) => s.id === activeId) ?? visibleSections[0];
+
   return (
     <div className="space-y-6 pb-10">
       <PageHeader
@@ -18,53 +90,36 @@ export function SettingsInterface() {
         description="Configura las preferencias y parámetros del sistema"
       />
 
-      {/* Page entrance is handled by AnimatedPage — no extra animation layers */}
-      <Tabs defaultValue="business" className="flex flex-col gap-6">
-        <TabsList className="w-full h-auto justify-start bg-transparent p-0 gap-6 rounded-none border-b border-border overflow-x-auto">
-          <TabsTrigger value="business" className={TAB_TRIGGER_CLASS}>
-            <Building2 className="h-4 w-4" strokeWidth={1.75} />
-            Negocio
-          </TabsTrigger>
-          <TabsTrigger value="users" className={TAB_TRIGGER_CLASS}>
-            <Users className="h-4 w-4" strokeWidth={1.75} />
-            Usuarios
-          </TabsTrigger>
-          <TabsTrigger value="roles" className={TAB_TRIGGER_CLASS}>
-            <ShieldCheck className="h-4 w-4" strokeWidth={1.75} />
-            Roles y Permisos
-          </TabsTrigger>
-          <TabsTrigger value="printer" className={TAB_TRIGGER_CLASS}>
-            <Printer className="h-4 w-4" strokeWidth={1.75} />
-            Impresora
-          </TabsTrigger>
-          <TabsTrigger value="backup" className={TAB_TRIGGER_CLASS}>
-            <Database className="h-4 w-4" strokeWidth={1.75} />
-            Copias de Seguridad
-          </TabsTrigger>
-        </TabsList>
+      <div className="flex flex-col md:flex-row gap-6 items-start">
+        {/* Section nav — sticky on the left, Vercel style */}
+        <nav className="w-full md:w-52 shrink-0 md:sticky md:top-6 flex md:flex-col gap-1 overflow-x-auto md:overflow-visible">
+          {visibleSections.map((section) => {
+            const isActive = active?.id === section.id;
+            const Icon = section.icon;
+            return (
+              <button
+                key={section.id}
+                type="button"
+                onClick={() => setActiveId(section.id)}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-left whitespace-nowrap transition-colors shrink-0 md:shrink md:w-full",
+                  isActive
+                    ? "bg-muted font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                {section.label}
+              </button>
+            );
+          })}
+        </nav>
 
-        <div className="flex-1 w-full min-w-0">
-          <TabsContent value="business" className="m-0 mt-0 focus-visible:outline-none focus-visible:ring-0">
-            <BusinessSettings />
-          </TabsContent>
-
-          <TabsContent value="users" className="m-0 mt-0 focus-visible:outline-none focus-visible:ring-0">
-            <UserSettings />
-          </TabsContent>
-
-          <TabsContent value="roles" className="m-0 mt-0 focus-visible:outline-none focus-visible:ring-0">
-            <RolesSettings />
-          </TabsContent>
-
-          <TabsContent value="printer" className="m-0 mt-0 focus-visible:outline-none focus-visible:ring-0">
-            <PrinterSettings />
-          </TabsContent>
-
-          <TabsContent value="backup" className="m-0 mt-0 focus-visible:outline-none focus-visible:ring-0">
-            <BackupSettings />
-          </TabsContent>
+        {/* Active section content */}
+        <div className="flex-1 min-w-0 w-full space-y-6">
+          {active?.content()}
         </div>
-      </Tabs>
+      </div>
     </div>
-  )
+  );
 }

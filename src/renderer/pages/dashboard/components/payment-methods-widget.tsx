@@ -12,7 +12,7 @@ const METHODS = [
   { key: "cash", label: "Efectivo", icon: Banknote },
   { key: "card", label: "Tarjeta", icon: CreditCard },
   { key: "transfer", label: "Transferencia", icon: Landmark },
-  { key: "credit", label: "Crédito", icon: HandCoins },
+  { key: "credit", label: "Crédito (pendiente)", icon: HandCoins },
 ] as const;
 
 export function PaymentMethodsWidget({ data, loading }: PaymentMethodsWidgetProps) {

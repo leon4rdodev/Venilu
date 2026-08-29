@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select"
 import { Label } from "@components/ui/label"
 import { Button } from "@components/ui/button"
+import { Textarea } from "@components/ui/textarea"
+import { Switch } from "@components/ui/switch"
 import { RefreshCw, Printer } from "lucide-react"
 import { toast } from "sonner"
 import { useSettings } from "../hooks/use-settings"
@@ -24,6 +26,8 @@ export function PrinterSettings() {
   const [printers, setPrinters] = useState<PrinterInfo[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
   const [paperSize, setPaperSize] = useState<string>('80mm');
+  const [receiptFooter, setReceiptFooter] = useState<string>('');
+  const [autoPrint, setAutoPrint] = useState<boolean>(false);
   const [isLoadingPrinters, setIsLoadingPrinters] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
@@ -33,6 +37,8 @@ export function PrinterSettings() {
     if (settings) {
       setSelectedPrinter(settings.printer_name || '');
       setPaperSize(settings.paper_size || '80mm');
+      setReceiptFooter(settings.receipt_footer || '');
+      setAutoPrint(Boolean(settings.auto_print_receipt));
     }
   }, [settings]);
 
@@ -90,7 +96,9 @@ export function PrinterSettings() {
     try {
       const result = await updateSettings({
         printer_name: selectedPrinter || null,
-        paper_size: paperSize
+        paper_size: paperSize,
+        receipt_footer: receiptFooter.trim() || null,
+        auto_print_receipt: autoPrint
       });
 
       if (result.success) {
@@ -164,6 +172,10 @@ export function PrinterSettings() {
               <Skeleton className="h-4 w-32" />
               <Skeleton className="h-9 w-full" />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-20 w-full" />
           </div>
           <div className="flex gap-2 pt-1">
             <Skeleton className="h-8 flex-1" />
@@ -243,6 +255,38 @@ export function PrinterSettings() {
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="receipt-footer" className="text-sm">Mensaje del ticket</Label>
+          <Textarea
+            id="receipt-footer"
+            value={receiptFooter}
+            onChange={(e) => setReceiptFooter(e.target.value)}
+            maxLength={300}
+            rows={3}
+            placeholder="Gracias por su compra…"
+            disabled={isSaving}
+            className="rounded-lg resize-none"
+          />
+          <p className="text-xs text-muted-foreground">
+            Se imprime al pie de cada recibo. Una línea por renglón.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+          <div className="space-y-0.5 pr-4">
+            <Label htmlFor="auto-print" className="text-sm">Impresión automática</Label>
+            <p className="text-xs text-muted-foreground">
+              Imprime el ticket automáticamente al completar cada venta.
+            </p>
+          </div>
+          <Switch
+            id="auto-print"
+            checked={autoPrint}
+            onCheckedChange={setAutoPrint}
+            disabled={isSaving}
+          />
         </div>
 
         <div className="flex gap-2 pt-1">

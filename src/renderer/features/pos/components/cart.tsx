@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { CreditCard, ShoppingBag, Trash2, Lock, Pause, PauseCircle, User2, X } from "lucide-react";
 import { CartItem, CartItemType } from "./cart-item";
 import { PaymentDialog } from "./payment-dialog";
@@ -25,6 +24,11 @@ interface CartProps {
   onParkSale: () => void;
   onResumeParked: (id: string) => void;
   onRemoveParked: (id: string) => void;
+  /** Controlled from POSInterface so the F2/F4 shortcuts can open them */
+  paymentDialogOpen: boolean;
+  onPaymentDialogOpenChange: (open: boolean) => void;
+  parkedDialogOpen: boolean;
+  onParkedDialogOpenChange: (open: boolean) => void;
 }
 
 export default function Cart({
@@ -41,10 +45,12 @@ export default function Cart({
   onParkSale,
   onResumeParked,
   onRemoveParked,
+  paymentDialogOpen,
+  onPaymentDialogOpenChange,
+  parkedDialogOpen,
+  onParkedDialogOpenChange,
 }: CartProps) {
   const canDiscount = usePermission('pos:apply_discount');
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [parkedDialogOpen, setParkedDialogOpen] = useState(false);
   const subtotal = cart.reduce((sum, item) => sum + item.sale_price * item.quantity, 0);
   const total = Math.max(0, subtotal - discountAmount);
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -74,8 +80,8 @@ export default function Cart({
                 "h-8 gap-1 text-xs",
                 parkedSales.length > 0 ? "text-foreground" : "text-muted-foreground"
               )}
-              onClick={() => setParkedDialogOpen(true)}
-              title="Ventas en espera"
+              onClick={() => onParkedDialogOpenChange(true)}
+              title="Ventas en espera (F4)"
             >
               <PauseCircle className="h-3.5 w-3.5" strokeWidth={1.75} />
               {parkedSales.length > 0 && (
@@ -89,7 +95,7 @@ export default function Cart({
                   size="sm"
                   className="h-8 text-xs text-muted-foreground hover:text-foreground"
                   onClick={onParkSale}
-                  title="Poner esta venta en espera"
+                  title="Poner esta venta en espera (F3)"
                 >
                   <Pause className="h-3.5 w-3.5" strokeWidth={1.75} />
                 </Button>
@@ -211,10 +217,13 @@ export default function Cart({
           <Button
             className="w-full h-11 text-base font-semibold gap-2"
             disabled={cart.length === 0}
-            onClick={() => setPaymentDialogOpen(true)}
+            onClick={() => onPaymentDialogOpenChange(true)}
           >
             <CreditCard className="h-5 w-5" />
             Proceder al Pago
+            <kbd className="ml-1 rounded-md border border-primary-foreground/30 px-1.5 py-0.5 text-[10px] font-mono font-medium leading-none opacity-80">
+              F2
+            </kbd>
           </Button>
         </div>
       </div>
@@ -222,7 +231,7 @@ export default function Cart({
       {/* Diálogo de Pago */}
       <PaymentDialog
         open={paymentDialogOpen}
-        onOpenChange={setPaymentDialogOpen}
+        onOpenChange={onPaymentDialogOpenChange}
         subtotal={subtotal}
         discountAmount={discountAmount}
         total={total}
@@ -237,7 +246,7 @@ export default function Cart({
       {/* Ventas en espera */}
       <ParkedSalesDialog
         open={parkedDialogOpen}
-        onOpenChange={setParkedDialogOpen}
+        onOpenChange={onParkedDialogOpenChange}
         parkedSales={parkedSales}
         onResume={onResumeParked}
         onRemove={onRemoveParked}

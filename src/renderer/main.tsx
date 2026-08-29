@@ -10,6 +10,7 @@ import { ShiftProvider } from '@renderer/features/pos';
 import { MainLayout, AnimatedPage, useTheme } from '@renderer/features/layout';
 import { useOnboarding } from '@renderer/features/onboarding';
 import { ThemeProvider } from '@hooks/use-theme';
+import { ErrorBoundary } from '@renderer/shared/components/error-boundary';
 import { CurrencyProvider } from '@renderer/shared/context/currency-context';
 import { PermissionGuard } from '@renderer/shared/components/permission-guard';
 
@@ -214,8 +215,10 @@ if (!rootElement) throw new Error('Failed to find the root element');
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
-    <Router>
-      <App />
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <App />
+      </Router>
+    </ErrorBoundary>
   </React.StrictMode>
 );

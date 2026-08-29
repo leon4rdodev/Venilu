@@ -6,13 +6,15 @@ import { Skeleton } from "@components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@components/ui/table";
 import {
   Plus, Search, Tag, Package, X, LayoutGrid, List,
-  ArrowUpNarrowWide, ArrowDownWideNarrow, Pencil, Trash2, Boxes,
+  ArrowUpNarrowWide, ArrowDownWideNarrow, Pencil, Trash2, Boxes, Download, History,
 } from "lucide-react";
+import { toast } from "sonner";
 import { InventoryStats } from "./inventory-stats";
 import { ProductDialog } from "./product-dialog";
 import { InventoryProductCard } from "./inventory-product-card";
 import { CategoryManagerDialog } from "./category-manager-dialog";
 import { AdjustStockDialog } from "./adjust-stock-dialog";
+import { StockMovementsDialog } from "./stock-movements-dialog";
 import { DeleteConfirmDialog } from "@renderer/shared/components/delete-confirm-dialog";
 import { WidgetHeader } from "@renderer/shared/components/widget-header";
 import { TablePagination } from "@renderer/shared/components/table-pagination";
@@ -69,8 +71,29 @@ export function InventoryTable() {
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportCsv = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const result = await window.ipcRenderer.invoke("export-products-csv") as {
+        success: boolean; filePath?: string; canceled?: boolean; message?: string;
+      };
+      if (result.success) {
+        toast.success("Inventario exportado", { description: result.filePath });
+      } else if (!result.canceled) {
+        toast.error("Error al exportar", { description: result.message });
+      }
+    } catch {
+      toast.error("Error al exportar el inventario");
+    } finally {
+      setIsExporting(false);
+    }
+  }, []);
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
   const [adjustOpen, setAdjustOpen] = useState(false);
+  const [movementsProduct, setMovementsProduct] = useState<Product | null>(null);
+  const [movementsOpen, setMovementsOpen] = useState(false);
 
   const handleBarcodeScan = useCallback((barcode: string) => {
     setSearchQuery(barcode);
@@ -91,6 +114,11 @@ export function InventoryTable() {
   const handleAdjustClick = useCallback((product: Product) => {
     setAdjustProduct(product);
     setAdjustOpen(true);
+  }, []);
+
+  const handleViewMovements = useCallback((product: Product) => {
+    setMovementsProduct(product);
+    setMovementsOpen(true);
   }, []);
 
   const handleDeleteConfirm = async () => {
@@ -123,6 +151,16 @@ export function InventoryTable() {
           subtitle={`${pagination.totalItems} producto${pagination.totalItems !== 1 ? "s" : ""} registrado${pagination.totalItems !== 1 ? "s" : ""}`}
           action={
             <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9"
+                title="Exportar inventario a CSV"
+                onClick={handleExportCsv}
+                disabled={isLoading || isExporting}
+              >
+                <Download className="h-4 w-4" strokeWidth={1.75} />
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -319,6 +357,7 @@ export function InventoryTable() {
                 onEdit={handleEdit}
                 onDelete={handleDeleteClick}
                 onAdjustStock={handleAdjustClick}
+                onViewMovements={handleViewMovements}
                 isLoading={isSaving}
               />
             ))}
@@ -396,6 +435,15 @@ export function InventoryTable() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            onClick={() => handleViewMovements(product)}
+                            title="Movimientos de stock"
+                          >
+                            <History className="h-4 w-4" strokeWidth={1.75} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
                             onClick={() => handleAdjustClick(product)}
                             title="Ajustar stock"
                           >
@@ -454,6 +502,12 @@ export function InventoryTable() {
         product={adjustProduct}
         onAdjust={handleAdjustStock}
         isSaving={isSaving}
+      />
+
+      <StockMovementsDialog
+        open={movementsOpen}
+        onOpenChange={setMovementsOpen}
+        product={movementsProduct}
       />
 
       <DeleteConfirmDialog

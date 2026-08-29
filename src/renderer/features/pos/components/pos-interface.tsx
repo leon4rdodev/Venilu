@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { ProductGrid } from "./product-grid";
 import Cart from "./cart";
@@ -19,6 +19,10 @@ export function POSInterface() {
   const [showOpenShiftDialog, setShowOpenShiftDialog] = useState(false);
   const [showAddExpenseDialog, setShowAddExpenseDialog] = useState(false);
   const [showViewExpensesDialog, setShowViewExpensesDialog] = useState(false);
+  // Lifted here so the F2/F4 keyboard shortcuts can drive them
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [parkedDialogOpen, setParkedDialogOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Server-driven catalog: search + category filtering run in the DATABASE,
   // so the POS sees the whole inventory, not just the first page.
@@ -79,6 +83,39 @@ export function POSInterface() {
 
   useBarcodeScanner({ onScan: handleCodeLookup });
 
+  // ── Cashier keyboard shortcuts ──────────────────────────────────────────────
+  // F1 focus search · F2 charge · F3 park sale · F4 on-hold tickets.
+  // Muted while any POS dialog is open or the sales history covers the screen.
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (!["F1", "F2", "F3", "F4"].includes(e.key)) return;
+      if (!activeShift || showSalesHistory) return;
+      if (paymentDialogOpen || parkedDialogOpen || showAddExpenseDialog || showViewExpensesDialog || showOpenShiftDialog) return;
+      e.preventDefault();
+
+      switch (e.key) {
+        case "F1":
+          searchInputRef.current?.focus();
+          searchInputRef.current?.select();
+          break;
+        case "F2":
+          if (cart.length > 0) setPaymentDialogOpen(true);
+          break;
+        case "F3":
+          if (cart.length > 0) parkSale();
+          break;
+        case "F4":
+          setParkedDialogOpen(true);
+          break;
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [
+    activeShift, showSalesHistory, cart.length, parkSale,
+    paymentDialogOpen, parkedDialogOpen, showAddExpenseDialog, showViewExpensesDialog, showOpenShiftDialog,
+  ]);
+
   return (
     <>
       <div className="flex gap-5 h-[calc(100vh-6.5rem)]">
@@ -110,6 +147,7 @@ export function POSInterface() {
                 setShowSalesHistory={setShowSalesHistory}
                 onAddExpense={() => setShowAddExpenseDialog(true)}
                 onViewExpenses={() => setShowViewExpensesDialog(true)}
+                searchInputRef={searchInputRef}
               />
               <Cart
                 cart={cart}
@@ -127,6 +165,10 @@ export function POSInterface() {
                 onParkSale={parkSale}
                 onResumeParked={resumeParkedSale}
                 onRemoveParked={removeParkedSale}
+                paymentDialogOpen={paymentDialogOpen}
+                onPaymentDialogOpenChange={setPaymentDialogOpen}
+                parkedDialogOpen={parkedDialogOpen}
+                onParkedDialogOpenChange={setParkedDialogOpen}
               />
           </div>
         )}

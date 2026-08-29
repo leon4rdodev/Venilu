@@ -1,8 +1,12 @@
 import { useState, useEffect } from "react";
 import { Button } from "@components/ui/button";
-import { Download, RefreshCw, Database, AlertTriangle, Trash2, Upload } from "lucide-react";
+import { Input } from "@components/ui/input";
+import { Label } from "@components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select";
+import { Download, RefreshCw, Database, AlertTriangle, Trash2, Upload, CalendarClock } from "lucide-react";
 import { WidgetHeader } from "@renderer/shared/components/widget-header";
 import { toast } from "sonner";
+import { useSettings } from "../hooks/use-settings";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -28,6 +32,96 @@ interface BackupInfo {
     size: number;
     createdAt: string;
     type: 'manual' | 'auto' | 'pre-restore';
+}
+
+const AUTO_BACKUP_OPTIONS: { value: string; label: string }[] = [
+    { value: 'off', label: 'Desactivado' },
+    { value: 'daily', label: 'Diario' },
+    { value: 'weekly', label: 'Semanal' },
+];
+
+/** Auto-backup cadence + retention — persisted through settings:update. */
+function AutoBackupCard() {
+    const { settings, updateSettings } = useSettings();
+    const [retentionInput, setRetentionInput] = useState<string>('');
+
+    const autoBackup = settings?.auto_backup ?? 'daily';
+    const retention = settings?.auto_backup_retention ?? 7;
+
+    useEffect(() => {
+        setRetentionInput(String(retention));
+    }, [retention]);
+
+    const handleFrequencyChange = async (value: string) => {
+        const result = await updateSettings({ auto_backup: value });
+        if (result.success) {
+            const label = AUTO_BACKUP_OPTIONS.find(o => o.value === value)?.label ?? value;
+            toast.success('Backup automático actualizado', { description: `Frecuencia: ${label}` });
+        } else {
+            toast.error('Error al guardar', { description: result.message });
+        }
+    };
+
+    const commitRetention = async () => {
+        const parsed = Math.round(Number(retentionInput));
+        if (!Number.isFinite(parsed) || parsed < 1 || parsed > 30) {
+            setRetentionInput(String(retention));
+            if (retentionInput.trim() !== '' && retentionInput !== String(retention)) {
+                toast.error('Valor inválido', { description: 'Debe estar entre 1 y 30 copias' });
+            }
+            return;
+        }
+        if (parsed === retention) return;
+        const result = await updateSettings({ auto_backup_retention: parsed });
+        if (result.success) {
+            toast.success('Retención actualizada', { description: `Se conservarán ${parsed} copias automáticas` });
+        } else {
+            toast.error('Error al guardar', { description: result.message });
+        }
+    };
+
+    return (
+        <div className="bg-card border border-border rounded-lg p-6">
+            <WidgetHeader
+                icon={CalendarClock}
+                title="Backup Automático"
+                subtitle="Crea copias de seguridad periódicas sin intervención manual"
+            />
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                    <Label htmlFor="auto-backup-frequency" className="text-sm">Frecuencia</Label>
+                    <Select value={autoBackup} onValueChange={handleFrequencyChange}>
+                        <SelectTrigger id="auto-backup-frequency" className="h-9">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {AUTO_BACKUP_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="space-y-1.5">
+                    <Label htmlFor="auto-backup-retention" className="text-sm">Copias automáticas a conservar</Label>
+                    <Input
+                        id="auto-backup-retention"
+                        type="number"
+                        min={1}
+                        max={30}
+                        value={retentionInput}
+                        onChange={(e) => setRetentionInput(e.target.value)}
+                        onBlur={commitRetention}
+                        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                        disabled={autoBackup === 'off'}
+                        className="h-9 tabular-nums"
+                    />
+                </div>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+                El backup automático se crea al iniciar la aplicación cuando ha pasado el intervalo configurado.
+            </p>
+        </div>
+    );
 }
 
 export function BackupSettings() {
@@ -96,9 +190,15 @@ export function BackupSettings() {
             };
 
             if (result.success) {
-                toast.success('Base de datos restaurada exitosamente');
                 setRestoreDialogOpen(false);
-                await loadBackups();
+                toast.success('Base de datos restaurada', {
+                    description: 'La aplicación se reiniciará para cargar los datos restaurados.',
+                });
+                // The restored DB is a different dataset: the session, the open
+                // shift and every cached query may no longer exist in it. A full
+                // reload through login is the only state that's guaranteed sane.
+                window.localStorage.removeItem('session_token');
+                setTimeout(() => window.location.reload(), 1500);
             } else {
                 toast.error(result.message || 'Error al restaurar copia de seguridad');
             }
@@ -179,16 +279,19 @@ export function BackupSettings() {
         return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
     };
 
+    /** "Hoy HH:mm" / "Ayer HH:mm" / "dd MMM yyyy HH:mm" */
     const formatDate = (dateString: string): string => {
         const date = new Date(dateString);
-        return date.toLocaleString('es-ES', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
+        if (isNaN(date.getTime())) return '—';
+        const time = date.toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit', hour12: false });
+        const sameDay = (a: Date, b: Date) =>
+            a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
+        if (sameDay(date, today)) return `Hoy ${time}`;
+        if (sameDay(date, yesterday)) return `Ayer ${time}`;
+        return `${date.toLocaleDateString('es-DO', { day: '2-digit', month: 'short', year: 'numeric' })} ${time}`;
     };
 
     const getBackupTypeBadge = (type: string) => {
@@ -196,7 +299,7 @@ export function BackupSettings() {
             case 'manual':
                 return <span className="inline-flex items-center rounded-full bg-foreground px-2 py-1 text-xs font-medium text-background whitespace-nowrap">Manual</span>;
             case 'auto':
-                return <span className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium text-foreground whitespace-nowrap">Automático</span>;
+                return <span className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium text-foreground whitespace-nowrap">Auto</span>;
             case 'pre-restore':
                 return <span className="inline-flex items-center rounded-full border border-border px-2 py-1 text-xs font-medium text-muted-foreground whitespace-nowrap">Pre-restauración</span>;
             default:
@@ -205,7 +308,10 @@ export function BackupSettings() {
     };
 
     return (
-        <div className="bg-card border border-border rounded-lg p-6">
+        <div className="space-y-6">
+            <AutoBackupCard />
+
+            <div className="bg-card border border-border rounded-lg p-6">
             <WidgetHeader
                 icon={Database}
                 title="Copias de Seguridad"
@@ -242,6 +348,7 @@ export function BackupSettings() {
                         <p className="text-sm text-muted-foreground mt-1">Crea tu primera copia de seguridad para proteger tus datos</p>
                     </div>
                 ) : (
+                    <div className="rounded-lg border border-border overflow-hidden">
                     <Table>
                         <TableHeader>
                             <TableRow className="border-b border-border hover:bg-transparent">
@@ -253,12 +360,12 @@ export function BackupSettings() {
                         </TableHeader>
                         <TableBody className="divide-y divide-border [&_tr]:border-0">
                             {backups.map((backup) => (
-                                <TableRow key={backup.fileName}>
-                                    <TableCell className="font-medium">
+                                <TableRow key={backup.fileName} className="hover:bg-muted/40 transition-colors">
+                                    <TableCell className="text-sm font-medium whitespace-nowrap">
                                         {formatDate(backup.createdAt)}
                                     </TableCell>
                                     <TableCell>{getBackupTypeBadge(backup.type)}</TableCell>
-                                    <TableCell className="text-muted-foreground tabular-nums">{formatFileSize(backup.size)}</TableCell>
+                                    <TableCell className="text-muted-foreground font-mono text-sm tabular-nums whitespace-nowrap">{formatFileSize(backup.size)}</TableCell>
                                     <TableCell>
                                         <div className="flex justify-end gap-2">
                                             <Button
@@ -299,6 +406,7 @@ export function BackupSettings() {
                             ))}
                         </TableBody>
                     </Table>
+                    </div>
                 )}
 
                 {/* Restore Confirmation Dialog */}
@@ -376,6 +484,7 @@ export function BackupSettings() {
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
+            </div>
             </div>
         </div>
     );

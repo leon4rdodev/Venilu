@@ -30,7 +30,7 @@ export function useCart() {
   const [cart, setCart] = useState<CartItemType[]>([]);
   const [discountAmount, setDiscountAmount] = useState<number>(0);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const { activeShift, addSaleToShift } = useShift();
+  const { activeShift, addSaleToShift, fetchActiveShift } = useShift();
 
   // Ref mirror of the cart so addToCart/updateQuantity can be IDENTITY-STABLE
   // (empty deps) — this lets memoized product cards skip re-renders while the
@@ -212,6 +212,15 @@ export function useCart() {
           onSuccess();
           return { success: true, saleId: result.saleId };
         } else {
+          // Stale shift (e.g. after a backup restore replaced the DB): re-sync
+          // so the POS shows the real state instead of a ghost open shift.
+          if (result.message?.includes("Shift is not open") || result.message?.includes("turno no pertenece")) {
+            toast.error("El turno ya no es válido", {
+              description: "Se actualizó el estado de la caja. Abre un turno para continuar.",
+            });
+            void fetchActiveShift();
+            return { success: false, message: result.message };
+          }
           toast.error("Error al procesar venta", { description: result.message });
           return { success: false, message: result.message };
         }
@@ -223,7 +232,7 @@ export function useCart() {
         return { success: false, message: error.message || "Ocurrió un error inesperado." };
       }
     },
-    [activeShift, cart, discountAmount, selectedCustomer, addSaleToShift, clearCart]
+    [activeShift, cart, discountAmount, selectedCustomer, addSaleToShift, clearCart, fetchActiveShift]
   );
 
   return {

@@ -30,6 +30,8 @@ interface ProductGridProps {
   setShowSalesHistory: (show: boolean) => void;
   onAddExpense: () => void;
   onViewExpenses: () => void;
+  /** Shared ref so the POS F1 shortcut can focus the search box from outside */
+  searchInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 export function ProductGrid({
@@ -49,6 +51,7 @@ export function ProductGrid({
   setShowSalesHistory,
   onAddExpense,
   onViewExpenses,
+  searchInputRef,
 }: ProductGridProps) {
   const searchRef = useRef<HTMLInputElement>(null)
   const chipsRef = useRef<HTMLDivElement>(null)
@@ -87,8 +90,11 @@ export function ProductGrid({
             strokeWidth={1.75}
           />
           <Input
-            ref={searchRef}
-            placeholder="Buscar o escanear..."
+            ref={(el) => {
+              searchRef.current = el
+              if (searchInputRef) searchInputRef.current = el
+            }}
+            placeholder="Buscar o escanear · F1"
             className="h-9 pl-9 pr-8 bg-card"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}

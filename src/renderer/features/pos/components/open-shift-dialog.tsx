@@ -12,7 +12,7 @@ import { useShift } from '../hooks/use-shift';
 import { useUser } from '@renderer/features/auth';
 import { toast } from 'sonner';
 import { formatCurrency } from '@lib/currency';
-import { Banknote, LogOut, PlayCircle } from 'lucide-react';
+import { Banknote, History, PlayCircle } from 'lucide-react';
 import { cn } from '@lib/utils';
 
 interface OpenShiftDialogProps {
@@ -20,19 +20,51 @@ interface OpenShiftDialogProps {
   onClose?: () => void;
 }
 
+interface LastClosedShift {
+  id: string;
+  end_time: string;
+  initial_cash: number;
+  final_cash?: number;
+  expected_cash?: number;
+  difference?: number;
+}
+
+/** "Hoy 20:45" / "Ayer 20:45" / "12 ago, 20:45" */
+function formatRecency(dateStr: string): string {
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '';
+  const time = date.toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const day = new Date(date); day.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((today.getTime() - day.getTime()) / 86_400_000);
+  if (diffDays === 0) return `Hoy ${time}`;
+  if (diffDays === 1) return `Ayer ${time}`;
+  return `${date.toLocaleDateString('es-DO', { day: '2-digit', month: 'short' })}, ${time}`;
+}
+
 export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
   const [initialCash, setInitialCash] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [lastClosed, setLastClosed] = useState<LastClosedShift | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { openShift } = useShift();
-  const { logout } = useUser();
+  const { user } = useUser();
 
-  // Focus the cash input when the dialog opens
+  // On open: focus the cash input and fetch the previous shift's closing cash
+  // so the cashier can carry the float over with one click.
   useEffect(() => {
-    if (isOpen) {
-      const id = setTimeout(() => inputRef.current?.focus(), 50);
-      return () => clearTimeout(id);
-    }
+    if (!isOpen) return;
+    const id = setTimeout(() => inputRef.current?.focus(), 50);
+
+    let cancelled = false;
+    window.ipcRenderer
+      .invoke('shifts:getLastClosed')
+      .then((res: any) => {
+        if (!cancelled && res?.success) setLastClosed(res.data ?? null);
+      })
+      .catch(() => { /* suggestion is best-effort */ });
+
+    return () => { cancelled = true; clearTimeout(id); };
   }, [isOpen]);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -41,6 +73,8 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
       setInitialCash(value);
     }
   };
+
+  const isValidAmount = initialCash !== '' && !isNaN(parseFloat(initialCash)) && parseFloat(initialCash) >= 0;
 
   const handleOpenShift = async () => {
     const cashAmount = parseFloat(initialCash);
@@ -68,8 +102,19 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
     }
   };
 
-  const isValidAmount = initialCash !== '' && !isNaN(parseFloat(initialCash)) && parseFloat(initialCash) >= 0;
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && isValidAmount && !isLoading) {
+      e.preventDefault();
+      handleOpenShift();
+    }
+  };
+
   const quickAmounts = [0, 500, 1000, 2000, 5000];
+  const suggestedCash = lastClosed?.final_cash;
+  const userInitial = (user?.username?.[0] ?? '?').toUpperCase();
+  const nowLabel = new Date().toLocaleDateString('es-DO', {
+    weekday: 'short', day: '2-digit', month: 'short',
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose?.()}>
@@ -78,7 +123,7 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
         onInteractOutside={(e) => e.preventDefault()}
       >
         {/* Header */}
-        <div className="p-5 pb-3 space-y-1 border-b border-border">
+        <div className="p-6 pb-4 space-y-1 border-b border-border">
           <h2 className="text-lg font-semibold tracking-tight">Abrir Caja</h2>
           <p className="text-sm text-muted-foreground">
             Registra el fondo inicial para comenzar tu turno
@@ -86,7 +131,21 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
         </div>
 
         {/* Content */}
-        <div className="px-5 pt-4 pb-4">
+        <div className="p-6 space-y-5">
+          {/* Who opens + when — the shift is registered to this user */}
+          <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2.5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold">
+                {userInitial}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate">{user?.username ?? 'Usuario'}</p>
+                <p className="text-xs text-muted-foreground">Responsable del turno</p>
+              </div>
+            </div>
+            <span className="text-xs text-muted-foreground capitalize whitespace-nowrap">{nowLabel}</span>
+          </div>
+
           {/* Input */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
@@ -104,6 +163,7 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
                 inputMode="decimal"
                 value={initialCash}
                 onChange={handleAmountChange}
+                onKeyDown={handleKeyDown}
                 placeholder="0.00"
                 className="h-12 text-lg! text-right font-semibold tabular-nums pl-18 pr-5 bg-background"
                 style={{ fontSize: '1.25rem' }}
@@ -111,56 +171,80 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
               />
             </div>
           </div>
-        </div>
 
-        {/* Quick amounts */}
-        <div className="px-5 pb-4 space-y-2">
-          <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
-            Selección rápida
-          </span>
-          <div className="grid grid-cols-3 gap-1.5">
-            {quickAmounts.map((amount) => {
-              const isSelected = initialCash === String(amount);
-              return (
-                <button
-                  key={amount}
-                  className={cn(
-                    "py-2 rounded-md text-xs font-medium tabular-nums border transition-colors",
-                    isSelected
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background hover:bg-muted border-border"
-                  )}
-                  onClick={() => setInitialCash(String(amount))}
-                  disabled={isLoading}
-                >
-                  {amount === 0 ? formatCurrency(0) : formatCurrency(amount)}
-                </button>
-              );
-            })}
+          {/* Previous close suggestion — cash continuity between shifts */}
+          {suggestedCash !== undefined && suggestedCash !== null && (
+            <button
+              type="button"
+              onClick={() => setInitialCash(String(suggestedCash))}
+              disabled={isLoading}
+              className={cn(
+                'w-full flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
+                initialCash === String(suggestedCash)
+                  ? 'border-primary bg-muted'
+                  : 'border-border bg-background hover:bg-muted/60',
+              )}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 shrink-0 rounded-full bg-muted text-foreground flex items-center justify-center">
+                  <History className="h-4 w-4" strokeWidth={1.75} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium">Efectivo del último cierre</p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {formatRecency(lastClosed!.end_time)}
+                  </p>
+                </div>
+              </div>
+              <span className="text-sm font-semibold font-mono tabular-nums whitespace-nowrap">
+                {formatCurrency(suggestedCash)}
+              </span>
+            </button>
+          )}
+
+          {/* Quick amounts */}
+          <div className="space-y-2">
+            <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
+              Selección rápida
+            </span>
+            <div className="grid grid-cols-3 gap-1.5">
+              {quickAmounts.map((amount) => {
+                const isSelected = initialCash === String(amount);
+                return (
+                  <button
+                    key={amount}
+                    className={cn(
+                      'py-2 rounded-full text-xs font-medium tabular-nums border transition-colors',
+                      isSelected
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background hover:bg-muted border-border',
+                    )}
+                    onClick={() => setInitialCash(String(amount))}
+                    disabled={isLoading}
+                  >
+                    {formatCurrency(amount)}
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            El fondo inicial quedará registrado y se usará para el arqueo al cerrar el turno.
+          </p>
         </div>
 
         {/* Actions */}
-        <div className="px-5 pb-5 pt-3 border-t border-border flex gap-3">
-          <Button
-            variant="ghost"
-            onClick={logout}
-            disabled={isLoading}
-            className="h-11 gap-1.5 text-muted-foreground hover:text-destructive"
-          >
-            <LogOut className="h-4 w-4" />
-            Salir
-          </Button>
-          <div className="flex-1" />
+        <div className="p-6 pt-4 border-t border-border">
           <Button
             onClick={handleOpenShift}
             disabled={isLoading || !isValidAmount}
-            className="h-11 px-8"
+            className="w-full h-10 gap-2"
           >
             {isLoading ? (
               <>Abriendo...</>
             ) : (
-              <><PlayCircle className="h-4 w-4" />Iniciar Turno</>
+              <><PlayCircle className="h-4 w-4" strokeWidth={1.75} />Iniciar Turno</>
             )}
           </Button>
         </div>

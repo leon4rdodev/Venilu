@@ -111,7 +111,7 @@ export function SalesByHourChart({ data, day, onDayChange }: SalesByHourChartPro
                   return null;
                 }}
               />
-              <Bar dataKey="total" radius={[4, 4, 0, 0]} maxBarSize={36} animationDuration={800}>
+              <Bar dataKey="total" radius={[4, 4, 0, 0]} maxBarSize={36} isAnimationActive={false}>
                 {series.map((p) => (
                   // Peak hour rendered in solid black (primary); the rest muted
                   <Cell key={p.hour} fill={p.total === maxTotal ? "var(--primary)" : "var(--muted)"} />

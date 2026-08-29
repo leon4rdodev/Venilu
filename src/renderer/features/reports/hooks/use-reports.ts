@@ -1,21 +1,49 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { subMonths, startOfDay, endOfDay } from "date-fns";
+import { subDays, startOfDay, endOfDay } from "date-fns";
 import { toast } from "sonner";
-
-type DateRange = { from?: Date; to?: Date };
+import type { DateRange } from "react-day-picker";
 
 export interface SalesOverTimeData {
   period: string;
   totalSales: number;
   totalTransactions: number;
+  totalProfit: number;
 }
 
 export interface SellingProduct {
   productName: string;
   totalSold: number;
   totalRevenue: number;
+  totalProfit: number;
+  margin: number;
 }
+
+export type PaymentMethod = "cash" | "card" | "transfer" | "credit";
+
+export interface PaymentBreakdownItem {
+  method: PaymentMethod;
+  total: number;
+  transactions: number;
+}
+
+export interface CategoryBreakdownItem {
+  categoryName: string;
+  totalSold: number;
+  totalRevenue: number;
+  totalProfit: number;
+  margin: number;
+}
+
+export interface TopCustomer {
+  customerId: number;
+  customerName: string;
+  totalSpent: number;
+  totalTransactions: number;
+  averageTicket: number;
+}
+
+export type ExportKind = "pdf" | "csv";
 
 const calculateChange = (current: number, previous: number) => {
   if (previous === 0) return current > 0 ? 100 : 0;
@@ -27,7 +55,17 @@ interface ReportsData {
   salesOverTime: SalesOverTimeData[];
   topSellingProducts: SellingProduct[];
   leastSellingProducts: SellingProduct[];
+  paymentBreakdown: PaymentBreakdownItem[];
+  categoryBreakdown: CategoryBreakdownItem[];
+  topCustomers: TopCustomer[];
 }
+
+type ListResponse<T> = { success: boolean; data: T[] };
+
+const listOrEmpty = <T,>(res: unknown): T[] => {
+  const r = res as ListResponse<T> | undefined;
+  return r?.success && Array.isArray(r.data) ? r.data : [];
+};
 
 /**
  * Cached reports — keyed by date range with keepPreviousData, so changing the
@@ -36,7 +74,7 @@ interface ReportsData {
  */
 export function useReports() {
   const [dateRange, setDateRange] = useState<DateRange>({
-    from: subMonths(startOfDay(new Date()), 1),
+    from: startOfDay(subDays(new Date(), 29)),
     to: endOfDay(new Date()),
   });
 
@@ -59,22 +97,33 @@ export function useReports() {
     queryKey: ["reports", startISO, endISO],
     placeholderData: keepPreviousData,
     queryFn: async () => {
-      const [metricsData, salesTime, topProductsResponse, leastProductsResponse] =
-        await Promise.all([
-          window.ipcRenderer.invoke("get-total-sales-metrics", { startDate: startISO, endDate: endISO }),
-          window.ipcRenderer.invoke("get-sales-over-time", { startDate: startISO, endDate: endISO, interval }),
-          window.ipcRenderer.invoke("get-top-selling-products", { startDate: startISO, endDate: endISO, limit: 5 }),
-          window.ipcRenderer.invoke("get-least-selling-products", { startDate: startISO, endDate: endISO, limit: 5 }),
-        ]);
-
-      const topProducts = topProductsResponse as { success: boolean; data: SellingProduct[] };
-      const leastProducts = leastProductsResponse as { success: boolean; data: SellingProduct[] };
+      const range = { startDate: startISO, endDate: endISO };
+      const [
+        metricsData,
+        salesTime,
+        topProductsResponse,
+        leastProductsResponse,
+        paymentResponse,
+        categoryResponse,
+        customersResponse,
+      ] = await Promise.all([
+        window.ipcRenderer.invoke("get-total-sales-metrics", range),
+        window.ipcRenderer.invoke("get-sales-over-time", { ...range, interval }),
+        window.ipcRenderer.invoke("get-top-selling-products", { ...range, limit: 5 }),
+        window.ipcRenderer.invoke("get-least-selling-products", { ...range, limit: 5 }),
+        window.ipcRenderer.invoke("get-payment-breakdown", range),
+        window.ipcRenderer.invoke("get-category-breakdown", range),
+        window.ipcRenderer.invoke("get-top-customers", { ...range, limit: 5 }),
+      ]);
 
       return {
         rawMetricsData: metricsData,
         salesOverTime: Array.isArray(salesTime) ? (salesTime as SalesOverTimeData[]) : [],
-        topSellingProducts: topProducts?.success ? topProducts.data : [],
-        leastSellingProducts: leastProducts?.success ? leastProducts.data : [],
+        topSellingProducts: listOrEmpty<SellingProduct>(topProductsResponse),
+        leastSellingProducts: listOrEmpty<SellingProduct>(leastProductsResponse),
+        paymentBreakdown: listOrEmpty<PaymentBreakdownItem>(paymentResponse),
+        categoryBreakdown: listOrEmpty<CategoryBreakdownItem>(categoryResponse),
+        topCustomers: listOrEmpty<TopCustomer>(customersResponse),
       };
     },
   });
@@ -91,6 +140,9 @@ export function useReports() {
   const salesOverTime = query.data?.salesOverTime ?? [];
   const topSellingProducts = query.data?.topSellingProducts ?? [];
   const leastSellingProducts = query.data?.leastSellingProducts ?? [];
+  const paymentBreakdown = query.data?.paymentBreakdown ?? [];
+  const categoryBreakdown = query.data?.categoryBreakdown ?? [];
+  const topCustomers = query.data?.topCustomers ?? [];
 
   const salesMetrics = useMemo(() => {
     const EMPTY = { totalAmount: 0, netProfit: 0, totalCost: 0, averageMargin: 0, totalSalesCount: 0, averageTicket: 0, totalItemsSold: 0 };
@@ -116,27 +168,42 @@ export function useReports() {
     ];
   }, [rawMetricsData]);
 
-  const handleGeneratePDF = useCallback(async () => {
-    try {
-      const result = (await window.ipcRenderer.invoke("generate-sales-report-pdf", {
-        startDate: startISO,
-        endDate: endISO,
-        metrics: rawMetricsData,
-        salesOverTime,
-        topSellingProducts,
-        leastSellingProducts,
-      })) as { success: boolean; filePath?: string; message?: string };
+  // ---- Export (todo se recalcula en main; sólo enviamos el rango) ----
+  const [exporting, setExporting] = useState<ExportKind | null>(null);
 
-      if (result.success) {
-        toast.success("PDF generado", { description: `El reporte ha sido guardado en: ${result.filePath}` });
-      } else {
-        toast.error("Error al generar PDF", { description: result.message || "No se pudo generar el reporte." });
+  const runExport = useCallback(
+    async (kind: ExportKind) => {
+      const channel = kind === "pdf" ? "generate-sales-report-pdf" : "export-sales-report-csv";
+      const label = kind.toUpperCase();
+      setExporting(kind);
+      try {
+        const result = (await window.ipcRenderer.invoke(channel, {
+          startDate: startISO,
+          endDate: endISO,
+          interval,
+        })) as { success: boolean; filePath?: string; canceled?: boolean; message?: string };
+
+        if (result.canceled) return; // el usuario canceló el diálogo de guardado — silencio
+
+        if (result.success) {
+          toast.success(`${label} generado`, {
+            description: result.filePath ? `El reporte ha sido guardado en: ${result.filePath}` : undefined,
+          });
+        } else {
+          toast.error(`Error al generar ${label}`, { description: result.message || "No se pudo generar el reporte." });
+        }
+      } catch (error: unknown) {
+        console.error(`Error generating ${label}:`, error);
+        toast.error(`Error al generar ${label}`, { description: (error as Error).message || "Ocurrió un error inesperado." });
+      } finally {
+        setExporting(null);
       }
-    } catch (error: unknown) {
-      console.error("Error generating PDF:", error);
-      toast.error("Error al generar PDF", { description: (error as Error).message || "Ocurrió un error inesperado." });
-    }
-  }, [startISO, endISO, rawMetricsData, salesOverTime, topSellingProducts, leastSellingProducts]);
+    },
+    [startISO, endISO, interval],
+  );
+
+  const handleGeneratePDF = useCallback(() => runExport("pdf"), [runExport]);
+  const handleGenerateCSV = useCallback(() => runExport("csv"), [runExport]);
 
   return {
     dateRange,
@@ -147,6 +214,11 @@ export function useReports() {
     interval,
     topSellingProducts,
     leastSellingProducts,
+    paymentBreakdown,
+    categoryBreakdown,
+    topCustomers,
+    exporting,
     handleGeneratePDF,
+    handleGenerateCSV,
   };
 }

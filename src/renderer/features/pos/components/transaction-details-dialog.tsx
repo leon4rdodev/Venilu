@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Sale } from '@shared/types/models';
 import { usePermission } from '@renderer/features/auth/hooks/use-permission';
 import { PERMISSIONS } from '@shared/permissions';
+import { ConfirmDialog } from '@renderer/shared/components/confirm-dialog';
 
 interface SaleItem {
   product_name: string;
@@ -45,6 +46,7 @@ export function TransactionDetailsDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isVoiding, setIsVoiding] = useState(false);
+  const [confirmVoidOpen, setConfirmVoidOpen] = useState(false);
   const canVoid = usePermission(PERMISSIONS.SALES_VOID);
 
   const fetchSaleItems = useCallback(async () => {
@@ -109,9 +111,6 @@ export function TransactionDetailsDialog({
 
   const handleVoid = async () => {
     if (!transaction || !window.ipcRenderer) return;
-
-    const confirmed = window.confirm('¿Estás seguro de que deseas anular esta venta? Esta acción restaurará el stock y no se puede deshacer.');
-    if (!confirmed) return;
 
     setIsVoiding(true);
     try {
@@ -312,7 +311,7 @@ export function TransactionDetailsDialog({
           {!isVoided && canVoid && (
             <Button
               variant="ghost"
-              onClick={handleVoid}
+              onClick={() => setConfirmVoidOpen(true)}
               disabled={isVoiding}
               className="w-full h-10 text-destructive hover:text-destructive hover:bg-destructive/10 gap-2 text-sm font-medium"
             >
@@ -328,6 +327,21 @@ export function TransactionDetailsDialog({
           )}
         </div>
       </DialogContent>
+
+      <ConfirmDialog
+        open={confirmVoidOpen}
+        onOpenChange={setConfirmVoidOpen}
+        title="Anular venta"
+        description={`Se anulará la venta #${transaction?.id ?? ''}, se restaurará el stock de sus productos y la acción no se puede deshacer.`}
+        confirmLabel="Anular venta"
+        loadingLabel="Anulando..."
+        variant="destructive"
+        loading={isVoiding}
+        onConfirm={async () => {
+          await handleVoid();
+          setConfirmVoidOpen(false);
+        }}
+      />
     </Dialog>
   );
 }
