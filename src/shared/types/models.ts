@@ -70,6 +70,8 @@ export interface Product {
   barcode?: string;
   sku?: string;
   min_stock?: number;
+  /** true = exento de ITBIS (default: gravado). */
+  itbis_exempt?: boolean;
   /**
    * Product photo. Stored as a managed file name (e.g. "prod_ab12.webp") served
    * via venilu://product-images/. Legacy rows may still hold a data URL.
@@ -96,6 +98,14 @@ export interface Sale {
   change_given?: number;
   payment_method: PaymentMethod;
   status: SaleStatus;
+  /** Comprobante fiscal (RD) — presentes solo si se emitió NCF. */
+  ncf?: string | null;
+  ncf_type?: 'B01' | 'B02' | null;
+  fiscal_customer_rnc?: string | null;
+  fiscal_customer_name?: string | null;
+  itbis_amount?: number | null;
+  /** Nota de Crédito B04 emitida al anular esta venta. */
+  credit_note_ncf?: string | null;
   items?: SaleItem[];
   created_at: string | Date;
   updated_at: string | Date;
@@ -184,13 +194,37 @@ export interface Setting {
   auto_backup?: string;
   /** How many automatic backups to keep before pruning the oldest. */
   auto_backup_retention?: number;
+  /** Facturación con comprobantes fiscales (NCF) activada. */
+  fiscal_enabled?: boolean;
+  /** Tasa de ITBIS vigente (%). */
+  itbis_rate?: number;
+  /** Trial anchor (ISO) — set once at first boot; not client-editable. */
+  trial_started_at?: string | null;
+}
+
+/** Licensing status served by license:status (see main/shared/services/license.service). */
+export interface LicenseInfo {
+  id: string;
+  customer: string;
+  business?: string;
+  type: 'perpetua' | 'anual';
+  issued: string;
+  expires?: string;
+}
+
+export interface LicenseStatus {
+  state: 'trial' | 'active' | 'expired' | 'trial_expired';
+  blocked: boolean;
+  license?: LicenseInfo;
+  trialDaysLeft?: number;
+  daysToExpiry?: number;
 }
 
 /** One kardex row (Inventario → Movimientos de stock). */
 export interface StockMovementEntry {
   id: string;
   product_id: string;
-  type: 'sale' | 'void' | 'adjustment' | 'initial';
+  type: 'sale' | 'void' | 'adjustment' | 'initial' | 'return';
   quantity_delta: number;
   stock_after: number;
   reference?: string | null;

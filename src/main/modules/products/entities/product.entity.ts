@@ -35,6 +35,10 @@ export class Product {
     @Column("integer", { default: 5 })
     min_stock!: number;
 
+    /** true = exento de ITBIS (víveres básicos, medicinas...). Default: gravado 18%. */
+    @Column({ default: false })
+    itbis_exempt!: boolean;
+
     @Column({ nullable: true })
     image?: string; // Managed file name (prod_*.webp) served via venilu://product-images/ — never raw bytes
 

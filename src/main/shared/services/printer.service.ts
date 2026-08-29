@@ -67,8 +67,18 @@ export class PrinterService {
             amountPaid,
             changeGiven,
             userName,
+            ncf,
+            ncfType,
+            fiscalCustomerRnc,
+            fiscalCustomerName,
+            itbisAmount,
             // _shiftId // unused but kept for compatibility
         } = data;
+
+        const NCF_LABELS: { [key: string]: string } = {
+            B01: 'FACTURA DE CRÉDITO FISCAL',
+            B02: 'FACTURA DE CONSUMO',
+        };
 
         const {
             business_name,
@@ -266,6 +276,19 @@ export class PrinterService {
 
     <div class="divider"></div>
 
+    ${ncf ? `
+    <div style="text-align:center; font-weight:bold; margin: 2px 0 4px;">
+        ${esc(NCF_LABELS[ncfType] || 'COMPROBANTE FISCAL')}<br>
+        NCF: ${esc(ncf)}
+    </div>
+    ${fiscalCustomerRnc ? `
+    <div class="ticket-info">
+        <div class="ticket-row"><span>RNC/Cédula Cliente:</span><span>${esc(fiscalCustomerRnc)}</span></div>
+        ${fiscalCustomerName ? `<div class="ticket-row"><span>Cliente:</span><span>${esc(fiscalCustomerName)}</span></div>` : ''}
+    </div>` : ''}
+    <div class="divider"></div>
+    ` : ''}
+
     <div class="ticket-info">
         <div class="ticket-row">
             <span>Ticket:</span>
@@ -309,6 +332,15 @@ export class PrinterService {
         </div>
         <div class="divider" style="margin: 4px 0;"></div>
         ` : ''}
+        ${ncf && itbisAmount !== undefined && itbisAmount !== null ? `
+        <div class="total-row">
+            <span>Subtotal sin ITBIS</span>
+            <span>${formatCurrency(Number(total) - Number(itbisAmount))}</span>
+        </div>
+        <div class="total-row">
+            <span>ITBIS incluido</span>
+            <span>${formatCurrency(Number(itbisAmount))}</span>
+        </div>` : ''}
         <div class="total-row final">
             <span>TOTAL</span>
             <span>${formatCurrency(total)}</span>
@@ -368,7 +400,13 @@ export class PrinterService {
             amountPaid: sale.amount_paid,
             changeGiven: sale.change_given,
             userName,
-            shiftId: sale.shift_id
+            shiftId: sale.shift_id,
+            // Comprobante fiscal (RD)
+            ncf: sale.ncf,
+            ncfType: sale.ncf_type,
+            fiscalCustomerRnc: sale.fiscal_customer_rnc,
+            fiscalCustomerName: sale.fiscal_customer_name,
+            itbisAmount: sale.itbis_amount,
         };
 
         const html = this.generateReceiptHTML(receiptData, settings);

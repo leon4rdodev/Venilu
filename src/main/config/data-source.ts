@@ -17,6 +17,11 @@ import { AuditLog } from "@main/modules/audit/entities/audit-log.entity";
 import { StockMovement } from "@main/modules/products/entities/stock-movement.entity";
 import { InitialSchema1756150000000 } from "@main/migrations/1756150000000-InitialSchema";
 import { DebtPaymentRefunds1756250000000 } from "@main/migrations/1756250000000-DebtPaymentRefunds";
+import { LicenseTrial1756350000000 } from "@main/migrations/1756350000000-LicenseTrial";
+import { FiscalNcf1756450000000 } from "@main/migrations/1756450000000-FiscalNcf";
+import { NcfSequence } from "@main/modules/fiscal/entities/ncf-sequence.entity";
+import { SaleReturn, SaleReturnItem } from "@main/modules/sales/entities/sale-return.entity";
+import { SaleReturns1756550000000 } from "@main/migrations/1756550000000-SaleReturns";
 
 const isDev = process.env.NODE_ENV === 'development';
 const dbPath = path.join(app.getPath('userData'), 'database.sqlite');
@@ -43,8 +48,11 @@ export const AppDataSource = new DataSource({
         Customer,
         AuditLog,
         StockMovement,
+        NcfSequence,
+        SaleReturn,
+        SaleReturnItem,
     ],
-    migrations: [InitialSchema1756150000000, DebtPaymentRefunds1756250000000],
+    migrations: [InitialSchema1756150000000, DebtPaymentRefunds1756250000000, LicenseTrial1756350000000, FiscalNcf1756450000000, SaleReturns1756550000000],
     migrationsTableName: "migrations",
     subscribers: [],
 });

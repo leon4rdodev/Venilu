@@ -23,7 +23,7 @@ export class StockMovement {
     product?: Product;
 
     @Column()
-    type!: 'sale' | 'void' | 'adjustment' | 'initial';
+    type!: 'sale' | 'void' | 'adjustment' | 'initial' | 'return';
 
     /** Signed change: negative for sales, positive for restocks/increases. */
     @Column("integer")

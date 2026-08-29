@@ -60,6 +60,28 @@ export class Sale {
     @Column({ default: 'paid' })
     status!: 'paid' | 'credit' | 'partial' | 'voided';
 
+    /** NCF emitido para esta venta (p. ej. "B0200000143"), si se solicitó. */
+    @Column({ nullable: true })
+    ncf?: string;
+
+    @Column({ nullable: true })
+    ncf_type?: 'B01' | 'B02';
+
+    /** RNC/cédula del cliente (obligatorio en B01). */
+    @Column({ nullable: true })
+    fiscal_customer_rnc?: string;
+
+    @Column({ nullable: true })
+    fiscal_customer_name?: string;
+
+    /** ITBIS incluido en total_amount (0 si todo exento). */
+    @Column("decimal", { precision: 10, scale: 2, nullable: true })
+    itbis_amount?: number;
+
+    /** NCF de la Nota de Crédito (B04) emitida al anular esta venta. */
+    @Column({ nullable: true })
+    credit_note_ncf?: string;
+
     @CreateDateColumn()
     created_at!: Date;
 

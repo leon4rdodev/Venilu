@@ -3,6 +3,7 @@ import { Shift as ShiftEntity } from "@main/modules/shifts/entities/shift.entity
 import { ShiftExpense } from "@main/modules/shifts/entities/shift-expense.entity";
 import { Sale as SaleEntity } from "@main/modules/sales/entities/sale.entity";
 import { DebtPayment as DebtPaymentEntity } from "@main/modules/sales/entities/debt-payment.entity";
+import { SaleReturn as SaleReturnEntity } from "@main/modules/sales/entities/sale-return.entity";
 import { Repository } from "typeorm";
 import { round2 } from "@shared/money";
 
@@ -155,7 +156,15 @@ export class ShiftsService {
         // Subtract expenses
         const totalExpenses = (shift.expenses || []).reduce((sum, e) => sum + Number(e.amount), 0);
 
-        const expectedCash = round2(Number(shift.initial_cash) + totalSalesCash + totalDebtCash - totalExpenses);
+        // Devoluciones parciales pagadas desde esta caja
+        const shiftReturns = await AppDataSource.getRepository(SaleReturnEntity)
+            .createQueryBuilder('ret')
+            .select('SUM(ret.total_refunded)', 'refunded')
+            .where('ret.shift_id = :shiftId', { shiftId })
+            .getRawOne();
+        const totalReturns = Number(shiftReturns?.refunded) || 0;
+
+        const expectedCash = round2(Number(shift.initial_cash) + totalSalesCash + totalDebtCash - totalExpenses - totalReturns);
 
         shift.final_cash = cash;
         shift.expected_cash = expectedCash;
@@ -270,7 +279,14 @@ export class ShiftsService {
 
         const totalExpenses = (shift.expenses || []).reduce((sum, e) => sum + Number(e.amount), 0);
 
-        const expectedCash = round2(Number(shift.initial_cash) + totalSalesCash + totalDebtCash - totalExpenses);
+        const forceReturns = await AppDataSource.getRepository(SaleReturnEntity)
+            .createQueryBuilder('ret')
+            .select('SUM(ret.total_refunded)', 'refunded')
+            .where('ret.shift_id = :shiftId', { shiftId })
+            .getRawOne();
+        const totalReturns = Number(forceReturns?.refunded) || 0;
+
+        const expectedCash = round2(Number(shift.initial_cash) + totalSalesCash + totalDebtCash - totalExpenses - totalReturns);
 
         shift.final_cash = cash;
         shift.expected_cash = expectedCash;

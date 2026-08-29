@@ -65,6 +65,20 @@ export class SettingsService {
             clean.auto_print_receipt = Boolean(autoPrint);
         }
 
+        const fiscalEnabled = (settingsData as any).fiscal_enabled;
+        if (fiscalEnabled !== undefined) {
+            clean.fiscal_enabled = Boolean(fiscalEnabled);
+        }
+
+        const itbisRate = (settingsData as any).itbis_rate;
+        if (itbisRate !== undefined) {
+            const rate = Number(itbisRate);
+            if (!Number.isFinite(rate) || rate < 0 || rate > 30) {
+                throw new Error("La tasa de ITBIS debe estar entre 0 y 30");
+            }
+            clean.itbis_rate = Math.round(rate * 100) / 100;
+        }
+
         const retention = (settingsData as any).auto_backup_retention;
         if (retention !== undefined) {
             const n = Number(retention);

@@ -3,6 +3,7 @@ import { Sale as SaleEntity } from "@main/modules/sales/entities/sale.entity";
 import { SaleItem as SaleItemEntity } from "@main/modules/sales/entities/sale-item.entity";
 import { Shift as ShiftEntity } from "@main/modules/shifts/entities/shift.entity";
 import { DebtPayment as DebtPaymentEntity } from "@main/modules/sales/entities/debt-payment.entity";
+import { SaleReturn as SaleReturnEntity } from "@main/modules/sales/entities/sale-return.entity";
 // import { Between } from "typeorm";
 
 interface SalesMetrics {
@@ -47,20 +48,28 @@ export class ReportsService {
             .where("sale.status != 'voided'");
 
         const debtQuery = AppDataSource.getRepository(DebtPaymentEntity).createQueryBuilder("dp");
+        // Devoluciones parciales: restan del ingreso (reembolso en efectivo)
+        // y revierten el costo de la mercancía repuesta.
+        const returnsQuery = AppDataSource.getRepository(SaleReturnEntity).createQueryBuilder("ret");
 
         if (startDate && endDate) {
             const range = { start: this.formatDate(startDate), end: this.formatDate(endDate) };
             saleQuery.andWhere("sale.created_at BETWEEN :start AND :end", range);
             debtQuery.andWhere("dp.created_at BETWEEN :start AND :end", range);
+            returnsQuery.andWhere("ret.created_at BETWEEN :start AND :end", range);
         }
 
-        const [saleResult, debtResult] = await Promise.all([
+        const [saleResult, debtResult, returnsResult] = await Promise.all([
             saleQuery
                 .select("SUM(CASE WHEN sale.payment_method != 'credit' THEN sale.total_amount ELSE 0 END)", "collectedSales")
                 .addSelect("COUNT(sale.id)", "totalSalesCount")
                 .getRawOne(),
             debtQuery
                 .select("SUM(CASE WHEN dp.type = 'refund' THEN -dp.amount ELSE dp.amount END)", "collectedDebt")
+                .getRawOne(),
+            returnsQuery
+                .select("SUM(ret.total_refunded)", "refunded")
+                .addSelect("SUM(ret.cost_refunded)", "costRefunded")
                 .getRawOne(),
         ]);
 
@@ -83,8 +92,10 @@ export class ReportsService {
             .addSelect("SUM(item.quantity)", "totalItemsSold")
             .getRawOne();
 
-        const totalAmount = Math.round(((Number(saleResult?.collectedSales) || 0) + (Number(debtResult?.collectedDebt) || 0)) * 100) / 100;
-        const totalCost = Number(itemResult?.totalCost || 0);
+        const refunded = Number(returnsResult?.refunded) || 0;
+        const costRefunded = Number(returnsResult?.costRefunded) || 0;
+        const totalAmount = Math.round(((Number(saleResult?.collectedSales) || 0) + (Number(debtResult?.collectedDebt) || 0) - refunded) * 100) / 100;
+        const totalCost = Math.round((Number(itemResult?.totalCost || 0) - costRefunded) * 100) / 100;
         const netProfit = totalAmount - totalCost;
         const averageMargin = totalAmount > 0 ? (netProfit / totalAmount) * 100 : 0;
         const totalSalesCount = Number(saleResult?.totalSalesCount || 0);
@@ -174,6 +185,14 @@ export class ReportsService {
              .addSelect("SUM(CASE WHEN dp.type = 'refund' THEN -dp.amount ELSE dp.amount END)", "collected")
              .groupBy("period");
 
+         const retPeriodExpr = periodExpr.replace(/sale\.created_at/g, "ret.created_at");
+         const returnsQuery = AppDataSource.getRepository(SaleReturnEntity)
+             .createQueryBuilder("ret")
+             .select(retPeriodExpr, "period")
+             .addSelect("SUM(ret.total_refunded)", "refunded")
+             .addSelect("SUM(ret.cost_refunded)", "costRefunded")
+             .groupBy("period");
+
          // Cost per period comes from items (separate query — joining would
          // duplicate sale rows and inflate totalSales).
          const costQuery = AppDataSource.getRepository(SaleItemEntity)
@@ -190,16 +209,23 @@ export class ReportsService {
              query.andWhere("sale.created_at BETWEEN :start AND :end", range);
              costQuery.andWhere("sale.created_at BETWEEN :start AND :end", range);
              debtQuery.andWhere("dp.created_at BETWEEN :start AND :end", range);
+             returnsQuery.andWhere("ret.created_at BETWEEN :start AND :end", range);
          }
 
-         const [results, costRows, debtRows] = await Promise.all([
-             query.getRawMany(), costQuery.getRawMany(), debtQuery.getRawMany(),
+         const [results, costRows, debtRows, returnRows] = await Promise.all([
+             query.getRawMany(), costQuery.getRawMany(), debtQuery.getRawMany(), returnsQuery.getRawMany(),
          ]);
          const costByPeriod = new Map<string, number>(
              costRows.map(r => [String(r.period), Number(r.itemCost) || 0]),
          );
          const collectedByPeriod = new Map<string, number>(
              debtRows.map(r => [String(r.period), Number(r.collected) || 0]),
+         );
+         const returnsByPeriod = new Map<string, { refunded: number; costRefunded: number }>(
+             returnRows.map(r => [String(r.period), {
+                 refunded: Number(r.refunded) || 0,
+                 costRefunded: Number(r.costRefunded) || 0,
+             }]),
          );
 
          // Merge: a period can exist only in debt payments (collection day with
@@ -216,16 +242,24 @@ export class ReportsService {
              row.totalSales = Math.round((row.totalSales + collected) * 100) / 100;
              byPeriod.set(period, row);
          }
+         for (const [period, ret] of returnsByPeriod) {
+             const row = byPeriod.get(period) ?? { totalSales: 0, totalTransactions: 0 };
+             row.totalSales = Math.round((row.totalSales - ret.refunded) * 100) / 100;
+             byPeriod.set(period, row);
+         }
 
          // Profit = collected − cost, matching calculateMetrics' definition
          return [...byPeriod.entries()]
              .sort(([a], [b]) => a.localeCompare(b))
-             .map(([period, row]) => ({
-                 period,
-                 totalSales: row.totalSales,
-                 totalTransactions: row.totalTransactions,
-                 totalProfit: Math.round((row.totalSales - (costByPeriod.get(period) ?? 0)) * 100) / 100,
-             }));
+             .map(([period, row]) => {
+                 const cost = (costByPeriod.get(period) ?? 0) - (returnsByPeriod.get(period)?.costRefunded ?? 0);
+                 return {
+                     period,
+                     totalSales: row.totalSales,
+                     totalTransactions: row.totalTransactions,
+                     totalProfit: Math.round((row.totalSales - cost) * 100) / 100,
+                 };
+             });
     }
 
     async getLeastSellingProducts(startDate: Date | null, endDate: Date | null, limit: number = 5) {
@@ -267,14 +301,20 @@ export class ReportsService {
             .where("sale.status != 'voided'")
             .andWhere("sale.payment_method = 'credit'");
 
+        // Devoluciones (reembolsos en efectivo) restan del bucket de efectivo
+        const returnsQuery = AppDataSource.getRepository(SaleReturnEntity)
+            .createQueryBuilder("ret")
+            .select("SUM(ret.total_refunded)", "refunded");
+
         if (range) {
             salesQuery.andWhere("sale.created_at BETWEEN :start AND :end", range);
             debtQuery.andWhere("dp.created_at BETWEEN :start AND :end", range);
             creditQuery.andWhere("sale.created_at BETWEEN :start AND :end", range);
+            returnsQuery.andWhere("ret.created_at BETWEEN :start AND :end", range);
         }
 
-        const [salesRows, debtRows, creditRow] = await Promise.all([
-            salesQuery.getRawMany(), debtQuery.getRawMany(), creditQuery.getRawOne(),
+        const [salesRows, debtRows, creditRow, returnsRow] = await Promise.all([
+            salesQuery.getRawMany(), debtQuery.getRawMany(), creditQuery.getRawOne(), returnsQuery.getRawOne(),
         ]);
 
         const buckets = new Map<string, { total: number; transactions: number }>();
@@ -291,6 +331,13 @@ export class ReportsService {
             bucket.transactions += Number(r.payments) || 0;
             buckets.set(method, bucket);
         }
+        const refunded = Number(returnsRow?.refunded) || 0;
+        if (refunded > 0) {
+            const cash = buckets.get('cash') ?? { total: 0, transactions: 0 };
+            cash.total = Math.round((cash.total - refunded) * 100) / 100;
+            buckets.set('cash', cash);
+        }
+
         const creditCount = Number(creditRow?.transactions) || 0;
         if (creditCount > 0) {
             buckets.set('credit', {
@@ -446,7 +493,8 @@ export class ReportsService {
         const range = { start: this.formatDate(start), end: this.formatDate(end) };
 
         // Cash-collected per hour: non-credit sales + debt collections (signed)
-        const [saleRows, debtRows] = await Promise.all([
+        // minus partial-return refunds
+        const [saleRows, debtRows, hourReturnRows] = await Promise.all([
             AppDataSource.getRepository(SaleEntity)
                 .createQueryBuilder("sale")
                 .select("STRFTIME('%H', sale.created_at, 'localtime')", "hour")
@@ -463,6 +511,13 @@ export class ReportsService {
                 .where("dp.created_at BETWEEN :start AND :end", range)
                 .groupBy("hour")
                 .getRawMany(),
+            AppDataSource.getRepository(SaleReturnEntity)
+                .createQueryBuilder("ret")
+                .select("STRFTIME('%H', ret.created_at, 'localtime')", "hour")
+                .addSelect("SUM(ret.total_refunded)", "refunded")
+                .where("ret.created_at BETWEEN :start AND :end", range)
+                .groupBy("hour")
+                .getRawMany(),
         ]);
 
         const byHour = new Map<number, { total: number; transactions: number }>();
@@ -473,6 +528,12 @@ export class ReportsService {
             const hour = Number(r.hour);
             const row = byHour.get(hour) ?? { total: 0, transactions: 0 };
             row.total = Math.round((row.total + (Number(r.collected) || 0)) * 100) / 100;
+            byHour.set(hour, row);
+        }
+        for (const r of hourReturnRows) {
+            const hour = Number(r.hour);
+            const row = byHour.get(hour) ?? { total: 0, transactions: 0 };
+            row.total = Math.round((row.total - (Number(r.refunded) || 0)) * 100) / 100;
             byHour.set(hour, row);
         }
 

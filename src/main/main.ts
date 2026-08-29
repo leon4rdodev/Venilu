@@ -16,6 +16,9 @@ import { registerBackupsHandlers } from '@main/modules/backups/backups.ipc';
 import { registerCustomersHandlers } from '@main/modules/customers/customers.ipc';
 import { registerPrinterHandlers } from '@main/shared/ipc/printer.ipc';
 import { registerAuditHandlers } from '@main/modules/audit/audit.ipc';
+import { registerLicenseHandlers } from '@main/shared/ipc/license.ipc';
+import { registerFiscalHandlers } from '@main/modules/fiscal/fiscal.ipc';
+import { licenseService } from '@main/shared/services/license.service';
 import { BackupsService } from '@main/modules/backups/services/backups.service';
 import { registerSessionHandlers } from '@main/shared/session';
 import { setupAutoUpdater } from '@main/shared/ipc/updater.ipc';
@@ -86,6 +89,9 @@ async function initialize() {
         // full schema; pre-migration installs are baselined without touching them.
         await runMigrationsWithBaseline();
 
+        // Licensing: anchor the free trial on first boot (no-op afterwards)
+        await licenseService.ensureTrialStarted();
+
         // Performance: WAL journaling avoids writer-blocks-reader stalls and
         // makes commits much cheaper; NORMAL sync is safe with WAL.
         await AppDataSource.query('PRAGMA journal_mode = WAL');
@@ -123,6 +129,8 @@ async function initialize() {
         registerCustomersHandlers();
         registerPrinterHandlers();
         registerAuditHandlers();
+        registerLicenseHandlers();
+        registerFiscalHandlers();
 
         // 5. Create the browser window and wire the auto-updater ONCE
         // (registering it per-window duplicated IPC handlers on macOS 'activate')

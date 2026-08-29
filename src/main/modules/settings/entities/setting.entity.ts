@@ -47,5 +47,20 @@ export class Setting {
     /** How many automatic backups to keep before pruning the oldest. */
     @Column({ default: 7 })
     auto_backup_retention!: number;
+
+    /** Facturación con comprobantes fiscales (NCF) activada. */
+    @Column({ default: false })
+    fiscal_enabled!: boolean;
+
+    /** Tasa de ITBIS vigente (%). */
+    @Column("decimal", { precision: 5, scale: 2, default: 18 })
+    itbis_rate!: number;
+
+    /**
+     * Trial anchor (ISO date) — set once on first boot. Lives in the DB so
+     * wiping a file can't reset the trial. NOT client-editable.
+     */
+    @Column({ nullable: true })
+    trial_started_at?: string;
 }
 

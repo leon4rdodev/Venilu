@@ -137,9 +137,10 @@ export class ProductsService {
 
     /** Whitelists editable fields — never accepts id/timestamps/relations. */
     private pickEditableFields(productData: Partial<ProductEntity>): any {
-        const { name, description, sale_price, cost_price, stock, min_stock, barcode, sku, image, category_id } =
+        const { name, description, sale_price, cost_price, stock, min_stock, barcode, sku, image, category_id, itbis_exempt } =
             productData as any;
         const data: any = { name, description, sale_price, cost_price, stock, min_stock, barcode, sku, image, category_id };
+        if (itbis_exempt !== undefined) data.itbis_exempt = Boolean(itbis_exempt);
         Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
 
         // Convert empty string category_id to null to satisfy foreign key constraint

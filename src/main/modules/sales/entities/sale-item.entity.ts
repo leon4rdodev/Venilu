@@ -36,4 +36,8 @@ export class SaleItem {
 
     @Column("decimal", { precision: 10, scale: 2, nullable: true })
     total_price?: number;
+
+    /** ITBIS incluido en total_price (0 = producto exento). Snapshot al vender. */
+    @Column("decimal", { precision: 10, scale: 2, default: 0 })
+    itbis_amount!: number;
 }

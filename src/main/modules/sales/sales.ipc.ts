@@ -1,12 +1,16 @@
 import { ipcMain } from 'electron';
 import { SalesService } from '@main/modules/sales/services/sales.service';
 import { requirePermission, hasPermission } from '@main/shared/session';
+import { licenseService } from '@main/shared/services/license.service';
 
 const salesService = new SalesService();
 
 export function registerSalesHandlers() {
   ipcMain.handle('process-sale', async (_event, { saleData, saleItems }) => {
     try {
+      // Charging is the licensed capability: blocked when the trial is over
+      // or an annual license expired. Data stays viewable/exportable always.
+      await licenseService.assertCanSell();
       const session = requirePermission('pos:access');
 
       // Granular POS permissions
@@ -93,6 +97,31 @@ export function registerSalesHandlers() {
       requirePermission('sales:void');
       const result = await salesService.voidSale(saleId);
       return result;
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  /**
+   * Devolución parcial de artículos.
+   * Payload: { saleId, items: [{ sale_item_id, quantity }], note? }
+   */
+  ipcMain.handle('sales:return', async (_event, { saleId, items, note } = {}) => {
+    try {
+      const session = requirePermission('sales:void');
+      const result = await salesService.processReturn(String(saleId ?? ''), items, session.id, note);
+      return result;
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  /** Devoluciones registradas de una venta (detalle de transacción). */
+  ipcMain.handle('get-sale-returns', async (_event, { saleId } = {}) => {
+    try {
+      requirePermission('pos:access');
+      const data = await salesService.getSaleReturns(String(saleId ?? ''));
+      return { success: true, data };
     } catch (err: any) {
       return { success: false, message: err.message };
     }

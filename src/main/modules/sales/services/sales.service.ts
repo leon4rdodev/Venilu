@@ -8,11 +8,22 @@ import { DebtPayment as DebtPaymentEntity } from "@main/modules/sales/entities/d
 import { Repository, DataSource } from "typeorm";
 import { round2 } from "@shared/money";
 import { StockMovement } from "@main/modules/products/entities/stock-movement.entity";
+import { Setting as SettingEntity } from "@main/modules/settings/entities/setting.entity";
+import { SaleReturn, SaleReturnItem } from "@main/modules/sales/entities/sale-return.entity";
+import { fiscalService, itbisIncludedIn, isValidRncOrCedula, normalizeRnc } from "@main/modules/fiscal/services/fiscal.service";
 import { getSessionUser } from "@main/shared/session";
+
+interface FiscalRequest {
+    ncfType: 'B01' | 'B02';
+    customerRnc?: string;
+    customerName?: string;
+}
 
 interface ProcessSaleData {
     user_id: string;
     shift_id: string;
+    /** Solicitud de comprobante fiscal (NCF) — requiere fiscal_enabled. */
+    fiscal?: FiscalRequest;
     payment_method: 'cash' | 'card' | 'transfer' | 'credit';
     customer_id?: string;
     subtotal?: number;
@@ -65,7 +76,7 @@ export class SalesService {
         saleData: ProcessSaleData,
         items: SaleItemInput[],
         options: { allowPriceOverride?: boolean } = {}
-    ): Promise<{ success: true; saleId: string }> {
+    ): Promise<{ success: true; saleId: string; ncf?: string }> {
         if (!items || items.length === 0) {
             throw new Error("No items in sale");
         }
@@ -85,6 +96,35 @@ export class SalesService {
         }
 
         return await this.dataSource.transaction(async (transactionalEntityManager) => {
+            // Fiscal context (RD): ITBIS rate + whether NCF issuing is enabled
+            const settings = await transactionalEntityManager.findOneBy(SettingEntity, { id: 1 });
+            const itbisRate = Number(settings?.itbis_rate ?? 18);
+            const fiscalEnabled = !!settings?.fiscal_enabled;
+
+            let fiscalRequest: FiscalRequest | null = null;
+            if (saleData.fiscal) {
+                if (!fiscalEnabled) {
+                    throw new Error("La facturación con comprobantes (NCF) no está activada. Actívala en Ajustes → Fiscal.");
+                }
+                const { ncfType } = saleData.fiscal;
+                if (ncfType !== 'B01' && ncfType !== 'B02') {
+                    throw new Error("Tipo de comprobante inválido");
+                }
+                if (ncfType === 'B01') {
+                    const rnc = normalizeRnc(saleData.fiscal.customerRnc ?? '');
+                    if (!isValidRncOrCedula(rnc)) {
+                        throw new Error("Una Factura de Crédito Fiscal (B01) requiere un RNC (9 dígitos) o cédula (11 dígitos) válidos del cliente.");
+                    }
+                    fiscalRequest = {
+                        ncfType,
+                        customerRnc: rnc,
+                        customerName: String(saleData.fiscal.customerName ?? '').trim() || undefined,
+                    };
+                } else {
+                    fiscalRequest = { ncfType };
+                }
+            }
+
             // Load the customer inside the transaction so the credit-limit
             // check can't race with a concurrent sale.
             let customer: CustomerEntity | null = null;
@@ -138,6 +178,10 @@ export class SalesService {
                 saleItem.quantity = quantity;
                 saleItem.unit_price = unitPrice;
                 saleItem.total_price = round2(quantity * unitPrice);
+                // ITBIS incluido en el precio (0 si el producto está exento)
+                saleItem.itbis_amount = product.itbis_exempt
+                    ? 0
+                    : itbisIncludedIn(saleItem.total_price, itbisRate);
 
                 saleItems.push(saleItem);
                 calculatedSubtotal = round2(calculatedSubtotal + saleItem.total_price);
@@ -217,6 +261,21 @@ export class SalesService {
             sale.status = status;
             sale.items = saleItems;
 
+            // ITBIS total: prorrateado si hay descuento a nivel de venta
+            const itbisPreDiscount = round2(saleItems.reduce((sum, i) => sum + Number(i.itbis_amount || 0), 0));
+            sale.itbis_amount = discountAmount > 0 && calculatedSubtotal > 0
+                ? round2(itbisPreDiscount * finalTotal / calculatedSubtotal)
+                : itbisPreDiscount;
+
+            // NCF: asignado DENTRO de la transacción — si la venta falla, el
+            // número no se consume; si no hay secuencia, la venta no procede.
+            if (fiscalRequest) {
+                sale.ncf = await fiscalService.assignNcf(transactionalEntityManager, fiscalRequest.ncfType);
+                sale.ncf_type = fiscalRequest.ncfType;
+                sale.fiscal_customer_rnc = fiscalRequest.customerRnc;
+                sale.fiscal_customer_name = fiscalRequest.customerName;
+            }
+
             // Associate customer
             if (customer) {
                 sale.customer_id = customer.id;
@@ -244,7 +303,7 @@ export class SalesService {
                 await transactionalEntityManager.save(CustomerEntity, customer);
             }
 
-            return { success: true, saleId: savedSale.id };
+            return { success: true, saleId: savedSale.id, ncf: savedSale.ncf };
         });
     }
 
@@ -550,11 +609,175 @@ export class SalesService {
                 }
             }
 
+            // Nota de Crédito B04: obligatoria si la venta llevaba NCF —
+            // sin secuencia B04 disponible la anulación NO procede (así lo
+            // exige la trazabilidad fiscal).
+            if (sale.ncf && !sale.credit_note_ncf) {
+                const settings = await transactionalEntityManager.findOneBy(SettingEntity, { id: 1 });
+                if (settings?.fiscal_enabled) {
+                    sale.credit_note_ncf = await fiscalService.assignNcf(transactionalEntityManager, 'B04');
+                }
+            }
+
             // Mark as voided
             sale.status = 'voided';
             await transactionalEntityManager.save(SaleEntity, sale);
 
             return { success: true, message: "Venta anulada correctamente" };
+        });
+    }
+
+    /**
+     * Devolución PARCIAL de artículos de una venta pagada:
+     *   - repone stock (kardex tipo 'return')
+     *   - reembolsa EN EFECTIVO desde el turno abierto de quien procesa
+     *     (los reportes y el arqueo del turno restan lo devuelto)
+     *   - emite Nota de Crédito B04 si la venta original llevaba NCF
+     * Ventas a crédito con deuda pendiente se ANULAN, no se devuelven.
+     */
+    async processReturn(
+        saleId: string,
+        items: Array<{ sale_item_id: string; quantity: number }>,
+        userId: string,
+        note?: string,
+    ): Promise<{ success: true; returnId: string; totalRefunded: number; creditNoteNcf?: string }> {
+        if (!Array.isArray(items) || items.length === 0) {
+            throw new Error("Selecciona al menos un artículo a devolver");
+        }
+
+        // El efectivo sale de la caja: se exige turno abierto del usuario
+        const shift = await this.shiftRepository.findOne({ where: { user_id: userId, status: 'open' } });
+        if (!shift) {
+            throw new Error("Abre un turno para procesar devoluciones (el reembolso sale de tu caja)");
+        }
+
+        return await this.dataSource.transaction(async (manager) => {
+            const sale = await manager.findOne(SaleEntity, { where: { id: saleId }, relations: ['items'] });
+            if (!sale) throw new Error("Venta no encontrada");
+            if (sale.status === 'voided') throw new Error("Esta venta está anulada");
+
+            const outstanding = round2(Number(sale.total_amount) - Number(sale.amount_paid || 0));
+            if (sale.payment_method === 'credit' && outstanding > 0) {
+                throw new Error("Esta venta a crédito tiene deuda pendiente: usa Anular venta en su lugar");
+            }
+
+            // Cantidades ya devueltas por línea (devoluciones anteriores)
+            const prevRows = await manager.getRepository(SaleReturnItem)
+                .createQueryBuilder('ri')
+                .innerJoin(SaleReturn, 'r', 'r.id = ri.return_id')
+                .select('ri.sale_item_id', 'saleItemId')
+                .addSelect('SUM(ri.quantity)', 'returned')
+                .where('r.sale_id = :saleId', { saleId })
+                .groupBy('ri.sale_item_id')
+                .getRawMany();
+            const alreadyReturned = new Map<string, number>(
+                prevRows.map(r => [String(r.saleItemId), Number(r.returned) || 0]),
+            );
+
+            // El descuento de venta se prorratea sobre lo devuelto
+            const discountFactor = Number(sale.subtotal) > 0
+                ? Number(sale.total_amount) / Number(sale.subtotal)
+                : 1;
+
+            const session = getSessionUser();
+            const returnItems: SaleReturnItem[] = [];
+            let totalRefunded = 0;
+            let itbisRefunded = 0;
+            let costRefunded = 0;
+            const kardexDrafts: Array<{ product_id: string; quantity_delta: number; stock_after: number }> = [];
+
+            for (const req of items) {
+                const qty = Number(req.quantity);
+                if (!Number.isInteger(qty) || qty <= 0) {
+                    throw new Error("Cantidad a devolver inválida");
+                }
+                const line = (sale.items || []).find(i => i.id === req.sale_item_id);
+                if (!line) throw new Error("Artículo no pertenece a esta venta");
+
+                const remaining = Number(line.quantity) - (alreadyReturned.get(line.id!) ?? 0);
+                if (qty > remaining) {
+                    throw new Error(`De "${line.product_name}" solo quedan ${remaining} unidad(es) por devolver`);
+                }
+
+                const unitGross = Number(line.total_price) / Number(line.quantity);
+                const unitItbis = Number(line.itbis_amount || 0) / Number(line.quantity);
+                const amount = round2(unitGross * qty * discountFactor);
+                const itbis = round2(unitItbis * qty * discountFactor);
+
+                const item = manager.create(SaleReturnItem, {
+                    sale_item_id: line.id!,
+                    product_id: line.product_id,
+                    product_name: line.product_name,
+                    quantity: qty,
+                    amount_refunded: amount,
+                    itbis_refunded: itbis,
+                });
+                returnItems.push(item);
+                totalRefunded = round2(totalRefunded + amount);
+                itbisRefunded = round2(itbisRefunded + itbis);
+
+                // Reposición de stock + costo revertido
+                const product = await manager.findOne(ProductEntity, { where: { id: line.product_id } });
+                if (product) {
+                    product.stock += qty;
+                    await manager.save(product);
+                    kardexDrafts.push({ product_id: product.id, quantity_delta: qty, stock_after: product.stock });
+                    costRefunded = round2(costRefunded + qty * Number(product.cost_price || 0));
+                }
+            }
+
+            // Id corto único
+            let returnId = '';
+            for (let attempts = 0; attempts < 10; attempts++) {
+                returnId = this.generateShortId();
+                if (!(await manager.findOne(SaleReturn, { where: { id: returnId } }))) break;
+                returnId = '';
+            }
+            if (!returnId) throw new Error("No se pudo generar el id de la devolución");
+
+            // Nota de Crédito B04 obligatoria si la venta llevaba NCF
+            let creditNoteNcf: string | undefined;
+            const settings = await manager.findOneBy(SettingEntity, { id: 1 });
+            if (sale.ncf && settings?.fiscal_enabled) {
+                creditNoteNcf = await fiscalService.assignNcf(manager, 'B04');
+            }
+
+            const saleReturn = manager.create(SaleReturn, {
+                id: returnId,
+                sale_id: sale.id,
+                user_id: userId,
+                username: session?.username,
+                shift_id: shift.id,
+                total_refunded: totalRefunded,
+                itbis_refunded: itbisRefunded,
+                cost_refunded: costRefunded,
+                credit_note_ncf: creditNoteNcf,
+                note: note ? String(note).slice(0, 300) : undefined,
+                items: returnItems,
+            });
+            await manager.save(SaleReturn, saleReturn);
+
+            for (const draft of kardexDrafts) {
+                await manager.save(StockMovement, manager.create(StockMovement, {
+                    ...draft,
+                    type: 'return',
+                    reference: sale.id,
+                    user_id: session?.id ?? userId,
+                    username: session?.username,
+                    note: `Devolución #${returnId}`,
+                }));
+            }
+
+            return { success: true, returnId, totalRefunded, creditNoteNcf };
+        });
+    }
+
+    /** Devoluciones registradas de una venta (para el detalle de transacción). */
+    async getSaleReturns(saleId: string): Promise<SaleReturn[]> {
+        return AppDataSource.getRepository(SaleReturn).find({
+            where: { sale_id: saleId },
+            relations: ['items'],
+            order: { created_at: 'DESC' },
         });
     }
 }
