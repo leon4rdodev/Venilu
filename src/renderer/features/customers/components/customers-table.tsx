@@ -4,8 +4,8 @@ import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select";
 import {
-  Plus, Search, Pencil, Trash2, Users,
-  HandCoins, Eye, X, ArrowUpNarrowWide, ArrowDownWideNarrow, Download,
+  Plus, Search, Pencil, Trash2, Users, SearchX,
+  HandCoins, Eye, X, ArrowUpNarrowWide, ArrowDownWideNarrow, Download, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { WidgetHeader } from "@renderer/shared/components/widget-header";
@@ -23,7 +23,7 @@ import { usePermissions } from "@renderer/features/auth/hooks/use-permission";
 import { Customer } from "@shared/types/models";
 import type { CustomerFilter, CustomerSortBy } from "../types";
 import { formatCurrency } from "@lib/currency";
-import { formatPhone } from "@lib/formatters";
+import { formatPhone, formatDateTime } from "@lib/formatters";
 import { cn } from "@lib/utils";
 
 const FILTERS: { value: CustomerFilter; label: string }[] = [
@@ -125,9 +125,12 @@ export function CustomersTable() {
   const handlePayDebtClick = (customer: Customer) => { setDebtCustomer(customer); setDebtDialogOpen(true); };
   const handleViewProfile = (customer: Customer) => { setProfileCustomer(customer); setProfileDialogOpen(true); };
 
+  // Devuelve el resultado: CustomerDialog mantiene el formulario abierto (y los
+  // datos escritos) cuando el guardado falla, en lugar de cerrarse y perderlos.
   const handleSaveCustomer = async (data: Partial<Customer>) => {
     const success = await handleSave(data, editingCustomer);
     if (success) setDialogOpen(false);
+    return success;
   };
 
   const handleDeleteConfirm = async () => {
@@ -137,6 +140,8 @@ export function CustomersTable() {
   };
 
   const colCount = canViewBalance ? 6 : 5;
+  const isFiltered = !!searchQuery || filter !== "all";
+  const clearFilters = () => { setSearchQuery(""); setFilter("all"); };
 
   return (
     <div className="space-y-6">
@@ -155,14 +160,20 @@ export function CustomersTable() {
                 size="icon"
                 className="h-9 w-9"
                 title="Exportar clientes a CSV"
+                aria-label="Exportar clientes a CSV"
                 onClick={handleExportCsv}
                 disabled={isExporting}
+                aria-busy={isExporting || undefined}
               >
-                <Download className="h-4 w-4" strokeWidth={1.75} />
+                {isExporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} aria-hidden="true" />
+                ) : (
+                  <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                )}
               </Button>
               {canCreate && (
                 <Button onClick={handleAddNew} size="sm" className="h-9">
-                  <Plus className="h-4 w-4" strokeWidth={1.75} />
+                  <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                   Nuevo Cliente
                 </Button>
               )}
@@ -172,46 +183,62 @@ export function CustomersTable() {
 
         {/* Single toolbar row: search · filter chips · sort */}
         <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-          <div className="relative w-56 shrink-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+          <div className="relative w-64 shrink-0">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
             <Input
-              placeholder="Buscar cliente, teléfono o email..."
+              type="search"
+              placeholder="Buscar por nombre, teléfono o email"
+              aria-label="Buscar clientes por nombre, teléfono o email"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9 pl-9 pr-8 bg-background"
+              className="h-9 pl-9 pr-8 bg-background [&::-webkit-search-cancel-button]:hidden"
+              autoComplete="off"
+              spellCheck={false}
             />
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-full hover:bg-muted transition-colors"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center text-muted-foreground hover:text-foreground rounded-full hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 title="Limpiar búsqueda"
+                aria-label="Limpiar búsqueda"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             )}
           </div>
 
-          <div className="flex items-center gap-1.5">
-            {FILTERS.map((f) => (
-              <button
-                key={f.value}
-                onClick={() => setFilter(f.value)}
-                className={cn(
-                  "px-3 h-9 rounded-full border text-xs font-medium transition-colors whitespace-nowrap",
-                  filter === f.value
-                    ? "bg-foreground text-background border-foreground"
-                    : "bg-card text-muted-foreground border-border hover:text-foreground hover:bg-muted"
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-1.5" role="group" aria-label="Filtrar clientes">
+            {FILTERS.map((f) => {
+              const active = filter === f.value;
+              return (
+                <button
+                  key={f.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setFilter(f.value)}
+                  className={cn(
+                    "px-3 h-9 rounded-full border text-xs font-medium transition-colors whitespace-nowrap",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+                    active
+                      ? "bg-foreground text-background border-foreground"
+                      : "bg-card text-muted-foreground border-border hover:text-foreground hover:bg-muted"
+                  )}
+                >
+                  {f.label}
+                </button>
+              );
+            })}
           </div>
 
           <div className="flex-1 min-w-2" />
 
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as CustomerSortBy)}>
-            <SelectTrigger className="h-9 w-[160px] bg-background">
+            <SelectTrigger className="h-9 w-[160px] bg-background" aria-label="Ordenar por">
               <SelectValue placeholder="Ordenar por" />
             </SelectTrigger>
             <SelectContent>
@@ -224,13 +251,14 @@ export function CustomersTable() {
             variant="outline"
             size="icon"
             className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-            title={sortOrder === "ASC" ? "Ascendente" : "Descendente"}
+            title={sortOrder === "ASC" ? "Orden ascendente (clic para descendente)" : "Orden descendente (clic para ascendente)"}
+            aria-label={sortOrder === "ASC" ? "Orden ascendente. Cambiar a descendente" : "Orden descendente. Cambiar a ascendente"}
             onClick={() => setSortOrder(sortOrder === "ASC" ? "DESC" : "ASC")}
           >
             {sortOrder === "ASC" ? (
-              <ArrowUpNarrowWide className="h-4 w-4" strokeWidth={1.75} />
+              <ArrowUpNarrowWide className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             ) : (
-              <ArrowDownWideNarrow className="h-4 w-4" strokeWidth={1.75} />
+              <ArrowDownWideNarrow className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             )}
           </Button>
         </div>
@@ -240,47 +268,78 @@ export function CustomersTable() {
             <TableHeader>
               <TableRow className="hover:bg-transparent border-b border-border">
                 <TableHead className="text-xs font-medium text-muted-foreground">Cliente</TableHead>
-                <TableHead className="text-xs font-medium text-muted-foreground text-center">Compras</TableHead>
+                <TableHead className="text-xs font-medium text-muted-foreground text-right">Compras</TableHead>
                 <TableHead className="text-xs font-medium text-muted-foreground text-right">Total Gastado</TableHead>
                 <TableHead className="text-xs font-medium text-muted-foreground text-right">Última Compra</TableHead>
                 {canViewBalance && (
                   <TableHead className="text-xs font-medium text-muted-foreground text-right">Deuda</TableHead>
                 )}
-                <TableHead className="text-xs font-medium text-muted-foreground text-right">Acciones</TableHead>
+                <TableHead className="text-xs font-medium text-muted-foreground text-right">
+                  <span className="sr-only">Acciones</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableSkeletonRows rows={6} cols={colCount} />
               ) : customers.length === 0 ? (
-                <EmptyStateRow
-                  icon={Users}
-                  title={searchQuery || filter !== "all" ? "No se encontraron clientes" : "No hay clientes registrados"}
-                  description={searchQuery || filter !== "all" ? "Intenta ajustar la búsqueda o los filtros" : "Agrega tu primer cliente para comenzar"}
-                  colSpan={colCount}
-                />
+                isFiltered ? (
+                  // Estado vacío por filtros: explica el motivo y ofrece la salida
+                  // (HIG Feedback: "help them understand why" + recovery path).
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={colCount} className="h-40 text-center">
+                      <div className="flex flex-col items-center justify-center text-muted-foreground gap-1">
+                        <SearchX className="h-10 w-10 mb-1 opacity-30" strokeWidth={1.5} aria-hidden="true" />
+                        <p className="font-medium text-foreground">No se encontraron clientes</p>
+                        <p className="text-xs">
+                          {searchQuery
+                            ? <>Sin resultados para <span className="font-medium text-foreground">“{searchQuery}”</span>{filter !== "all" ? " con el filtro aplicado" : ""}.</>
+                            : "Ningún cliente coincide con el filtro aplicado."}
+                        </p>
+                        <Button variant="outline" size="sm" className="mt-3" onClick={clearFilters}>
+                          <X className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                          Limpiar búsqueda y filtros
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  <EmptyStateRow
+                    icon={Users}
+                    title="No hay clientes registrados"
+                    description={canCreate ? "Agrega tu primer cliente con el botón “Nuevo Cliente”" : "Aún no se ha registrado ningún cliente"}
+                    colSpan={colCount}
+                  />
+                )
               ) : (
                 customers.map((customer) => {
                   const balance = Number(customer.balance || 0);
                   const creditLimit = customer.credit_limit != null ? Number(customer.credit_limit) : null;
                   const isOverLimit = creditLimit !== null && balance >= creditLimit;
+                  const contact = customer.phone ? formatPhone(customer.phone) : customer.email || null;
+                  const debtClass = isOverLimit
+                    ? "text-red-700 dark:text-red-400"
+                    : "text-amber-700 dark:text-amber-400";
 
                   return (
                     <TableRow key={customer.id} className="hover:bg-muted/40 transition-colors">
-                      <TableCell className="max-w-[260px]">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-foreground text-xs font-semibold shrink-0 select-none">
+                      <TableCell className="max-w-[280px]">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-foreground text-xs font-semibold shrink-0 select-none"
+                            aria-hidden="true"
+                          >
                             {customer.name.charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-sm font-medium truncate" title={customer.name}>{customer.name}</span>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-sm font-medium text-foreground truncate" title={customer.name}>{customer.name}</span>
                               {creditLimit !== null && canViewBalance && (
                                 <span
                                   className={cn(
-                                    "shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-medium",
+                                    "shrink-0 px-2 py-0.5 rounded-full text-[11px] leading-4 font-medium whitespace-nowrap",
                                     isOverLimit
-                                      ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                                      ? "bg-red-500/10 text-red-700 dark:text-red-400"
                                       : "bg-muted text-muted-foreground"
                                   )}
                                   title={`Límite de crédito: ${formatCurrency(creditLimit)}`}
@@ -289,46 +348,59 @@ export function CustomersTable() {
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {customer.phone ? formatPhone(customer.phone) : customer.email || "Sin contacto"}
+                            <p
+                              className={cn("text-xs truncate tabular-nums", contact ? "text-muted-foreground" : "text-muted-foreground/70 italic")}
+                              title={contact ?? undefined}
+                            >
+                              {contact ?? "Sin contacto"}
                             </p>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-center text-sm tabular-nums">
-                        {customer.purchases_count > 0 ? customer.purchases_count : <span className="text-muted-foreground/50">—</span>}
+                      <TableCell className="text-right text-sm tabular-nums">
+                        {customer.purchases_count > 0
+                          ? customer.purchases_count
+                          : <span className="text-muted-foreground/60" aria-label="Sin compras">—</span>}
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm tabular-nums whitespace-nowrap">
-                        {customer.total_spent > 0 ? formatCurrency(customer.total_spent) : <span className="text-muted-foreground/50">—</span>}
+                        {customer.total_spent > 0
+                          ? formatCurrency(customer.total_spent)
+                          : <span className="text-muted-foreground/60" aria-label="Sin compras">—</span>}
                       </TableCell>
-                      <TableCell className="text-right text-sm text-muted-foreground whitespace-nowrap">
+                      <TableCell
+                        className="text-right text-sm text-muted-foreground whitespace-nowrap tabular-nums"
+                        title={customer.last_purchase_at ? formatDateTime(customer.last_purchase_at) : undefined}
+                      >
                         {formatRecency(customer.last_purchase_at)}
                       </TableCell>
                       {canViewBalance && (
-                        <TableCell className="text-right">
+                        <TableCell className="text-right whitespace-nowrap">
                           {balance > 0 ? (
                             canPayDebt ? (
                               <button
+                                type="button"
                                 onClick={() => handlePayDebtClick(customer)}
                                 className={cn(
-                                  "inline-flex items-center gap-1 text-sm font-mono tabular-nums font-medium hover:underline cursor-pointer",
-                                  isOverLimit ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
+                                  "inline-flex items-center gap-1.5 h-7 -mr-1.5 px-1.5 rounded-full text-sm font-mono tabular-nums font-medium hover:underline hover:bg-muted/60 transition-colors cursor-pointer",
+                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                  debtClass
                                 )}
                                 title="Abonar a deuda"
+                                aria-label={`Deuda ${formatCurrency(balance)}${isOverLimit ? ", límite excedido" : ""}. Abonar a deuda de ${customer.name}`}
                               >
-                                <HandCoins className="h-3.5 w-3.5" strokeWidth={1.75} />
+                                <HandCoins className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
                                 {formatCurrency(balance)}
                               </button>
                             ) : (
-                              <span className={cn(
-                                "text-sm font-mono tabular-nums font-medium",
-                                isOverLimit ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
-                              )}>
+                              <span
+                                className={cn("text-sm font-mono tabular-nums font-medium", debtClass)}
+                                aria-label={`Deuda ${formatCurrency(balance)}${isOverLimit ? ", límite excedido" : ""}`}
+                              >
                                 {formatCurrency(balance)}
                               </span>
                             )
                           ) : (
-                            <span className="inline-flex px-2 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                            <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] leading-4 font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
                               Sin deuda
                             </span>
                           )}
@@ -336,22 +408,50 @@ export function CustomersTable() {
                       )}
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => handleViewProfile(customer)} title="Ver Perfil">
-                            <Eye className="h-4 w-4" strokeWidth={1.75} />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            onClick={() => handleViewProfile(customer)}
+                            title="Ver perfil"
+                            aria-label={`Ver perfil de ${customer.name}`}
+                          >
+                            <Eye className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                           </Button>
                           {canPayDebt && canViewBalance && balance > 0 && (
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => handlePayDebtClick(customer)} title="Abonar">
-                              <HandCoins className="h-4 w-4" strokeWidth={1.75} />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              onClick={() => handlePayDebtClick(customer)}
+                              title="Abonar a deuda"
+                              aria-label={`Abonar a deuda de ${customer.name}`}
+                            >
+                              <HandCoins className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                             </Button>
                           )}
                           {canCreate && (
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => handleEdit(customer)} title="Editar">
-                              <Pencil className="h-4 w-4" strokeWidth={1.75} />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              onClick={() => handleEdit(customer)}
+                              title="Editar"
+                              aria-label={`Editar a ${customer.name}`}
+                            >
+                              <Pencil className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                             </Button>
                           )}
                           {canDelete && (
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(customer)} title="Eliminar">
-                              <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDeleteClick(customer)}
+                              title="Eliminar"
+                              aria-label={`Eliminar a ${customer.name}`}
+                            >
+                              <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                             </Button>
                           )}
                         </div>

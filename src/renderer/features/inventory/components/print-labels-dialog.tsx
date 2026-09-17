@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import JsBarcode from "jsbarcode";
-import { Dialog, DialogContent } from "@components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@components/ui/dialog";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
+import { Label } from "@components/ui/label";
 import { Barcode } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@lib/currency";
@@ -118,9 +119,22 @@ export function PrintLabelsDialog({ open, onOpenChange, product }: PrintLabelsDi
   const [quantity, setQuantity] = useState("1");
   const [isPrinting, setIsPrinting] = useState(false);
   const [barcodeError, setBarcodeError] = useState(false);
-  const svgRef = useRef<SVGSVGElement>(null);
 
   const code = product?.barcode?.trim() || product?.sku?.trim() || null;
+
+  // Callback ref: el Portal de Radix monta el contenido UN render después de
+  // abrir, así que un useEffect([open]) corre antes de que el <svg> exista y
+  // el preview quedaba en blanco. El callback ref dibuja el código de barras
+  // en el instante exacto en que el nodo se monta (y se rehace si cambia code).
+  const attachBarcode = useCallback((node: SVGSVGElement | null) => {
+    if (!node || !code) return;
+    try {
+      JsBarcode(node, code, BARCODE_OPTIONS);
+      setBarcodeError(false);
+    } catch {
+      setBarcodeError(true);
+    }
+  }, [code]);
   const paperSize = settings?.paper_size === "58mm" ? "58mm" : "80mm";
 
   // Fresh state on every open
@@ -131,23 +145,13 @@ export function PrintLabelsDialog({ open, onOpenChange, product }: PrintLabelsDi
     }
   }, [open, product?.id]);
 
-  // Live preview — same options as the printed label
-  useEffect(() => {
-    if (!open || !code || !svgRef.current) return;
-    try {
-      JsBarcode(svgRef.current, code, BARCODE_OPTIONS);
-      setBarcodeError(false);
-    } catch {
-      setBarcodeError(true);
-    }
-  }, [open, code]);
-
   if (!product) return null;
 
   const parsedQuantity = Number.parseInt(quantity, 10);
   const validQuantity =
     Number.isInteger(parsedQuantity) && parsedQuantity >= MIN_QUANTITY && parsedQuantity <= MAX_QUANTITY;
   const canPrint = !!code && !barcodeError && validQuantity && !isPrinting;
+  const quantityHasError = !validQuantity && quantity !== "";
 
   const handlePrint = async () => {
     if (!code || !validQuantity) return;
@@ -187,14 +191,14 @@ export function PrintLabelsDialog({ open, onOpenChange, product }: PrintLabelsDi
         {/* Header */}
         <div className="p-6 pb-4 border-b border-border space-y-1 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-muted text-foreground flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-full bg-muted text-foreground flex items-center justify-center shrink-0" aria-hidden="true">
               <Barcode className="h-4 w-4" strokeWidth={1.75} />
             </div>
-            <h2 className="text-lg font-semibold tracking-tight">Imprimir Etiquetas</h2>
+            <DialogTitle className="text-lg font-semibold tracking-tight">Imprimir Etiquetas</DialogTitle>
           </div>
-          <p className="text-sm text-muted-foreground truncate" title={product.name}>
+          <DialogDescription className="text-sm text-muted-foreground truncate" title={product.name}>
             {product.name}
-          </p>
+          </DialogDescription>
         </div>
 
         {/* Body */}
@@ -202,58 +206,73 @@ export function PrintLabelsDialog({ open, onOpenChange, product }: PrintLabelsDi
           {code ? (
             <>
               {/* Label preview — mirrors the printed block */}
-              <div className="rounded-lg border border-border bg-white text-black p-4 flex flex-col items-center text-center gap-2">
+              {/* Fondo blanco intencional: simula el papel térmico también en modo oscuro */}
+              <div
+                className="rounded-lg border border-border bg-white text-black p-4 flex flex-col items-center text-center gap-2"
+                role={barcodeError ? undefined : "img"}
+                aria-label={
+                  barcodeError
+                    ? undefined
+                    : `Vista previa de la etiqueta: ${product.name}, código ${code}, ${formatCurrency(product.sale_price)}`
+                }
+              >
                 <p className="text-xs font-bold leading-snug line-clamp-2 break-words" title={product.name}>
                   {product.name}
                 </p>
                 {barcodeError ? (
-                  <p className="text-xs text-destructive py-3">
+                  <p className="text-xs text-destructive py-3" role="alert">
                     No se pudo generar el código de barras para «{code}».
                   </p>
                 ) : (
-                  <svg ref={svgRef} className="max-w-full" />
+                  <svg ref={attachBarcode} className="max-w-full" aria-hidden="true" focusable="false" />
                 )}
                 <p className="font-mono text-lg font-bold tabular-nums">
                   {formatCurrency(product.sale_price)}
                 </p>
               </div>
 
-              <div className="space-y-1.5">
-                <label htmlFor="label-quantity" className="text-sm font-medium">
-                  Cantidad de etiquetas
-                </label>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="label-quantity">Cantidad de etiquetas</Label>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {MIN_QUANTITY}–{MAX_QUANTITY}
+                  </span>
+                </div>
                 <Input
                   id="label-quantity"
                   type="number"
+                  inputMode="numeric"
                   min={MIN_QUANTITY}
                   max={MAX_QUANTITY}
                   step="1"
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
                   disabled={isPrinting}
+                  aria-invalid={quantityHasError || undefined}
+                  aria-describedby={quantityHasError ? "label-quantity-error" : "label-print-hint"}
                   className="h-10 text-center font-mono tabular-nums bg-background"
                 />
-                {!validQuantity && quantity !== "" && (
-                  <p className="text-xs text-destructive">
+                {quantityHasError && (
+                  <p id="label-quantity-error" className="text-xs text-destructive" role="alert">
                     Ingresa una cantidad entre {MIN_QUANTITY} y {MAX_QUANTITY}.
                   </p>
                 )}
               </div>
 
-              <p className="text-xs text-muted-foreground">
+              <p id="label-print-hint" className="text-xs text-muted-foreground">
                 Se imprimirá en papel de {paperSize} usando la impresora configurada.
               </p>
             </>
           ) : (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <div className="w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-3">
-                <Barcode className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} />
+                <Barcode className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} aria-hidden="true" />
               </div>
-              <p className="text-sm font-medium text-muted-foreground">
+              <p className="text-sm font-medium text-foreground">
                 Este producto no tiene código de barras ni SKU
               </p>
               <p className="text-sm text-muted-foreground mt-1 max-w-[260px]">
-                Agrégaselo para imprimir etiquetas
+                Edita el producto y asígnale un SKU o código para poder imprimir etiquetas.
               </p>
             </div>
           )}
@@ -264,7 +283,7 @@ export function PrintLabelsDialog({ open, onOpenChange, product }: PrintLabelsDi
           <Button variant="outline" className="flex-1 h-10" disabled={isPrinting} onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button className="flex-1 h-10" disabled={!canPrint} onClick={handlePrint}>
+          <Button className="flex-1 h-10" disabled={!canPrint} onClick={handlePrint} aria-busy={isPrinting}>
             {isPrinting ? "Imprimiendo..." : "Imprimir Etiquetas"}
           </Button>
         </div>

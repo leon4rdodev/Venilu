@@ -197,16 +197,24 @@ export function PrinterSettings() {
       <div className="mt-6 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-2">
               <Label htmlFor="printer-name" className="text-sm">Impresora</Label>
               <Button
+                type="button"
                 size="sm"
                 variant="ghost"
                 onClick={loadPrinters}
                 disabled={isLoadingPrinters || isSaving}
-                className="h-7 px-2 text-muted-foreground"
+                aria-label="Volver a detectar impresoras"
+                title="Volver a detectar impresoras"
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
               >
-                <RefreshCw className="h-3 w-3" strokeWidth={1.75} />
+                <RefreshCw
+                  className={isLoadingPrinters ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"}
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
+                {isLoadingPrinters ? "Detectando…" : "Detectar"}
               </Button>
             </div>
             <Select
@@ -214,8 +222,12 @@ export function PrinterSettings() {
               onValueChange={setSelectedPrinter}
               disabled={isLoadingPrinters || isSaving}
             >
-              <SelectTrigger id="printer-name" className="h-9">
-                <SelectValue placeholder="Selecciona una impresora" />
+              <SelectTrigger
+                id="printer-name"
+                className="h-9 w-full"
+                aria-describedby={printers.length === 0 ? "printer-name-hint" : undefined}
+              >
+                <SelectValue placeholder={isLoadingPrinters ? "Detectando impresoras…" : "Selecciona una impresora"} />
               </SelectTrigger>
               <SelectContent>
                 {printers.length === 0 ? (
@@ -232,9 +244,9 @@ export function PrinterSettings() {
                 )}
               </SelectContent>
             </Select>
-            {printers.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                Conecta una impresora USB y actualiza
+            {printers.length === 0 && !isLoadingPrinters && (
+              <p id="printer-name-hint" className="text-xs text-muted-foreground">
+                No se detectaron impresoras. Conecta una impresora USB y pulsa «Detectar».
               </p>
             )}
           </div>
@@ -246,14 +258,17 @@ export function PrinterSettings() {
               onValueChange={setPaperSize}
               disabled={isSaving}
             >
-              <SelectTrigger id="paper-size" className="h-9">
+              <SelectTrigger id="paper-size" className="h-9 w-full" aria-describedby="paper-size-hint">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="58mm">58mm</SelectItem>
-                <SelectItem value="80mm">80mm</SelectItem>
+                <SelectItem value="58mm">58 mm</SelectItem>
+                <SelectItem value="80mm">80 mm</SelectItem>
               </SelectContent>
             </Select>
+            <p id="paper-size-hint" className="text-xs text-muted-foreground">
+              Ancho del rollo térmico. El más común es 80 mm.
+            </p>
           </div>
         </div>
 
@@ -267,17 +282,23 @@ export function PrinterSettings() {
             rows={3}
             placeholder="Gracias por su compra…"
             disabled={isSaving}
+            aria-describedby="receipt-footer-hint"
             className="rounded-lg resize-none"
           />
-          <p className="text-xs text-muted-foreground">
-            Se imprime al pie de cada recibo. Una línea por renglón.
-          </p>
+          <div className="flex items-center justify-between gap-4">
+            <p id="receipt-footer-hint" className="text-xs text-muted-foreground">
+              Se imprime al pie de cada recibo. Una línea por renglón.
+            </p>
+            <span className="text-xs text-muted-foreground tabular-nums shrink-0" aria-live="polite">
+              {receiptFooter.length}/300
+            </span>
+          </div>
         </div>
 
-        <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-          <div className="space-y-0.5 pr-4">
-            <Label htmlFor="auto-print" className="text-sm">Impresión automática</Label>
-            <p className="text-xs text-muted-foreground">
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3">
+          <div className="min-w-0">
+            <Label htmlFor="auto-print" className="text-sm cursor-pointer">Impresión automática</Label>
+            <p id="auto-print-hint" className="text-xs text-muted-foreground mt-1">
               Imprime el ticket automáticamente al completar cada venta.
             </p>
           </div>
@@ -286,33 +307,28 @@ export function PrinterSettings() {
             checked={autoPrint}
             onCheckedChange={setAutoPrint}
             disabled={isSaving}
+            aria-describedby="auto-print-hint"
           />
         </div>
 
-        <div className="flex gap-2 pt-1">
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
           <Button
-            size="sm"
+            type="button"
             variant="outline"
             onClick={handleTestPrint}
             disabled={!selectedPrinter || isTesting || isSaving}
-            className="flex-1"
+            title={!selectedPrinter ? "Selecciona una impresora para probar" : undefined}
           >
-            {isTesting ? (
-              'Imprimiendo...'
-            ) : (
-              <>
-                <Printer className="h-3 w-3 mr-2" strokeWidth={1.75} />
-                Probar
-              </>
-            )}
+            <Printer className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            {isTesting ? 'Imprimiendo…' : 'Imprimir prueba'}
           </Button>
           <Button
-            size="sm"
+            type="button"
             onClick={handleSave}
             disabled={isSaving || isTesting}
-            className="flex-1"
+            className="px-6"
           >
-            {isSaving ? 'Guardando...' : 'Guardar'}
+            {isSaving ? 'Guardando…' : 'Guardar Cambios'}
           </Button>
         </div>
       </div>

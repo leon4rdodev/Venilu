@@ -35,6 +35,22 @@ export class Product {
     @Column("integer", { default: 5 })
     min_stock!: number;
 
+    /**
+     * Presentación/variante: producto hijo de otro ("Pequeño 250ml").
+     * Solo un nivel — una presentación no puede tener presentaciones.
+     */
+    @Index()
+    @Column({ nullable: true })
+    parent_product_id?: string;
+
+    @ManyToOne(() => Product, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: "parent_product_id" })
+    parent?: Product;
+
+    /** Etiqueta de la presentación, p. ej. "Pequeño 250ml" o "Caja x24". */
+    @Column({ nullable: true })
+    variant_name?: string;
+
     /** true = exento de ITBIS (víveres básicos, medicinas...). Default: gravado 18%. */
     @Column({ default: false })
     itbis_exempt!: boolean;

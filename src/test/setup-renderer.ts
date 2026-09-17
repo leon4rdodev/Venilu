@@ -2,10 +2,8 @@
  * Global setup for renderer (jsdom) tests: jest-dom matchers plus stubs for
  * the browser/Electron APIs the app expects at runtime.
  */
-// Pull in the app's ambient Window.ipcRenderer declaration — tsconfig.tests.json
-// only includes test files under src/renderer, so without this reference every
-// imported source module fails type-check on window.ipcRenderer.
-/// <reference path="../renderer/global.d.ts" />
+// The app's ambient Window.ipcRenderer declaration (src/renderer/global.d.ts)
+// is included via tsconfig.tests.json so imported source modules type-check.
 
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';

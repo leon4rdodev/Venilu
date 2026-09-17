@@ -55,6 +55,18 @@ export const PERMISSIONS = {
   /** Modify customer credit limits */
   CUST_EDIT_LIMIT:   'customers:edit_limit',
 
+  // ─── Suppliers & Purchases ───────────────────────────────────────────────
+  /** View suppliers, purchases and accounts payable */
+  SUP_VIEW:          'suppliers:view',
+  /** Create, edit, deactivate and delete suppliers */
+  SUP_MANAGE:        'suppliers:manage',
+  /** Register purchases (stock in, cost update) */
+  PUR_CREATE:        'purchases:create',
+  /** Cancel a purchase (stock out) */
+  PUR_CANCEL:        'purchases:cancel',
+  /** Pay accounts payable to suppliers */
+  SUP_PAY:           'suppliers:pay',
+
   // ─── Sales ────────────────────────────────────────────────────────────────
   /** View all sales history */
   SALES_VIEW:        'sales:view',

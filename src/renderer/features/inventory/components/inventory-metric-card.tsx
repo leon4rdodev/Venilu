@@ -25,7 +25,7 @@ export function InventoryMetricCard({
     <div className="h-full">
       <div className="bg-card border border-border rounded-lg p-4 flex flex-col justify-between gap-3 h-full transition-all duration-200 hover:shadow-sm hover:border-foreground/20">
         <div className="flex justify-between items-start">
-          <div className="w-8 h-8 rounded-full bg-muted text-foreground flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-muted text-foreground flex items-center justify-center shrink-0" aria-hidden="true">
             <Icon className="h-4 w-4" strokeWidth={1.75} />
           </div>
           {isLoading ? (
@@ -34,7 +34,7 @@ export function InventoryMetricCard({
             change && (
               <div
                 className={cn(
-                  "flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full",
+                  "flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap",
                   trend === "up"
                     ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                     : trend === "down"
@@ -42,16 +42,20 @@ export function InventoryMetricCard({
                       : "bg-muted text-muted-foreground"
                 )}
               >
-                {trend === "up" && <TrendingUp className="h-3 w-3" />}
-                {trend === "down" && <TrendingDown className="h-3 w-3" />}
-                {trend === "neutral" && <Minus className="h-3 w-3" />}
+                {trend === "up" && <TrendingUp className="h-3 w-3" aria-hidden="true" />}
+                {trend === "down" && <TrendingDown className="h-3 w-3" aria-hidden="true" />}
+                {trend === "neutral" && <Minus className="h-3 w-3" aria-hidden="true" />}
                 <span>{change}</span>
               </div>
             )
           )}
         </div>
 
-        <div className="min-w-0">
+        {/* Etiqueta primero en el DOM (lectores de pantalla), valor arriba visualmente */}
+        <div className="min-w-0 flex flex-col-reverse">
+          <div className="text-xs font-medium mt-0.5 text-muted-foreground truncate" title={title}>
+            {title}
+          </div>
           {isLoading ? (
             <Skeleton className="h-7 w-24 mb-1" />
           ) : (
@@ -59,9 +63,6 @@ export function InventoryMetricCard({
               {value}
             </div>
           )}
-          <div className="text-xs font-medium mt-0.5 text-muted-foreground truncate" title={title}>
-            {title}
-          </div>
         </div>
       </div>
     </div>

@@ -22,6 +22,12 @@ import { FiscalNcf1756450000000 } from "@main/migrations/1756450000000-FiscalNcf
 import { NcfSequence } from "@main/modules/fiscal/entities/ncf-sequence.entity";
 import { SaleReturn, SaleReturnItem } from "@main/modules/sales/entities/sale-return.entity";
 import { SaleReturns1756550000000 } from "@main/migrations/1756550000000-SaleReturns";
+import { ProductVariants1756650000000 } from "@main/migrations/1756650000000-ProductVariants";
+import { SaleVoidedAt1756750000000 } from "@main/migrations/1756750000000-SaleVoidedAt";
+import { Suppliers1756850000000 } from "@main/migrations/1756850000000-Suppliers";
+import { Supplier } from "@main/modules/suppliers/entities/supplier.entity";
+import { Purchase, PurchaseItem } from "@main/modules/suppliers/entities/purchase.entity";
+import { SupplierPayment } from "@main/modules/suppliers/entities/supplier-payment.entity";
 
 const isDev = process.env.NODE_ENV === 'development';
 const dbPath = path.join(app.getPath('userData'), 'database.sqlite');
@@ -51,8 +57,12 @@ export const AppDataSource = new DataSource({
         NcfSequence,
         SaleReturn,
         SaleReturnItem,
+        Supplier,
+        Purchase,
+        PurchaseItem,
+        SupplierPayment,
     ],
-    migrations: [InitialSchema1756150000000, DebtPaymentRefunds1756250000000, LicenseTrial1756350000000, FiscalNcf1756450000000, SaleReturns1756550000000],
+    migrations: [InitialSchema1756150000000, DebtPaymentRefunds1756250000000, LicenseTrial1756350000000, FiscalNcf1756450000000, SaleReturns1756550000000, ProductVariants1756650000000, SaleVoidedAt1756750000000, Suppliers1756850000000],
     migrationsTableName: "migrations",
     subscribers: [],
 });

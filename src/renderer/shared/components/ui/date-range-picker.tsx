@@ -104,8 +104,10 @@ export function DateRangePicker({
             {isOpen && (
                 <>
                     {/* Backdrop */}
-                    <div
-                        className="fixed inset-0 z-[9998] bg-black/20"
+                    <button
+                        type="button"
+                        aria-label="Cerrar selector de fechas"
+                        className="fixed inset-0 z-[9998] bg-black/20 cursor-default"
                         onClick={() => setIsOpen(false)}
                     />
 

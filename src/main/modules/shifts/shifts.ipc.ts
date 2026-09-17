@@ -1,6 +1,7 @@
 import { ipcMain } from "electron";
 import { ShiftsService } from "@main/modules/shifts/services/shifts.service";
 import { requireAuth, requirePermission, hasPermission } from "@main/shared/session";
+import { auditService } from "@main/modules/audit/services/audit.service";
 
 const shiftsService = new ShiftsService();
 
@@ -48,6 +49,7 @@ export function registerShiftsHandlers() {
         try {
             const session = requirePermission('pos:open_shift');
             const shift = await shiftsService.createShift(session.id, initialCash);
+            auditService.log('shifts:open', shift.id, `Fondo inicial ${Number(shift.initial_cash).toFixed(2)}`);
             return { success: true, data: shift };
         } catch (error: any) {
             return { success: false, message: error.message };
@@ -59,6 +61,9 @@ export function registerShiftsHandlers() {
         try {
             const session = requirePermission('pos:close_shift');
             const shift = await shiftsService.closeShift(shiftId, finalCash, session.id);
+            auditService.log('shifts:close', shift.id,
+                `Esperado ${Number(shift.expected_cash).toFixed(2)} · contado ${Number(shift.final_cash).toFixed(2)} · diferencia ${Number(shift.difference).toFixed(2)}`,
+                { expected_cash: shift.expected_cash, final_cash: shift.final_cash, difference: shift.difference });
             return { success: true, message: 'Shift closed successfully', data: shift };
         } catch (error: any) {
             return { success: false, message: error.message };
@@ -101,6 +106,18 @@ export function registerShiftsHandlers() {
         }
     });
 
+    // Devoluciones parciales cargadas a la caja del turno (para el arqueo)
+    ipcMain.handle('shifts:getReturns', async (_event, { shiftId }) => {
+        try {
+            const session = requireAuth();
+            await shiftsService.assertShiftAccess(shiftId, session.id, hasPermission('shifts:view_others'));
+            const returns = await shiftsService.getShiftReturns(shiftId);
+            return { success: true, data: returns };
+        } catch (error: any) {
+            return { success: false, message: error.message };
+        }
+    });
+
     ipcMain.handle('shifts:getExpenses', async (_event, { shiftId }) => {
         try {
             const session = requireAuth();
@@ -116,6 +133,7 @@ export function registerShiftsHandlers() {
         try {
             const session = requirePermission('shifts:manage_expenses');
             const expense = await shiftsService.addExpense(shiftId, amount, reason, session.id);
+            auditService.log('shifts:expense', shiftId, `${Number(expense.amount).toFixed(2)} · ${expense.reason}`, { amount: expense.amount });
             return { success: true, data: expense };
         } catch (error: any) {
             return { success: false, message: error.message };
@@ -127,6 +145,8 @@ export function registerShiftsHandlers() {
         try {
             const admin = requirePermission('shifts:force_close');
             const shift = await shiftsService.forceClose(shiftId, finalCash, admin.id, reason);
+            auditService.log('shifts:force_close', shift.id, reason || undefined,
+                { expected_cash: shift.expected_cash, final_cash: shift.final_cash, difference: shift.difference });
             return { success: true, data: shift };
         } catch (error: any) {
             return { success: false, message: error.message };

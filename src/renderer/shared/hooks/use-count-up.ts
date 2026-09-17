@@ -29,8 +29,11 @@ export function useCountUp(
     const diff = target - startValue;
 
     if (diff === 0) {
-      setCurrent(target);
-      return;
+      // Nothing to animate — sync on the next frame instead of inside the effect
+      rafRef.current = requestAnimationFrame(() => setCurrent(target));
+      return () => {
+        if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      };
     }
 
     const timeoutId = setTimeout(() => {

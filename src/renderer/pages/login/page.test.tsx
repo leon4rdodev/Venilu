@@ -115,7 +115,7 @@ describe("LoginPage · submit", () => {
 
     await user.click(await screen.findByText("Ana Gómez"));
     await user.type(screen.getByLabelText("Contraseña"), "secreta");
-    await user.click(screen.getByRole("button", { name: /Iniciar Sesión/ }));
+    await user.click(screen.getByRole("button", { name: /Iniciar sesión/ }));
 
     await waitFor(() => expect(h.navigate).toHaveBeenCalledWith("/dashboard"));
     expect(invoke).toHaveBeenCalledWith("login-request", { username: "ana", password: "secreta" });
@@ -136,7 +136,7 @@ describe("LoginPage · submit", () => {
     await user.click(await screen.findByText("Ana Gómez"));
     const passwordInput = screen.getByLabelText("Contraseña");
     await user.type(passwordInput, "mala");
-    await user.click(screen.getByRole("button", { name: /Iniciar Sesión/ }));
+    await user.click(screen.getByRole("button", { name: /Iniciar sesión/ }));
 
     expect(await screen.findByText("Credenciales inválidas.")).toBeInTheDocument();
     expect(passwordInput).toHaveValue("");
@@ -161,7 +161,7 @@ describe("LoginPage · submit", () => {
 
     await user.type(await screen.findByLabelText("Usuario"), "manual");
     await user.type(screen.getByLabelText("Contraseña"), "clave");
-    await user.click(screen.getByRole("button", { name: /Iniciar Sesión/ }));
+    await user.click(screen.getByRole("button", { name: /Iniciar sesión/ }));
 
     await waitFor(() =>
       expect(invoke).toHaveBeenCalledWith("login-request", { username: "manual", password: "clave" })
@@ -174,7 +174,7 @@ describe("LoginPage · submit", () => {
     render(<LoginPage onLogin={vi.fn(async () => {})} />);
 
     await user.click(await screen.findByText("Ana Gómez"));
-    const submit = screen.getByRole("button", { name: /Iniciar Sesión/ });
+    const submit = screen.getByRole("button", { name: /Iniciar sesión/ });
     expect(submit).toBeDisabled();
     await user.type(screen.getByLabelText("Contraseña"), "x");
     expect(submit).toBeEnabled();

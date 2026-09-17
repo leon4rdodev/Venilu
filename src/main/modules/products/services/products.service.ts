@@ -137,9 +137,9 @@ export class ProductsService {
 
     /** Whitelists editable fields — never accepts id/timestamps/relations. */
     private pickEditableFields(productData: Partial<ProductEntity>): any {
-        const { name, description, sale_price, cost_price, stock, min_stock, barcode, sku, image, category_id, itbis_exempt } =
+        const { name, description, sale_price, cost_price, stock, min_stock, barcode, sku, image, category_id, itbis_exempt, parent_product_id, variant_name } =
             productData as any;
-        const data: any = { name, description, sale_price, cost_price, stock, min_stock, barcode, sku, image, category_id };
+        const data: any = { name, description, sale_price, cost_price, stock, min_stock, barcode, sku, image, category_id, parent_product_id, variant_name };
         if (itbis_exempt !== undefined) data.itbis_exempt = Boolean(itbis_exempt);
         Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
 
@@ -175,6 +175,37 @@ export class ProductsService {
         throw new Error("Imagen de producto inválida");
     }
 
+    async getById(id: string): Promise<ProductEntity | null> {
+        if (!id) return null;
+        return this.productRepository.findOneBy({ id });
+    }
+
+    /**
+     * SKU y código de barras deben ser únicos entre TODOS los productos (y
+     * entre ambos campos): el escáner del POS busca por cualquiera de los dos
+     * y un código repetido devolvería dos productos distintos.
+     */
+    private async assertCodesUnique(data: { sku?: unknown; barcode?: unknown }, selfId: string | null): Promise<void> {
+        const codes: Array<{ field: 'sku' | 'barcode'; value: string }> = [];
+        for (const field of ['sku', 'barcode'] as const) {
+            const raw = data[field];
+            if (typeof raw !== 'string') continue;
+            const value = raw.trim();
+            (data as any)[field] = value || null;
+            if (value) codes.push({ field, value });
+        }
+        for (const { field, value } of codes) {
+            const qb = this.productRepository.createQueryBuilder('p')
+                .where('(p.sku = :value OR p.barcode = :value)', { value });
+            if (selfId) qb.andWhere('p.id != :selfId', { selfId });
+            const clash = await qb.getOne();
+            if (clash) {
+                const label = field === 'sku' ? 'SKU / código' : 'código de barras';
+                throw new Error(`El ${label} "${value}" ya está en uso por "${clash.name}"`);
+            }
+        }
+    }
+
     async create(productData: Partial<ProductEntity>): Promise<ProductEntity> {
         const data = this.pickEditableFields(productData);
 
@@ -183,10 +214,13 @@ export class ProductsService {
         }
         data.name = data.name.trim();
         this.validateNumericFields(data);
+        await this.assertCodesUnique(data, null);
 
         if (data.image !== undefined) {
             data.image = this.processIncomingImage(data.image, null);
         }
+
+        await this.validateVariantLink(data, null);
 
         const product = this.productRepository.create(data as Partial<ProductEntity>);
         const saved = await this.productRepository.save(product);
@@ -225,6 +259,7 @@ export class ProductsService {
             dataToUpdate.name = dataToUpdate.name.trim();
         }
         this.validateNumericFields(dataToUpdate);
+        await this.assertCodesUnique(dataToUpdate, id);
 
         if (dataToUpdate.image !== undefined) {
             dataToUpdate.image = this.processIncomingImage(dataToUpdate.image, current.image ?? null);
@@ -253,6 +288,10 @@ export class ProductsService {
 
         if (Object.keys(dataToUpdate).length === 0) return current;
 
+        if (dataToUpdate.parent_product_id !== undefined) {
+            await this.validateVariantLink(dataToUpdate, id);
+        }
+
         await this.productRepository.update({ id }, dataToUpdate);
         const updated = await this.productRepository.findOneBy({ id });
         if (!updated) throw new Error("Producto no encontrado después de la actualización");
@@ -270,8 +309,52 @@ export class ProductsService {
         return updated;
     }
 
+    /**
+     * Reglas de presentaciones: el padre debe existir, no puede ser una
+     * presentación a su vez (un solo nivel), un producto no puede ser su
+     * propio padre, y un producto CON presentaciones no puede convertirse en
+     * presentación de otro.
+     */
+    private async validateVariantLink(data: any, selfId: string | null): Promise<void> {
+        const parentId = data.parent_product_id;
+        if (parentId === undefined) return;
+        if (parentId === null || parentId === '') {
+            data.parent_product_id = null;
+            return;
+        }
+        if (selfId && parentId === selfId) {
+            throw new Error("Un producto no puede ser presentación de sí mismo");
+        }
+        const parent = await this.productRepository.findOneBy({ id: parentId });
+        if (!parent) throw new Error("El producto padre no existe");
+        if (parent.parent_product_id) {
+            throw new Error("Una presentación no puede tener presentaciones (elige el producto principal como padre)");
+        }
+        if (selfId) {
+            const children = await this.productRepository.count({ where: { parent_product_id: selfId } });
+            if (children > 0) {
+                throw new Error("Este producto tiene presentaciones: no puede convertirse en presentación de otro");
+            }
+        }
+        if (typeof data.variant_name === 'string') data.variant_name = data.variant_name.trim() || null;
+    }
+
+    /** Presentaciones de un producto (ordenadas por nombre de presentación). */
+    async getVariants(productId: string): Promise<ProductEntity[]> {
+        return this.productRepository.find({
+            where: { parent_product_id: productId },
+            order: { variant_name: 'ASC', name: 'ASC' },
+        });
+    }
+
     async delete(id: string): Promise<void> {
         if (id === undefined || id === null) throw new Error("ID requerido para eliminar");
+
+        // Un padre con presentaciones no se elimina — primero sus presentaciones
+        const variantCount = await this.productRepository.count({ where: { parent_product_id: id } });
+        if (variantCount > 0) {
+            throw new Error("No se puede eliminar: el producto tiene presentaciones. Elimínalas primero.");
+        }
 
         // Check for sales dependencies
         const salesCount = await this.saleItemRepository.count({ where: { product_id: id } });
@@ -301,8 +384,8 @@ export class ProductsService {
 
     async getLowStock(limit: number = 5): Promise<ProductEntity[]> {
         return this.productRepository.createQueryBuilder("product")
+            // Agotados también son "atención a reposición" (cuadra con la tarjeta de alertas)
             .where("product.stock <= product.min_stock")
-            .andWhere("product.stock > 0")
             .orderBy("product.stock", "ASC")
             .take(limit)
             .getMany();

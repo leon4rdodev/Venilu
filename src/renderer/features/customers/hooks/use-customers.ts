@@ -32,8 +32,6 @@ export function useCustomers() {
   const [filter, setFilter] = useState<CustomerFilter>("all");
   const [sortBy, setSortBy] = useState<CustomerSortBy>("name");
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("ASC");
-  const [currentPage, setCurrentPage] = useState(1);
-
   // Debounce search
   const [debouncedSearch, setDebouncedSearch] = useState("");
   useEffect(() => {
@@ -41,10 +39,13 @@ export function useCustomers() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Reset page when any filter changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedSearch, filter, sortBy, sortOrder]);
+  // Page resets whenever any filter changes ("reset state on prop change"
+  // pattern — avoids a setState-in-effect round trip).
+  const filterKey = JSON.stringify([debouncedSearch, filter, sortBy, sortOrder]);
+  const [paging, setPaging] = useState({ key: filterKey, page: 1 });
+  if (paging.key !== filterKey) setPaging({ key: filterKey, page: 1 });
+  const currentPage = paging.key === filterKey ? paging.page : 1;
+  const setCurrentPage = (page: number) => setPaging({ key: filterKey, page });
 
   const query = useQuery({
     queryKey: [

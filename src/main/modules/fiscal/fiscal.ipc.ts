@@ -89,7 +89,7 @@ export function registerFiscalHandlers() {
         if (s.credit_note_ncf) {
           lines.push(csvRow(
             rnc, idType, s.credit_note_ncf, s.ncf, 'B04',
-            dateOf(s.created_at), num(s.total_amount), num(s.itbis_amount ?? 0),
+            dateOf(s.voided_at ?? s.created_at), num(s.total_amount), num(s.itbis_amount ?? 0),
           ));
         }
       }

@@ -22,6 +22,7 @@ import InventoryPage from '@pages/inventory/page';
 import PosPage from '@pages/pos/page';
 import ReportsPage from '@pages/reports/page';
 import CustomersPage from '@pages/customers/page';
+import SuppliersPage from '@pages/suppliers/page';
 import SettingsPage from '@pages/settings/page';
 import OnboardingPage from '@pages/onboarding/page';
 
@@ -55,6 +56,7 @@ function CacheBridge() {
       ['categories-updated', invalidate(['categories', 'products', 'inventory-stats'])],
       ['inventory-updated', invalidate(['products', 'inventory-stats', 'low-stock', 'dashboard-stats'])],
       ['customers-updated', invalidate(['customers', 'customers-list', 'customer-stats'])],
+      ['suppliers-updated', invalidate(['suppliers-list', 'supplier-stats', 'suppliers-active', 'supplier-summary', 'supplier-payments', 'purchases-list', 'purchase'])],
       ['currency-updated', invalidate(['settings'])],
     ];
 
@@ -174,6 +176,11 @@ function AppRoutes() {
               <Route path="customers" element={
                 <PermissionGuard permission="customers:view">
                   <AnimatedPage><CustomersPage /></AnimatedPage>
+                </PermissionGuard>
+              } />
+              <Route path="suppliers" element={
+                <PermissionGuard permission="suppliers:view">
+                  <AnimatedPage><SuppliersPage /></AnimatedPage>
                 </PermissionGuard>
               } />
               <Route path="reports" element={

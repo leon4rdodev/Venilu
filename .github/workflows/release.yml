@@ -1,0 +1,47 @@
+# Release multiplataforma: al empujar un tag vX.Y.Z compila los instaladores
+# de Windows (NSIS) y Linux y los publica en leon4rdodev/Venilu-releases —
+# el mismo feed que consume el auto-updater de la app.
+#
+# REQUISITO (una sola vez): crear el secret RELEASES_TOKEN en este repo
+# (Settings → Secrets and variables → Actions) con un Personal Access Token
+# que tenga permiso de escritura sobre Venilu-releases — puede ser el mismo
+# GH_TOKEN que usas en el .env local con release.sh.
+#
+# Uso:  git tag v1.2.0 && git push origin v1.2.0
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: --win
+          - os: ubuntu-latest
+            target: --linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Versionar desde el tag
+        shell: bash
+        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}"
+
+      - name: Compilar y publicar
+        shell: bash
+        run: npm run electron:build -- ${{ matrix.target }} --publish always
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}

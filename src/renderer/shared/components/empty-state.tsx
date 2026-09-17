@@ -8,15 +8,31 @@ interface EmptyStateProps {
   colSpan?: number;
 }
 
+/** Shared body: circular muted icon well + foreground title + muted description. */
+function EmptyStateBody({ icon: Icon, title, description }: Omit<EmptyStateProps, "colSpan">) {
+  return (
+    <div className="flex flex-col items-center justify-center text-center">
+      <div
+        aria-hidden
+        className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground"
+      >
+        <Icon className="h-5 w-5" strokeWidth={1.75} />
+      </div>
+      <p className="text-sm font-medium text-foreground">{title}</p>
+      {description && (
+        <p className="mt-1 max-w-xs text-sm text-muted-foreground text-balance">{description}</p>
+      )}
+    </div>
+  );
+}
+
 /**
  * EmptyState as a standalone block (for non-table contexts)
  */
-export function EmptyState({ icon: Icon, title, description }: Omit<EmptyStateProps, "colSpan">) {
+export function EmptyState({ icon, title, description }: Omit<EmptyStateProps, "colSpan">) {
   return (
-    <div className="flex flex-col items-center justify-center text-muted-foreground py-12 text-center">
-      <Icon className="h-10 w-10 mb-2 opacity-30" />
-      <p className="font-medium">{title}</p>
-      {description && <p className="text-xs mt-1">{description}</p>}
+    <div className="py-12">
+      <EmptyStateBody icon={icon} title={title} description={description} />
     </div>
   );
 }
@@ -24,15 +40,11 @@ export function EmptyState({ icon: Icon, title, description }: Omit<EmptyStatePr
 /**
  * EmptyStateRow for use inside a <TableBody>
  */
-export function EmptyStateRow({ icon: Icon, title, description, colSpan = 5 }: EmptyStateProps) {
+export function EmptyStateRow({ icon, title, description, colSpan = 5 }: EmptyStateProps) {
   return (
-    <TableRow>
-      <TableCell colSpan={colSpan} className="h-32 text-center">
-        <div className="flex flex-col items-center justify-center text-muted-foreground">
-          <Icon className="h-10 w-10 mb-2 opacity-30" />
-          <p className="font-medium">{title}</p>
-          {description && <p className="text-xs mt-1">{description}</p>}
-        </div>
+    <TableRow className="hover:bg-transparent">
+      <TableCell colSpan={colSpan} className="h-40 text-center">
+        <EmptyStateBody icon={icon} title={title} description={description} />
       </TableCell>
     </TableRow>
   );

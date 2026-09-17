@@ -1,4 +1,4 @@
-import { Dialog, DialogContent } from "@components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@components/ui/dialog";
 import { Button } from "@components/ui/button";
 import { PauseCircle, Trash2, User2, Play } from "lucide-react";
 import { formatCurrency } from "@lib/currency";
@@ -19,17 +19,17 @@ export function ParkedSalesDialog({ open, onOpenChange, parkedSales, onResume, o
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden max-h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="p-6 pb-4 border-b border-border shrink-0 space-y-1">
+        <DialogHeader className="p-6 pb-4 gap-1 text-left border-b border-border shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-muted text-foreground flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-full bg-muted text-foreground flex items-center justify-center shrink-0" aria-hidden="true">
               <PauseCircle className="h-4 w-4" strokeWidth={1.75} />
             </div>
-            <h2 className="text-lg font-semibold tracking-tight">Ventas en Espera</h2>
+            <DialogTitle className="tracking-tight">Ventas en Espera</DialogTitle>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <DialogDescription>
             Tickets aparcados para atender a otro cliente sin perder la venta.
-          </p>
-        </div>
+          </DialogDescription>
+        </DialogHeader>
 
         {/* List */}
         <div className="flex-1 overflow-y-auto px-6 py-2 pb-4">
@@ -63,8 +63,8 @@ export function ParkedSalesDialog({ open, onOpenChange, parkedSales, onResume, o
                           · {items} artículo{items !== 1 ? "s" : ""}
                         </span>
                         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground min-w-0">
-                          <User2 className="h-3 w-3 shrink-0" strokeWidth={1.75} />
-                          <span className="truncate">{entry.customer?.name ?? "Cliente genérico"}</span>
+                          <User2 className="h-3 w-3 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+                          <span className="truncate" title={entry.customer?.name ?? "Cliente genérico"}>{entry.customer?.name ?? "Cliente genérico"}</span>
                         </span>
                         {entry.discountAmount > 0 && (
                           <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
@@ -78,7 +78,7 @@ export function ParkedSalesDialog({ open, onOpenChange, parkedSales, onResume, o
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-2 shrink-0">
-                      <span className="text-base font-semibold font-mono tabular-nums whitespace-nowrap">
+                      <span className="text-base font-semibold font-mono tabular-nums whitespace-nowrap" title={formatCurrency(Math.max(0, total))}>
                         {formatCurrency(Math.max(0, total))}
                       </span>
                       <div className="flex items-center gap-1">
@@ -90,18 +90,20 @@ export function ParkedSalesDialog({ open, onOpenChange, parkedSales, onResume, o
                             onResume(entry.id);
                             onOpenChange(false);
                           }}
+                          aria-label={`Reanudar ticket #${entry.id}`}
                         >
-                          <Play className="h-3.5 w-3.5" strokeWidth={1.75} />
+                          <Play className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
                           Reanudar
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                           onClick={() => onRemove(entry.id)}
                           title="Descartar ticket"
+                          aria-label={`Descartar ticket #${entry.id}`}
                         >
-                          <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                          <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
                         </Button>
                       </div>
                     </div>

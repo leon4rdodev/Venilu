@@ -8,7 +8,7 @@
  * Domain entities (Shift, Sale, DebtPayment…) live in @shared/types/models.
  */
 
-import type { Sale, DebtPaymentSummary } from '@shared/types/models';
+import type { Sale, DebtPaymentSummary, SaleReturnSummary } from '@shared/types/models';
 
 // ---------------------------------------------------------------------------
 // Shift context
@@ -49,6 +49,8 @@ export interface ShiftHistoryEntry {
   debt_payments: DebtPaymentSummary[];
   /** Cash expenses recorded during this shift */
   expenses?: any[];
+  /** Partial returns refunded in cash from this shift's register */
+  returns?: SaleReturnSummary[];
 }
 
 // ---------------------------------------------------------------------------

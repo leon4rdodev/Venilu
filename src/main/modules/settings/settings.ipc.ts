@@ -4,9 +4,23 @@ import path from 'path';
 import { SettingsService } from '@main/modules/settings/services/settings.service';
 import { UsersService } from '@main/modules/users/services/users.service';
 import { requirePermission } from '@main/shared/session';
+import { auditService } from '@main/modules/audit/services/audit.service';
 
 const settingsService = new SettingsService();
 const usersService = new UsersService();
+
+/**
+ * app.getVersion() devuelve la versión de Electron cuando la app corre sin
+ * empaquetar (dev): en ese caso se lee package.json del proyecto.
+ */
+function getAppVersion(): string {
+  if (app.isPackaged) return app.getVersion();
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../../package.json'), 'utf8'));
+    if (typeof pkg?.version === 'string') return pkg.version;
+  } catch { /* fall through */ }
+  return app.getVersion();
+}
 
 export function registerSettingsHandlers() {
   ipcMain.handle('settings:get', async () => {
@@ -25,6 +39,10 @@ export function registerSettingsHandlers() {
       const onboarding = await usersService.checkOnboardingStatus();
       if (onboarding.completed) requirePermission('settings:edit');
       await settingsService.update(settingsData);
+      if (onboarding.completed) {
+        const fields = Object.keys(settingsData ?? {}).filter(k => k !== 'logo');
+        auditService.log('settings:update', undefined, fields.join(', '), { fields });
+      }
       return { success: true, message: 'Configuración actualizada.' };
     } catch (err: any) {
       return { success: false, message: err.message };
@@ -37,7 +55,7 @@ export function registerSettingsHandlers() {
       return {
         success: true,
         data: {
-          version: app.getVersion(),
+          version: getAppVersion(),
           electron: process.versions.electron,
           chrome: process.versions.chrome,
           node: process.versions.node,

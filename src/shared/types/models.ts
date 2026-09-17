@@ -72,6 +72,12 @@ export interface Product {
   min_stock?: number;
   /** true = exento de ITBIS (default: gravado). */
   itbis_exempt?: boolean;
+  /** Presentación: id del producto padre (null/ausente = producto principal). */
+  parent_product_id?: string | null;
+  /** Etiqueta de la presentación, p. ej. "Pequeño 250ml". */
+  variant_name?: string | null;
+  /** Producto padre (cargado en algunas respuestas). */
+  parent?: Product | null;
   /**
    * Product photo. Stored as a managed file name (e.g. "prod_ab12.webp") served
    * via venilu://product-images/. Legacy rows may still hold a data URL.
@@ -136,6 +142,10 @@ export interface DebtPayment {
   shift_id?: string;
   amount: number;
   payment_method: DebtPaymentMethod;
+  /** 'payment' = abono recibido; 'refund' = dinero devuelto al anular una venta fiada ya cobrada. */
+  type?: 'payment' | 'refund';
+  /** Id de la venta asociada (reembolsos). */
+  reference?: string;
   notes?: string;
   created_at: string | Date;
 }
@@ -151,7 +161,26 @@ export interface DebtPaymentSummary {
   shift_id?: string;
   amount: number;
   payment_method: DebtPaymentMethod;
+  type?: 'payment' | 'refund';
+  reference?: string;
   notes?: string;
+  created_at: string | Date;
+}
+
+/** Devolución parcial (resumen) — reembolsada en efectivo desde la caja del turno. */
+export interface SaleReturnSummary {
+  id: string;
+  sale_id: string;
+  shift_id?: string;
+  user_id?: string;
+  username?: string;
+  total_refunded: number;
+  itbis_refunded?: number;
+  cost_refunded?: number;
+  credit_note_ncf?: string;
+  /** Fecha de anulación (null si no está anulada). */
+  voided_at?: string | Date | null;
+  note?: string;
   created_at: string | Date;
 }
 
@@ -170,6 +199,8 @@ export interface Shift {
   sales?: Sale[];
   /** Debt payments received during this shift — populated by getShiftsHistory */
   debt_payments?: DebtPaymentSummary[];
+  /** Devoluciones parciales cargadas a este turno — populated by getShiftsHistory */
+  returns?: SaleReturnSummary[];
   force_closed?: boolean;
   force_closed_by?: string;
   force_close_reason?: string;
@@ -224,7 +255,7 @@ export interface LicenseStatus {
 export interface StockMovementEntry {
   id: string;
   product_id: string;
-  type: 'sale' | 'void' | 'adjustment' | 'initial' | 'return';
+  type: 'sale' | 'void' | 'adjustment' | 'initial' | 'return' | 'purchase' | 'purchase_void';
   quantity_delta: number;
   stock_after: number;
   reference?: string | null;
@@ -244,4 +275,70 @@ export interface AuditLogEntry {
   target_label?: string | null;
   metadata?: string | null;
   created_at: string;
+}
+
+// ─── Suplidores y compras ─────────────────────────────────────────────────────
+
+export interface Supplier {
+  id: string;
+  name: string;
+  rnc?: string | null;
+  contact_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  notes?: string | null;
+  /** Días de crédito que otorga el suplidor (0 = de contado). */
+  credit_days: number;
+  /** Cuenta por pagar acumulada (lo que el negocio le debe). */
+  balance: number;
+  active: boolean;
+  created_at: string | Date;
+  updated_at?: string | Date;
+}
+
+export type PurchaseStatus = 'received' | 'cancelled';
+export type PurchasePaymentStatus = 'paid' | 'partial' | 'pending';
+
+export interface PurchaseItem {
+  id: string;
+  purchase_id: string;
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  unit_cost: number;
+  total_cost: number;
+  previous_cost?: number | null;
+}
+
+export interface Purchase {
+  id: string;
+  supplier_id: string;
+  supplier_name: string;
+  invoice_number?: string | null;
+  status: PurchaseStatus;
+  payment_status: PurchasePaymentStatus;
+  total_amount: number;
+  amount_paid: number;
+  due_date?: string | Date | null;
+  notes?: string | null;
+  user_id?: string | null;
+  username?: string | null;
+  updated_costs: boolean;
+  items?: PurchaseItem[];
+  supplier?: Supplier;
+  created_at: string | Date;
+  cancelled_at?: string | Date | null;
+}
+
+export interface SupplierPayment {
+  id: string;
+  supplier_id: string;
+  purchase_id?: string | null;
+  amount: number;
+  payment_method: 'cash' | 'transfer';
+  shift_id?: string | null;
+  notes?: string | null;
+  username?: string | null;
+  created_at: string | Date;
 }

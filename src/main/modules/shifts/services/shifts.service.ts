@@ -4,8 +4,9 @@ import { ShiftExpense } from "@main/modules/shifts/entities/shift-expense.entity
 import { Sale as SaleEntity } from "@main/modules/sales/entities/sale.entity";
 import { DebtPayment as DebtPaymentEntity } from "@main/modules/sales/entities/debt-payment.entity";
 import { SaleReturn as SaleReturnEntity } from "@main/modules/sales/entities/sale-return.entity";
-import { Repository } from "typeorm";
+import { Repository, In } from "typeorm";
 import { round2 } from "@shared/money";
+import { computeShiftCash, ShiftCashBreakdown } from "@shared/cash-reconciliation";
 
 export class ShiftsService {
     private shiftRepository: Repository<ShiftEntity>;
@@ -112,6 +113,37 @@ export class ShiftsService {
         return this.shiftRepository.save(shift);
     }
 
+    /** Devoluciones parciales reembolsadas desde la caja de este turno. */
+    async getShiftReturns(shiftId: string): Promise<SaleReturnEntity[]> {
+        return AppDataSource.getRepository(SaleReturnEntity).find({
+            where: { shift_id: shiftId },
+            order: { created_at: 'DESC' },
+        });
+    }
+
+    /**
+     * Arqueo del turno con la MISMA fórmula que usa el renderer
+     * (@shared/cash-reconciliation): ventas en efectivo + abonos − reembolsos
+     * − gastos − devoluciones parciales.
+     */
+    async computeExpectedCash(shift: ShiftEntity): Promise<ShiftCashBreakdown> {
+        const [sales, debtPayments, returns, expenses] = await Promise.all([
+            this.saleRepository.find({ where: { shift_id: shift.id } }),
+            this.debtPaymentRepository.find({ where: { shift_id: shift.id } }),
+            this.getShiftReturns(shift.id),
+            shift.expenses
+                ? Promise.resolve(shift.expenses)
+                : AppDataSource.getRepository(ShiftExpense).find({ where: { shift_id: shift.id } }),
+        ]);
+        return computeShiftCash({
+            initialCash: shift.initial_cash,
+            sales,
+            debtPayments,
+            expenses,
+            returns,
+        });
+    }
+
     async closeShift(shiftId: string, finalCash: number, expectedUserId?: string): Promise<ShiftEntity> {
         const cash = round2(Number(finalCash));
         if (!Number.isFinite(cash) || cash < 0) {
@@ -134,37 +166,7 @@ export class ShiftsService {
             throw new Error("El turno ya está cerrado");
         }
 
-        // Calculate expected cash from cash sales
-        const sales = await this.saleRepository.find({
-            where: { shift_id: shiftId }
-        });
-
-        const totalSalesCash = sales
-            .filter(s => s.payment_method === 'cash' && s.status !== 'voided')
-            .reduce((sum, s) => sum + Number(s.total_amount), 0);
-
-        // Also include cash debt payments received during this shift.
-        // Refunds (voided credit sales already collected) SUBTRACT — that money
-        // physically left the drawer.
-        const debtPayments = await this.debtPaymentRepository.find({
-            where: { shift_id: shiftId }
-        });
-        const totalDebtCash = debtPayments
-            .filter(p => p.payment_method === 'cash')
-            .reduce((sum, p) => sum + (p.type === 'refund' ? -Number(p.amount) : Number(p.amount)), 0);
-
-        // Subtract expenses
-        const totalExpenses = (shift.expenses || []).reduce((sum, e) => sum + Number(e.amount), 0);
-
-        // Devoluciones parciales pagadas desde esta caja
-        const shiftReturns = await AppDataSource.getRepository(SaleReturnEntity)
-            .createQueryBuilder('ret')
-            .select('SUM(ret.total_refunded)', 'refunded')
-            .where('ret.shift_id = :shiftId', { shiftId })
-            .getRawOne();
-        const totalReturns = Number(shiftReturns?.refunded) || 0;
-
-        const expectedCash = round2(Number(shift.initial_cash) + totalSalesCash + totalDebtCash - totalExpenses - totalReturns);
+        const { expectedCash } = await this.computeExpectedCash(shift);
 
         shift.final_cash = cash;
         shift.expected_cash = expectedCash;
@@ -224,6 +226,21 @@ export class ShiftsService {
 
         const shifts = await query.getMany();
 
+        // Devoluciones parciales por turno (reembolsadas en efectivo desde esa caja)
+        const returnsByShift = new Map<string, SaleReturnEntity[]>();
+        if (shifts.length > 0) {
+            const returns = await AppDataSource.getRepository(SaleReturnEntity).find({
+                where: { shift_id: In(shifts.map(s => s.id)) },
+                order: { created_at: 'DESC' },
+            });
+            for (const r of returns) {
+                if (!r.shift_id) continue;
+                const list = returnsByShift.get(r.shift_id) ?? [];
+                list.push(r);
+                returnsByShift.set(r.shift_id, list);
+            }
+        }
+
         // Drop the joined user entity (contains the password hash) — expose
         // only the display name.
         return shifts.map(({ user, ...shift }) => ({
@@ -238,6 +255,7 @@ export class ShiftsService {
                 customer_name: dp.customer?.name || 'Cliente',
             })),
             expenses: shift.expenses || [],
+            returns: returnsByShift.get(shift.id) ?? [],
         }));
     }
 
@@ -267,26 +285,7 @@ export class ShiftsService {
         if (!shift) throw new Error("Turno no encontrado");
         if (shift.status === 'closed') throw new Error("El turno ya está cerrado");
 
-        const sales = await this.saleRepository.find({ where: { shift_id: shiftId } });
-        const totalSalesCash = sales
-            .filter(s => s.payment_method === 'cash' && s.status !== 'voided')
-            .reduce((sum, s) => sum + Number(s.total_amount), 0);
-
-        const debtPaymentsCash = await this.debtPaymentRepository.find({ where: { shift_id: shiftId } });
-        const totalDebtCash = debtPaymentsCash
-            .filter(p => p.payment_method === 'cash')
-            .reduce((sum, p) => sum + (p.type === 'refund' ? -Number(p.amount) : Number(p.amount)), 0);
-
-        const totalExpenses = (shift.expenses || []).reduce((sum, e) => sum + Number(e.amount), 0);
-
-        const forceReturns = await AppDataSource.getRepository(SaleReturnEntity)
-            .createQueryBuilder('ret')
-            .select('SUM(ret.total_refunded)', 'refunded')
-            .where('ret.shift_id = :shiftId', { shiftId })
-            .getRawOne();
-        const totalReturns = Number(forceReturns?.refunded) || 0;
-
-        const expectedCash = round2(Number(shift.initial_cash) + totalSalesCash + totalDebtCash - totalExpenses - totalReturns);
+        const { expectedCash } = await this.computeExpectedCash(shift);
 
         shift.final_cash = cash;
         shift.expected_cash = expectedCash;

@@ -18,6 +18,7 @@ import { registerPrinterHandlers } from '@main/shared/ipc/printer.ipc';
 import { registerAuditHandlers } from '@main/modules/audit/audit.ipc';
 import { registerLicenseHandlers } from '@main/shared/ipc/license.ipc';
 import { registerFiscalHandlers } from '@main/modules/fiscal/fiscal.ipc';
+import { registerSuppliersHandlers } from '@main/modules/suppliers/suppliers.ipc';
 import { licenseService } from '@main/shared/services/license.service';
 import { BackupsService } from '@main/modules/backups/services/backups.service';
 import { registerSessionHandlers } from '@main/shared/session';
@@ -131,6 +132,7 @@ async function initialize() {
         registerAuditHandlers();
         registerLicenseHandlers();
         registerFiscalHandlers();
+        registerSuppliersHandlers();
 
         // 5. Create the browser window and wire the auto-updater ONCE
         // (registering it per-window duplicated IPC handlers on macOS 'activate')

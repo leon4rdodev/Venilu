@@ -10,19 +10,27 @@ import { useEffect, useRef, useState } from "react";
  */
 export function useMinimumLoading(isLoading: boolean, minMs = 800): boolean {
   const [holdActive, setHoldActive] = useState(isLoading);
-  const startedAtRef = useRef<number>(isLoading ? Date.now() : 0);
+  const startedAtRef = useRef<number>(0);
+
+  // When loading (re)starts, arm the hold during render — "reset state on
+  // prop change" pattern, no setState inside an effect.
+  const [prevLoading, setPrevLoading] = useState(isLoading);
+  if (isLoading !== prevLoading) {
+    setPrevLoading(isLoading);
+    if (isLoading) setHoldActive(true);
+  }
 
   useEffect(() => {
     if (isLoading) {
       startedAtRef.current = Date.now();
-      setHoldActive(true);
       return;
     }
     if (!holdActive) return;
-
-    const elapsed = Date.now() - startedAtRef.current;
-    const remaining = minMs - elapsed;
+    const remaining = minMs - (Date.now() - startedAtRef.current);
     if (remaining <= 0) {
+      // The minimum window already elapsed while loading: release NOW, not on
+      // a 0ms timer — a residual tick would flash the skeleton one extra frame.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHoldActive(false);
       return;
     }

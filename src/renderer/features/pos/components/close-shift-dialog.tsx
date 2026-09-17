@@ -3,12 +3,16 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
 } from '@components/ui/dialog';
 import { Button } from '@components/ui/button';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { formatCurrency, getCurrencySymbol } from '@lib/currency';
 import { useShift } from '../hooks/use-shift';
+import { computeShiftCash } from '@shared/cash-reconciliation';
 import { toast } from 'sonner';
 import {
   Wallet,
@@ -25,6 +29,7 @@ import {
   Calculator,
   ChevronDown,
   ChevronRight,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@lib/utils';
 import { ViewExpensesDialog } from './view-expenses-dialog';
@@ -42,7 +47,7 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
   const [showCounter, setShowCounter] = useState(false);
   const [counts, setCounts] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
-  const { activeShift, shiftSales, shiftDebtPayments, shiftExpenses, closeShift } = useShift();
+  const { activeShift, shiftSales, shiftDebtPayments, shiftExpenses, shiftReturns, closeShift } = useShift();
 
   // Focus the cash input when the dialog opens; reset the denomination counter
   useEffect(() => {
@@ -84,39 +89,46 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
     setShowCounter(false);
   };
 
-  const { initialCash, cashSalesTotal, expectedCash, totalSales, otherSalesTotal, totalTransactions, cashDebtTotal, transferDebtTotal, totalDebtPayments, totalExpenses } = useMemo(() => {
-    if (!activeShift) return { initialCash: 0, cashSalesTotal: 0, expectedCash: 0, totalSales: 0, otherSalesTotal: 0, totalTransactions: 0, cashDebtTotal: 0, transferDebtTotal: 0, totalDebtPayments: 0, totalExpenses: 0 };
+  const {
+    initialCash, cashSalesTotal, expectedCash, totalSales, otherSalesTotal, totalTransactions,
+    cashDebtTotal, cashRefunds, transferDebtTotal, totalDebtPayments, totalExpenses, totalReturns,
+  } = useMemo(() => {
+    if (!activeShift) {
+      return {
+        initialCash: 0, cashSalesTotal: 0, expectedCash: 0, totalSales: 0, otherSalesTotal: 0, totalTransactions: 0,
+        cashDebtTotal: 0, cashRefunds: 0, transferDebtTotal: 0, totalDebtPayments: 0, totalExpenses: 0, totalReturns: 0,
+      };
+    }
 
     const activeSales = shiftSales.filter(s => s.status !== 'voided');
-    const cashSales = activeSales.filter(s => s.payment_method === 'cash');
     const otherSales = activeSales.filter(s => s.payment_method !== 'cash' && s.payment_method !== 'credit');
+    const otherSalesTotal = otherSales.reduce((sum, sale) => sum + Number(sale.total_amount), 0);
 
-    const cashSalesTotal = cashSales.reduce((sum, sale) => sum + sale.total_amount, 0);
-    const otherSalesTotal = otherSales.reduce((sum, sale) => sum + sale.total_amount, 0);
-
-    // Debt payments received during this shift
-    const cashDebtPayments = shiftDebtPayments.filter(p => p.payment_method === 'cash');
-    const transferDebtPayments = shiftDebtPayments.filter(p => p.payment_method === 'transfer');
-    const cashDebtTotal = cashDebtPayments.reduce((sum, p) => sum + Number(p.amount), 0);
-    const transferDebtTotal = transferDebtPayments.reduce((sum, p) => sum + Number(p.amount), 0);
-
-    // Expenses
-    const totalExpenses = shiftExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+    // Same formula as the backend arqueo (@shared/cash-reconciliation):
+    // refunds of collected credit sales and partial returns LEAVE the drawer.
+    const cash = computeShiftCash({
+      initialCash: activeShift.initial_cash,
+      sales: shiftSales,
+      debtPayments: shiftDebtPayments,
+      expenses: shiftExpenses,
+      returns: shiftReturns,
+    });
 
     return {
-      initialCash: activeShift.initial_cash,
-      cashSalesTotal,
+      initialCash: cash.initialCash,
+      cashSalesTotal: cash.cashSalesTotal,
       otherSalesTotal,
-      totalSales: cashSalesTotal + otherSalesTotal,
-      // Cash abonos count as cash received, expenses count as cash withdrawn
-      expectedCash: activeShift.initial_cash + cashSalesTotal + cashDebtTotal - totalExpenses,
+      totalSales: cash.cashSalesTotal + otherSalesTotal,
+      expectedCash: cash.expectedCash,
       totalTransactions: activeSales.length,
-      cashDebtTotal,
-      transferDebtTotal,
-      totalDebtPayments: shiftDebtPayments.length,
-      totalExpenses,
+      cashDebtTotal: cash.cashDebtReceived,
+      cashRefunds: cash.cashRefunds,
+      transferDebtTotal: cash.transferDebtReceived,
+      totalDebtPayments: shiftDebtPayments.filter(p => p.type !== 'refund').length,
+      totalExpenses: cash.totalExpenses,
+      totalReturns: cash.totalReturns,
     };
-  }, [activeShift, shiftSales, shiftDebtPayments, shiftExpenses]);
+  }, [activeShift, shiftSales, shiftDebtPayments, shiftExpenses, shiftReturns]);
 
   const difference = useMemo(() => {
     const final = parseFloat(finalCash);
@@ -182,20 +194,20 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="p-5 pb-3 space-y-1 shrink-0 border-b border-border">
-          <h2 className="text-lg font-semibold tracking-tight">Cerrar Caja</h2>
-          <p className="text-sm text-muted-foreground">
+        <DialogHeader className="p-5 pb-3 gap-1 text-left shrink-0 border-b border-border">
+          <DialogTitle className="tracking-tight">Cerrar Caja</DialogTitle>
+          <DialogDescription>
             Realiza el arqueo y cierra el turno actual
-          </p>
-        </div>
+          </DialogDescription>
+        </DialogHeader>
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto min-h-0">
 
         {/* Shift Duration Badge */}
         <div className="px-5 pt-4 pb-3">
-          <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-muted text-xs font-medium text-muted-foreground">
-            <Clock className="h-3 w-3" strokeWidth={1.75} />
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-xs font-medium text-muted-foreground tabular-nums">
+            <Clock className="h-3 w-3" strokeWidth={1.75} aria-hidden="true" />
             Turno activo: {shiftDuration}
           </div>
         </div>
@@ -246,7 +258,7 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
         </div>
 
         {/* Abonos Section */}
-        {shiftDebtPayments.length > 0 && (
+        {(shiftDebtPayments.length > 0) && (
           <div className="px-5 pb-3">
             <div className="rounded-lg border border-border bg-card divide-y divide-border">
               <div className="p-4 space-y-2.5">
@@ -270,6 +282,15 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
                       <span>Transferencia</span>
                     </div>
                     <span className="text-sm font-medium font-mono tabular-nums">{formatCurrency(transferDebtTotal)}</span>
+                  </div>
+                )}
+                {cashRefunds > 0 && (
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground shrink-0">
+                      <ArrowDownCircle className="h-4 w-4 text-destructive" strokeWidth={1.75} />
+                      <span>Reembolsos (ventas fiadas anuladas)</span>
+                    </div>
+                    <span className="text-sm font-medium font-mono tabular-nums text-destructive">-{formatCurrency(cashRefunds)}</span>
                   </div>
                 )}
               </div>
@@ -299,17 +320,31 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
                 <span className="text-sm font-medium font-mono tabular-nums truncate text-emerald-600 dark:text-emerald-400">+{formatCurrency(cashDebtTotal)}</span>
               </div>
             )}
+            {cashRefunds > 0 && (
+              <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 bg-red-500/5">
+                <span className="text-sm text-destructive font-medium shrink-0">- Reembolsos en efectivo</span>
+                <span className="text-sm font-semibold font-mono tabular-nums truncate text-destructive">-{formatCurrency(cashRefunds)}</span>
+              </div>
+            )}
+            {totalReturns > 0 && (
+              <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 bg-red-500/5">
+                <span className="text-sm text-destructive font-medium shrink-0">- Devoluciones (efectivo)</span>
+                <span className="text-sm font-semibold font-mono tabular-nums truncate text-destructive">-{formatCurrency(totalReturns)}</span>
+              </div>
+            )}
             {totalExpenses > 0 && (
               <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 bg-red-500/5">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-destructive font-medium">- Salidas de caja (Gastos)</span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                     onClick={() => setShowExpensesList(true)}
+                    aria-label="Ver detalle de salidas de caja"
+                    title="Ver detalle"
                   >
-                    <Eye className="h-3.5 w-3.5" />
+                    <Eye className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
                   </Button>
                 </div>
                 <span className="text-sm font-semibold font-mono tabular-nums truncate text-destructive">-{formatCurrency(totalExpenses)}</span>
@@ -328,7 +363,7 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
             Efectivo contado en caja
           </Label>
           <div className="relative">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-semibold text-muted-foreground pointer-events-none">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold text-muted-foreground pointer-events-none" aria-hidden="true">
               {getCurrencySymbol()}
             </div>
             <Input
@@ -339,7 +374,8 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
               value={finalCash}
               onChange={handleAmountChange}
               placeholder="0.00"
-              className="h-12 text-lg! text-right font-semibold tabular-nums pl-20 pr-5 bg-background"
+              aria-describedby={difference !== null ? "cash-difference" : undefined}
+              className="h-12 text-lg! text-right font-semibold tabular-nums pl-18 pr-5 rounded-lg bg-background"
               style={{ fontSize: '1.25rem' }}
               disabled={isLoading}
             />
@@ -353,19 +389,20 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
             onClick={() => setShowCounter(v => !v)}
             disabled={isLoading}
             aria-expanded={showCounter}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+            aria-controls="cash-counter"
+            className="inline-flex items-center gap-1.5 h-8 -ml-1 px-1 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer focus-visible:outline-none focus-visible:ring-[1px] focus-visible:ring-ring"
           >
-            <Calculator className="h-3.5 w-3.5" strokeWidth={1.75} />
+            <Calculator className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
             Contar efectivo
             {showCounter ? (
-              <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.75} />
+              <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
             ) : (
-              <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+              <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
             )}
           </button>
 
           {showCounter && (
-            <div className="mt-2 rounded-lg border border-border">
+            <div id="cash-counter" className="mt-2 rounded-lg border border-border">
               <div className="max-h-64 overflow-y-auto divide-y divide-border">
                 {denominations.map((denomination) => {
                   const key = String(denomination);
@@ -427,8 +464,11 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
         {difference !== null && (
           <div className="px-5 pb-3">
             <div
+              id="cash-difference"
+              role="status"
+              aria-live="polite"
               className={cn(
-                "flex items-center justify-between p-3.5 rounded-lg border",
+                "flex items-center justify-between gap-3 p-3.5 rounded-lg border",
                 difference === 0
                   ? "bg-emerald-500/10 border-emerald-500/20"
                   : difference < 0
@@ -438,11 +478,11 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
             >
               <div className="flex items-center gap-2">
                 {difference === 0 ? (
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} aria-hidden="true" />
                 ) : difference < 0 ? (
-                  <ArrowDownCircle className="h-5 w-5 text-red-600 dark:text-red-400" strokeWidth={1.75} />
+                  <ArrowDownCircle className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400" strokeWidth={1.75} aria-hidden="true" />
                 ) : (
-                  <ArrowUpCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />
+                  <ArrowUpCircle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" strokeWidth={1.75} aria-hidden="true" />
                 )}
                 <div>
                   <p className={cn(
@@ -463,12 +503,15 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
                   )}
                 </div>
               </div>
-              <span className={cn(
-                "text-sm font-semibold font-mono tabular-nums shrink-0",
-                difference === 0 ? "text-emerald-600 dark:text-emerald-400"
-                  : difference < 0 ? "text-red-700 dark:text-red-400"
-                    : "text-amber-700 dark:text-amber-400"
-              )}>
+              <span
+                className={cn(
+                  "text-sm font-semibold font-mono tabular-nums shrink-0",
+                  difference === 0 ? "text-emerald-600 dark:text-emerald-400"
+                    : difference < 0 ? "text-red-700 dark:text-red-400"
+                      : "text-amber-700 dark:text-amber-400"
+                )}
+                title={`${difference > 0 ? '+' : ''}${formatCurrency(difference)}`}
+              >
                 {difference > 0 ? '+' : ''}{formatCurrency(difference)}
               </span>
             </div>
@@ -490,13 +533,14 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
           <Button
             onClick={handleCloseShift}
             disabled={isLoading || !isValidAmount}
+            aria-busy={isLoading}
             className="flex-1 h-11"
             variant={difference !== null && difference < 0 ? "destructive" : "default"}
           >
             {isLoading ? (
-              <>Cerrando...</>
+              <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />Cerrando...</>
             ) : (
-              <><LockKeyhole className="h-4 w-4" />Cerrar Turno</>
+              <><LockKeyhole className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />Cerrar Turno</>
             )}
           </Button>
         </div>

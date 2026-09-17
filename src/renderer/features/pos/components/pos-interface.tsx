@@ -118,16 +118,16 @@ export function POSInterface() {
 
   return (
     <>
-      <div className="flex gap-5 h-[calc(100vh-6.5rem)]">
+      <div className="flex gap-6 h-[calc(100vh-6.5rem)]">
         {showSalesHistory ? (
           <div className="w-full h-full">
-              <SalesHistory setShowSalesHistory={setShowSalesHistory} />
+            <SalesHistory setShowSalesHistory={setShowSalesHistory} />
           </div>
         ) : !activeShift ? (
-            <NoShiftPrompt
-              onOpenShift={() => setShowOpenShiftDialog(true)}
-              onViewHistory={() => setShowSalesHistory(true)}
-            />
+          <NoShiftPrompt
+            onOpenShift={() => setShowOpenShiftDialog(true)}
+            onViewHistory={() => setShowSalesHistory(true)}
+          />
         ) : (
           <div className="flex gap-6 flex-1 min-w-0">
               <ProductGrid

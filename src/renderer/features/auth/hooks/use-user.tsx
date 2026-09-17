@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { User } from '@shared/types/models';
 
 interface UserContextType {
@@ -11,6 +12,7 @@ interface UserContextType {
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
+  const queryClient = useQueryClient();
   const [user, setUserState] = useState<User | null>(() => {
     try {
       const item = window.localStorage.getItem('user');
@@ -69,6 +71,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const setUser = useCallback(async (user: User | null) => {
     try {
       setSessionReady(false);
+      // Never let one user's cached queries (dashboard, reports, costs…) leak
+      // into the next session: drop everything on login AND logout.
+      queryClient.clear();
       if (user) {
         // The main-process session is established by login-request /
         // session:restore — here we only persist the renderer copy.
@@ -86,7 +91,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setSessionReady(true);
     }
-  }, []);
+  }, [queryClient]);
 
   const logout = useCallback(async () => {
     await setUser(null);

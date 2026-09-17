@@ -63,40 +63,51 @@ export function PrinterStep({
             {hasPrinterSelected && (
                 <div className="space-y-3">
                     <div className="space-y-1.5">
-                        <Label className="text-sm">Tamaño de papel</Label>
+                        <Label htmlFor="paper-size" className="text-sm">Tamaño de papel</Label>
                         <Select
                             value={printerData.paper_size}
                             onValueChange={(v) =>
                                 setPrinterData(p => ({ ...p, paper_size: v }))
                             }
                         >
-                            <SelectTrigger className="h-10">
+                            <SelectTrigger id="paper-size" className="h-10">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="80mm">80mm</SelectItem>
-                                <SelectItem value="58mm">58mm</SelectItem>
+                                <SelectItem value="80mm">80 mm (estándar)</SelectItem>
+                                <SelectItem value="58mm">58 mm</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
                     <Button
+                        type="button"
                         variant="outline"
-                        className="w-full"
+                        className="w-full h-10"
                         onClick={testPrint}
                         disabled={isLoading}
+                        aria-busy={isLoading || undefined}
                     >
-                        <Printer className="w-4 h-4 mr-2" />
-                        Imprimir ticket de prueba
+                        <Printer className="w-4 h-4" aria-hidden />
+                        {isLoading ? 'Imprimiendo…' : 'Imprimir ticket de prueba'}
                     </Button>
                 </div>
             )}
 
             {printers.length === 0 && (
-                <div className="text-center py-6 text-sm text-muted-foreground bg-muted/30 rounded-lg border border-dashed border-border">
-                    No se encontraron impresoras físicas.<br />
-                    <span className="text-xs">
-                        Puedes configurar esto más tarde en Ajustes.
-                    </span>
+                <div
+                    role="status"
+                    className="flex flex-col items-center text-center py-6 px-4 rounded-lg border border-dashed border-border bg-muted/30"
+                >
+                    <div
+                        aria-hidden
+                        className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground"
+                    >
+                        <Printer className="w-4 h-4" strokeWidth={1.75} />
+                    </div>
+                    <p className="text-sm font-medium text-foreground">No se encontraron impresoras</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Puedes conectarla y configurarla más tarde en Ajustes.
+                    </p>
                 </div>
             )}
         </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Button } from "@components/ui/button";
+import { Button, buttonVariants } from "@components/ui/button";
+import { Skeleton } from "@components/ui/skeleton";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select";
@@ -91,7 +92,7 @@ function AutoBackupCard() {
                 <div className="space-y-1.5">
                     <Label htmlFor="auto-backup-frequency" className="text-sm">Frecuencia</Label>
                     <Select value={autoBackup} onValueChange={handleFrequencyChange}>
-                        <SelectTrigger id="auto-backup-frequency" className="h-9">
+                        <SelectTrigger id="auto-backup-frequency" className="h-9 w-full" aria-describedby="auto-backup-hint">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -113,12 +114,16 @@ function AutoBackupCard() {
                         onBlur={commitRetention}
                         onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                         disabled={autoBackup === 'off'}
+                        aria-describedby="auto-backup-retention-hint"
                         className="h-9 tabular-nums"
                     />
+                    <p id="auto-backup-retention-hint" className="text-xs text-muted-foreground">
+                        Entre 1 y 30. Las copias más antiguas se eliminan solas.
+                    </p>
                 </div>
             </div>
-            <p className="mt-3 text-xs text-muted-foreground">
-                El backup automático se crea al iniciar la aplicación cuando ha pasado el intervalo configurado.
+            <p id="auto-backup-hint" className="mt-3 text-xs text-muted-foreground">
+                El backup automático se crea al iniciar la aplicación cuando ha pasado el intervalo configurado. Los cambios se guardan al instante.
             </p>
         </div>
     );
@@ -323,8 +328,10 @@ export function BackupSettings() {
                             size="sm"
                             onClick={loadBackups}
                             disabled={loading}
+                            aria-label="Actualizar lista de copias"
+                            title="Actualizar lista"
                         >
-                            <RefreshCw className="h-4 w-4 mr-2" strokeWidth={1.75} />
+                            <RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} strokeWidth={1.75} aria-hidden="true" />
                             Actualizar
                         </Button>
                         <Button
@@ -332,17 +339,28 @@ export function BackupSettings() {
                             disabled={loading}
                             size="sm"
                         >
-                            <Database className="h-4 w-4 mr-2" strokeWidth={1.75} />
+                            <Database className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                             Crear Copia de Seguridad
                         </Button>
                     </div>
                 }
             />
             <div className="mt-4">
-                {backups.length === 0 ? (
+                {loading && backups.length === 0 ? (
+                    <div className="rounded-lg border border-border overflow-hidden divide-y divide-border" aria-busy="true" aria-label="Cargando copias de seguridad">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                            <div key={i} className="flex items-center justify-between gap-4 px-4 py-3">
+                                <Skeleton className="h-4 w-32" />
+                                <Skeleton className="h-6 w-16 rounded-full" />
+                                <Skeleton className="h-4 w-16" />
+                                <Skeleton className="h-8 w-64" />
+                            </div>
+                        ))}
+                    </div>
+                ) : backups.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                         <div className="w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-3">
-                            <Database className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} />
+                            <Database className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} aria-hidden="true" />
                         </div>
                         <p className="text-sm font-medium text-muted-foreground">No hay copias de seguridad disponibles</p>
                         <p className="text-sm text-muted-foreground mt-1">Crea tu primera copia de seguridad para proteger tus datos</p>
@@ -354,7 +372,7 @@ export function BackupSettings() {
                             <TableRow className="border-b border-border hover:bg-transparent">
                                 <TableHead className="text-xs text-muted-foreground font-medium">Fecha</TableHead>
                                 <TableHead className="text-xs text-muted-foreground font-medium">Tipo</TableHead>
-                                <TableHead className="text-xs text-muted-foreground font-medium">Tamaño</TableHead>
+                                <TableHead className="text-xs text-muted-foreground font-medium text-right">Tamaño</TableHead>
                                 <TableHead className="text-xs text-muted-foreground font-medium text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -365,7 +383,7 @@ export function BackupSettings() {
                                         {formatDate(backup.createdAt)}
                                     </TableCell>
                                     <TableCell>{getBackupTypeBadge(backup.type)}</TableCell>
-                                    <TableCell className="text-muted-foreground font-mono text-sm tabular-nums whitespace-nowrap">{formatFileSize(backup.size)}</TableCell>
+                                    <TableCell className="text-muted-foreground font-mono text-sm tabular-nums whitespace-nowrap text-right">{formatFileSize(backup.size)}</TableCell>
                                     <TableCell>
                                         <div className="flex justify-end gap-2">
                                             <Button
@@ -373,8 +391,9 @@ export function BackupSettings() {
                                                 size="sm"
                                                 onClick={() => handleExportBackup(backup)}
                                                 disabled={loading}
+                                                aria-label={`Exportar copia del ${formatDate(backup.createdAt)}`}
                                             >
-                                                <Upload className="h-4 w-4 mr-1" strokeWidth={1.75} />
+                                                <Upload className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                                                 Exportar
                                             </Button>
                                             <Button
@@ -385,20 +404,24 @@ export function BackupSettings() {
                                                     setRestoreDialogOpen(true);
                                                 }}
                                                 disabled={loading}
+                                                aria-label={`Restaurar copia del ${formatDate(backup.createdAt)}`}
                                             >
-                                                <Download className="h-4 w-4 mr-1" strokeWidth={1.75} />
+                                                <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                                                 Restaurar
                                             </Button>
                                             <Button
                                                 variant="outline"
-                                                size="sm"
+                                                size="icon-sm"
                                                 onClick={() => {
                                                     setSelectedBackup(backup);
                                                     setDeleteDialogOpen(true);
                                                 }}
                                                 disabled={loading}
+                                                aria-label={`Eliminar copia del ${formatDate(backup.createdAt)}`}
+                                                title="Eliminar copia"
+                                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
                                             >
-                                                <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                                                <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                                             </Button>
                                         </div>
                                     </TableCell>
@@ -414,39 +437,40 @@ export function BackupSettings() {
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle className="flex items-center gap-2">
-                                <AlertTriangle className="h-5 w-5 text-destructive" />
+                                <AlertTriangle className="h-5 w-5 text-destructive" strokeWidth={1.75} aria-hidden="true" />
                                 ¿Restaurar Copia de Seguridad?
                             </AlertDialogTitle>
-                            <AlertDialogDescription className="space-y-2">
-                                <p>
-                                    Esta acción reemplazará todos los datos actuales con los datos de la copia de seguridad.
-                                </p>
-                                <p className="font-semibold">
-                                    Se creará una copia de seguridad de los datos actuales antes de restaurar.
-                                </p>
-                                {selectedBackup && (
-                                    <div className="mt-4 p-4 bg-muted rounded-md">
-                                        <p className="text-sm">
-                                            <strong>Archivo:</strong> {selectedBackup.fileName}
-                                        </p>
-                                        <p className="text-sm">
-                                            <strong>Fecha:</strong> {formatDate(selectedBackup.createdAt)}
-                                        </p>
-                                        <p className="text-sm">
-                                            <strong>Tamaño:</strong> {formatFileSize(selectedBackup.size)}
-                                        </p>
-                                    </div>
-                                )}
-                                <p className="text-sm text-muted-foreground mt-4">
-                                    Los datos se actualizarán automáticamente, no es necesario reiniciar la aplicación.
-                                </p>
+                            {/* asChild → <div>: la descripción contiene bloques, y <p> no admite <p>/<div> anidados */}
+                            <AlertDialogDescription asChild>
+                                <div className="space-y-2">
+                                    <p>
+                                        Esta acción reemplazará todos los datos actuales con los datos de la copia de seguridad.
+                                    </p>
+                                    <p className="font-medium text-foreground">
+                                        Se creará una copia de seguridad de los datos actuales antes de restaurar.
+                                    </p>
+                                    {selectedBackup && (
+                                        <dl className="mt-4 rounded-md bg-muted p-4 text-sm grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+                                            <dt className="text-muted-foreground">Archivo</dt>
+                                            <dd className="font-mono text-foreground break-all">{selectedBackup.fileName}</dd>
+                                            <dt className="text-muted-foreground">Fecha</dt>
+                                            <dd className="text-foreground tabular-nums">{formatDate(selectedBackup.createdAt)}</dd>
+                                            <dt className="text-muted-foreground">Tamaño</dt>
+                                            <dd className="text-foreground tabular-nums">{formatFileSize(selectedBackup.size)}</dd>
+                                        </dl>
+                                    )}
+                                    <p className="text-sm text-muted-foreground mt-4">
+                                        Al terminar se cerrará la sesión y deberás iniciar sesión de nuevo.
+                                    </p>
+                                </div>
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
                             <AlertDialogAction
                                 onClick={handleRestoreBackup}
-                                className="bg-destructive hover:bg-destructive/90"
+                                disabled={loading}
+                                className={buttonVariants({ variant: "destructive" })}
                             >
                                 Restaurar
                             </AlertDialogAction>
@@ -459,25 +483,26 @@ export function BackupSettings() {
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle>¿Eliminar Copia de Seguridad?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Esta acción no se puede deshacer. La copia de seguridad será eliminada permanentemente.
-                                {selectedBackup && (
-                                    <div className="mt-4 p-4 bg-muted rounded-md">
-                                        <p className="text-sm">
-                                            <strong>Archivo:</strong> {selectedBackup.fileName}
-                                        </p>
-                                        <p className="text-sm">
-                                            <strong>Fecha:</strong> {formatDate(selectedBackup.createdAt)}
-                                        </p>
-                                    </div>
-                                )}
+                            <AlertDialogDescription asChild>
+                                <div className="space-y-2">
+                                    <p>Esta acción no se puede deshacer. La copia de seguridad será eliminada permanentemente.</p>
+                                    {selectedBackup && (
+                                        <dl className="mt-4 rounded-md bg-muted p-4 text-sm grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+                                            <dt className="text-muted-foreground">Archivo</dt>
+                                            <dd className="font-mono text-foreground break-all">{selectedBackup.fileName}</dd>
+                                            <dt className="text-muted-foreground">Fecha</dt>
+                                            <dd className="text-foreground tabular-nums">{formatDate(selectedBackup.createdAt)}</dd>
+                                        </dl>
+                                    )}
+                                </div>
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
                             <AlertDialogAction
                                 onClick={handleDeleteBackup}
-                                className="bg-destructive hover:bg-destructive/90"
+                                disabled={loading}
+                                className={buttonVariants({ variant: "destructive" })}
                             >
                                 Eliminar
                             </AlertDialogAction>

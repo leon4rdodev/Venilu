@@ -3,7 +3,7 @@ import { Sale as SaleEntity } from "@main/modules/sales/entities/sale.entity";
 import { SaleItem as SaleItemEntity } from "@main/modules/sales/entities/sale-item.entity";
 import { Shift as ShiftEntity } from "@main/modules/shifts/entities/shift.entity";
 import { DebtPayment as DebtPaymentEntity } from "@main/modules/sales/entities/debt-payment.entity";
-import { SaleReturn as SaleReturnEntity } from "@main/modules/sales/entities/sale-return.entity";
+import { SaleReturn as SaleReturnEntity, SaleReturnItem as SaleReturnItemEntity } from "@main/modules/sales/entities/sale-return.entity";
 // import { Between } from "typeorm";
 
 interface SalesMetrics {
@@ -92,6 +92,12 @@ export class ReportsService {
             .addSelect("SUM(item.quantity)", "totalItemsSold")
             .getRawOne();
 
+        // Unidades devueltas en el período (para que "unidades vendidas" sea neto)
+        const returnedUnitsRow = await this.returnedItemsQuery(startDate, endDate)
+            .select("SUM(ri.quantity)", "units")
+            .getRawOne();
+        const returnedUnits = Number(returnedUnitsRow?.units) || 0;
+
         const refunded = Number(returnsResult?.refunded) || 0;
         const costRefunded = Number(returnsResult?.costRefunded) || 0;
         const totalAmount = Math.round(((Number(saleResult?.collectedSales) || 0) + (Number(debtResult?.collectedDebt) || 0) - refunded) * 100) / 100;
@@ -99,7 +105,7 @@ export class ReportsService {
         const netProfit = totalAmount - totalCost;
         const averageMargin = totalAmount > 0 ? (netProfit / totalAmount) * 100 : 0;
         const totalSalesCount = Number(saleResult?.totalSalesCount || 0);
-        const totalItemsSold = Number(itemResult?.totalItemsSold || 0);
+        const totalItemsSold = Math.max(0, Number(itemResult?.totalItemsSold || 0) - returnedUnits);
         const averageTicket = totalSalesCount > 0 ? totalAmount / totalSalesCount : 0;
 
         return {
@@ -113,8 +119,49 @@ export class ReportsService {
         };
     }
 
+    /** Líneas devueltas (sale_return_items) dentro del rango, por fecha de la devolución. */
+    private returnedItemsQuery(startDate: Date | null, endDate: Date | null) {
+        const qb = AppDataSource.getRepository(SaleReturnItemEntity)
+            .createQueryBuilder("ri")
+            .innerJoin(SaleReturnEntity, "ret", "ret.id = ri.return_id")
+            .leftJoin("products", "product", "product.id = ri.product_id");
+        if (startDate && endDate) {
+            qb.where("ret.created_at BETWEEN :start AND :end", {
+                start: this.formatDate(startDate),
+                end: this.formatDate(endDate),
+            });
+        }
+        return qb;
+    }
+
+    /**
+     * Devoluciones agrupadas por clave (product_id o nombre de categoría):
+     * unidades, importe reembolsado y costo repuesto. Se restan de los
+     * rankings para que cuadren con el total neto del reporte.
+     */
+    private async returnedByKey(
+        startDate: Date | null,
+        endDate: Date | null,
+        keyExpr: string,
+    ): Promise<Map<string, { units: number; amount: number; cost: number }>> {
+        const rows = await this.returnedItemsQuery(startDate, endDate)
+            .leftJoin("categories", "category", "category.id = product.category_id")
+            .select(keyExpr, "key")
+            .addSelect("SUM(ri.quantity)", "units")
+            .addSelect("SUM(ri.amount_refunded)", "amount")
+            .addSelect("SUM(ri.quantity * COALESCE(product.cost_price, 0))", "cost")
+            .groupBy("key")
+            .getRawMany();
+        return new Map(rows.map(r => [String(r.key), {
+            units: Number(r.units) || 0,
+            amount: Number(r.amount) || 0,
+            cost: Number(r.cost) || 0,
+        }]));
+    }
+
     /**
      * Shared product ranking query: units, revenue, profit and margin per product.
+     * Net of partial returns in the same period.
      * @param direction DESC = top sellers, ASC = least sellers.
      */
     private async getProductRanking(
@@ -127,14 +174,13 @@ export class ReportsService {
             .createQueryBuilder("item")
             .leftJoin("item.sale", "sale")
             .leftJoin("item.product", "product")
-            .select("product.name", "productName")
+            .select("item.product_id", "productId")
+            .addSelect("product.name", "productName")
             .addSelect("SUM(item.quantity)", "totalSold")
             .addSelect("SUM(item.total_price)", "totalRevenue")
             .addSelect("SUM(item.quantity * COALESCE(product.cost_price, 0))", "totalCost")
             .where("sale.status != 'voided'")
-            .groupBy("item.product_id")
-            .orderBy("totalSold", direction)
-            .limit(limit);
+            .groupBy("item.product_id");
 
         if (startDate && endDate) {
             query.andWhere("sale.created_at BETWEEN :start AND :end", {
@@ -143,19 +189,27 @@ export class ReportsService {
             });
         }
 
-        const results = await query.getRawMany();
-        return results.map(r => {
-            const totalRevenue = Number(r.totalRevenue) || 0;
-            const totalCost = Number(r.totalCost) || 0;
-            const totalProfit = totalRevenue - totalCost;
+        const [results, returned] = await Promise.all([
+            query.getRawMany(),
+            this.returnedByKey(startDate, endDate, "ri.product_id"),
+        ]);
+        const rows = results.map(r => {
+            const ret = returned.get(String(r.productId));
+            const totalSold = Math.max(0, (Number(r.totalSold) || 0) - (ret?.units ?? 0));
+            const totalRevenue = Math.round(((Number(r.totalRevenue) || 0) - (ret?.amount ?? 0)) * 100) / 100;
+            const totalCost = Math.round(((Number(r.totalCost) || 0) - (ret?.cost ?? 0)) * 100) / 100;
+            const totalProfit = Math.round((totalRevenue - totalCost) * 100) / 100;
             return {
                 productName: r.productName,
-                totalSold: Number(r.totalSold) || 0,
+                totalSold,
                 totalRevenue,
                 totalProfit,
                 margin: totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0,
             };
         });
+        // Ordering happens after netting so a heavily-returned product ranks correctly
+        rows.sort((a, b) => direction === 'DESC' ? b.totalSold - a.totalSold : a.totalSold - b.totalSold);
+        return rows.slice(0, limit);
     }
 
     async getTopSellingProducts(startDate: Date | null, endDate: Date | null, limit: number = 5) {
@@ -317,23 +371,26 @@ export class ReportsService {
             salesQuery.getRawMany(), debtQuery.getRawMany(), creditQuery.getRawOne(), returnsQuery.getRawOne(),
         ]);
 
-        const buckets = new Map<string, { total: number; transactions: number }>();
+        // transactions = VENTAS cobradas con el método; los abonos se cuentan
+        // aparte (debtPayments) aunque su dinero sí entra en `total`.
+        const buckets = new Map<string, { total: number; transactions: number; debtPayments: number }>();
         for (const r of salesRows) {
             buckets.set(String(r.method), {
                 total: Number(r.total) || 0,
                 transactions: Number(r.transactions) || 0,
+                debtPayments: 0,
             });
         }
         for (const r of debtRows) {
             const method = String(r.method);
-            const bucket = buckets.get(method) ?? { total: 0, transactions: 0 };
+            const bucket = buckets.get(method) ?? { total: 0, transactions: 0, debtPayments: 0 };
             bucket.total = Math.round((bucket.total + (Number(r.collected) || 0)) * 100) / 100;
-            bucket.transactions += Number(r.payments) || 0;
+            bucket.debtPayments += Number(r.payments) || 0;
             buckets.set(method, bucket);
         }
         const refunded = Number(returnsRow?.refunded) || 0;
         if (refunded > 0) {
-            const cash = buckets.get('cash') ?? { total: 0, transactions: 0 };
+            const cash = buckets.get('cash') ?? { total: 0, transactions: 0, debtPayments: 0 };
             cash.total = Math.round((cash.total - refunded) * 100) / 100;
             buckets.set('cash', cash);
         }
@@ -343,11 +400,12 @@ export class ReportsService {
             buckets.set('credit', {
                 total: Math.max(0, Math.round((Number(creditRow?.pending) || 0) * 100) / 100),
                 transactions: creditCount,
+                debtPayments: 0,
             });
         }
 
         return [...buckets.entries()]
-            .map(([method, b]) => ({ method, total: b.total, transactions: b.transactions }))
+            .map(([method, b]) => ({ method, total: b.total, transactions: b.transactions, debtPayments: b.debtPayments }))
             .sort((a, b) => b.total - a.total);
     }
 
@@ -363,8 +421,7 @@ export class ReportsService {
             .addSelect("SUM(item.total_price)", "totalRevenue")
             .addSelect("SUM(item.quantity * COALESCE(product.cost_price, 0))", "totalCost")
             .where("sale.status != 'voided'")
-            .groupBy("categoryName")
-            .orderBy("totalRevenue", "DESC");
+            .groupBy("categoryName");
 
         if (startDate && endDate) {
             query.andWhere("sale.created_at BETWEEN :start AND :end", {
@@ -373,19 +430,23 @@ export class ReportsService {
             });
         }
 
-        const rows = await query.getRawMany();
+        const [rows, returned] = await Promise.all([
+            query.getRawMany(),
+            this.returnedByKey(startDate, endDate, "COALESCE(category.name, 'Sin categoría')"),
+        ]);
         return rows.map(r => {
-            const totalRevenue = Number(r.totalRevenue) || 0;
-            const totalCost = Number(r.totalCost) || 0;
-            const totalProfit = totalRevenue - totalCost;
+            const ret = returned.get(String(r.categoryName));
+            const totalRevenue = Math.round(((Number(r.totalRevenue) || 0) - (ret?.amount ?? 0)) * 100) / 100;
+            const totalCost = Math.round(((Number(r.totalCost) || 0) - (ret?.cost ?? 0)) * 100) / 100;
+            const totalProfit = Math.round((totalRevenue - totalCost) * 100) / 100;
             return {
                 categoryName: String(r.categoryName),
-                totalSold: Number(r.totalSold) || 0,
+                totalSold: Math.max(0, (Number(r.totalSold) || 0) - (ret?.units ?? 0)),
                 totalRevenue,
                 totalProfit,
                 margin: totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0,
             };
-        });
+        }).sort((a, b) => b.totalRevenue - a.totalRevenue);
     }
 
     /** Registered customers ranked by spend in the range (walk-ins excluded). */

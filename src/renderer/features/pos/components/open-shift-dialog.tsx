@@ -3,16 +3,20 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
 } from '@components/ui/dialog';
 import { Button } from '@components/ui/button';
 import { Input } from '@components/ui/input';
+import { Label } from '@components/ui/label';
 import { getCurrencySymbol } from '@lib/currency';
 
 import { useShift } from '../hooks/use-shift';
 import { useUser } from '@renderer/features/auth';
 import { toast } from 'sonner';
 import { formatCurrency } from '@lib/currency';
-import { Banknote, History, PlayCircle } from 'lucide-react';
+import { Banknote, History, PlayCircle, Loader2 } from 'lucide-react';
 import { cn } from '@lib/utils';
 
 interface OpenShiftDialogProps {
@@ -123,23 +127,23 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
         onInteractOutside={(e) => e.preventDefault()}
       >
         {/* Header */}
-        <div className="p-6 pb-4 space-y-1 border-b border-border">
-          <h2 className="text-lg font-semibold tracking-tight">Abrir Caja</h2>
-          <p className="text-sm text-muted-foreground">
+        <DialogHeader className="p-6 pb-4 gap-1 text-left border-b border-border">
+          <DialogTitle className="tracking-tight">Abrir Caja</DialogTitle>
+          <DialogDescription>
             Registra el fondo inicial para comenzar tu turno
-          </p>
-        </div>
+          </DialogDescription>
+        </DialogHeader>
 
         {/* Content */}
         <div className="p-6 space-y-5">
           {/* Who opens + when — the shift is registered to this user */}
           <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2.5">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold">
+              <div className="w-8 h-8 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold" aria-hidden="true">
                 {userInitial}
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{user?.username ?? 'Usuario'}</p>
+                <p className="text-sm font-medium truncate" title={user?.username ?? 'Usuario'}>{user?.username ?? 'Usuario'}</p>
                 <p className="text-xs text-muted-foreground">Responsable del turno</p>
               </div>
             </div>
@@ -148,12 +152,15 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
 
           {/* Input */}
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-              <Banknote className="h-3 w-3" strokeWidth={1.75} />
+            <Label
+              htmlFor="initial-cash"
+              className="gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider"
+            >
+              <Banknote className="h-3 w-3" strokeWidth={1.75} aria-hidden="true" />
               Fondo de caja inicial
-            </div>
+            </Label>
             <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold text-muted-foreground pointer-events-none">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold text-muted-foreground pointer-events-none" aria-hidden="true">
                 {getCurrencySymbol()}
               </div>
               <Input
@@ -165,7 +172,7 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
                 onChange={handleAmountChange}
                 onKeyDown={handleKeyDown}
                 placeholder="0.00"
-                className="h-12 text-lg! text-right font-semibold tabular-nums pl-18 pr-5 bg-background"
+                className="h-12 text-lg! text-right font-semibold tabular-nums pl-18 pr-5 rounded-lg bg-background"
                 style={{ fontSize: '1.25rem' }}
                 disabled={isLoading}
               />
@@ -178,15 +185,18 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
               type="button"
               onClick={() => setInitialCash(String(suggestedCash))}
               disabled={isLoading}
+              aria-pressed={initialCash === String(suggestedCash)}
               className={cn(
                 'w-full flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
+                'focus-visible:outline-none focus-visible:ring-[1px] focus-visible:ring-ring focus-visible:border-ring',
+                'disabled:opacity-50 disabled:cursor-not-allowed',
                 initialCash === String(suggestedCash)
                   ? 'border-primary bg-muted'
                   : 'border-border bg-background hover:bg-muted/60',
               )}
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 shrink-0 rounded-full bg-muted text-foreground flex items-center justify-center">
+                <div className="w-8 h-8 shrink-0 rounded-full bg-muted text-foreground flex items-center justify-center" aria-hidden="true">
                   <History className="h-4 w-4" strokeWidth={1.75} />
                 </div>
                 <div className="min-w-0">
@@ -196,7 +206,7 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
                   </p>
                 </div>
               </div>
-              <span className="text-sm font-semibold font-mono tabular-nums whitespace-nowrap">
+              <span className="text-sm font-semibold font-mono tabular-nums whitespace-nowrap" title={formatCurrency(suggestedCash)}>
                 {formatCurrency(suggestedCash)}
               </span>
             </button>
@@ -204,23 +214,28 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
 
           {/* Quick amounts */}
           <div className="space-y-2">
-            <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
+            <span id="quick-amounts-label" className="block text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
               Selección rápida
             </span>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5" role="group" aria-labelledby="quick-amounts-label">
               {quickAmounts.map((amount) => {
                 const isSelected = initialCash === String(amount);
                 return (
                   <button
                     key={amount}
+                    type="button"
+                    aria-pressed={isSelected}
                     className={cn(
-                      'py-2 rounded-full text-xs font-medium tabular-nums border transition-colors',
+                      'h-8 rounded-full text-xs font-medium tabular-nums border transition-colors truncate px-2',
+                      'focus-visible:outline-none focus-visible:ring-[1px] focus-visible:ring-ring focus-visible:border-ring',
+                      'disabled:opacity-50 disabled:cursor-not-allowed',
                       isSelected
                         ? 'bg-primary text-primary-foreground border-primary'
                         : 'bg-background hover:bg-muted border-border',
                     )}
                     onClick={() => setInitialCash(String(amount))}
                     disabled={isLoading}
+                    title={formatCurrency(amount)}
                   >
                     {formatCurrency(amount)}
                   </button>
@@ -239,10 +254,11 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
           <Button
             onClick={handleOpenShift}
             disabled={isLoading || !isValidAmount}
+            aria-busy={isLoading}
             className="w-full h-10 gap-2"
           >
             {isLoading ? (
-              <>Abriendo...</>
+              <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />Abriendo...</>
             ) : (
               <><PlayCircle className="h-4 w-4" strokeWidth={1.75} />Iniciar Turno</>
             )}

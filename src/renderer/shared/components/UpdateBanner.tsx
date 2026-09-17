@@ -17,20 +17,26 @@ export function UpdateBanner() {
 
   return (
     <div
-      className="fixed bottom-5 right-5 z-50 overflow-hidden rounded-2xl shadow-2xl shadow-black/20"
+      role="status"
+      aria-live="polite"
+      aria-label="Actualización de Venilu"
+      className="fixed bottom-5 right-5 z-50 overflow-hidden rounded-2xl border border-border bg-card shadow-2xl shadow-black/20"
       style={{ width: 360 }}
     >
       {/* Gradient top bar using primary color */}
-      <div className={`h-1 w-full ${isError ? 'bg-destructive' : 'bg-primary'}`} />
+      <div aria-hidden className={`h-1 w-full ${isError ? 'bg-destructive' : 'bg-primary'}`} />
 
-      <div className="bg-card border border-border/60 rounded-b-2xl px-5 py-4">
+      <div className="px-5 py-4">
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             {/* Icon bubble */}
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isError ? 'bg-destructive/10' : 'bg-primary'}`}>
+            <div
+              aria-hidden
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${isError ? 'bg-destructive/10' : 'bg-primary'}`}
+            >
               {isDownloading ? (
-                <Download className="h-5 w-5 text-primary-foreground animate-bounce" />
+                <Download className="h-5 w-5 text-primary-foreground animate-bounce motion-reduce:animate-none" />
               ) : isReady ? (
                 <Rocket className="h-5 w-5 text-primary-foreground" />
               ) : isError ? (
@@ -42,14 +48,14 @@ export function UpdateBanner() {
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <p className={`text-sm font-bold leading-tight ${isError ? 'text-destructive' : 'text-foreground'}`}>
+                <p className={`text-sm font-semibold leading-tight ${isError ? 'text-destructive' : 'text-foreground'}`}>
                   {isAvailable && 'Nueva versión disponible'}
                   {isDownloading && 'Descargando actualización'}
                   {isReady && '¡Lista para instalar!'}
                   {isError && 'Error en la actualización'}
                 </p>
                 {isReady && (
-                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary uppercase tracking-wide">
+                  <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium leading-4 text-muted-foreground">
                     Nueva
                   </span>
                 )}
@@ -67,10 +73,12 @@ export function UpdateBanner() {
 
           {!isDownloading && (
             <button
+              type="button"
               onClick={() => setDismissed(true)}
-              className="mt-0.5 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground shrink-0"
+              aria-label="Cerrar aviso de actualización"
+              className="-mr-1.5 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-4 w-4" strokeWidth={1.75} aria-hidden />
             </button>
           )}
         </div>
@@ -93,9 +101,16 @@ export function UpdateBanner() {
                   {(progress as any)?.percent ?? 0}%
                 </span>
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                role="progressbar"
+                aria-label="Progreso de descarga"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round((progress as any)?.percent ?? 0)}
+                className="h-2 w-full overflow-hidden rounded-full bg-muted"
+              >
                 <div
-                  className="h-full rounded-full bg-primary transition-all duration-300"
+                  className="h-full rounded-full bg-primary transition-all duration-300 motion-reduce:transition-none"
                   style={{ width: `${(progress as any)?.percent ?? 0}%` }}
                 />
               </div>
@@ -109,22 +124,25 @@ export function UpdateBanner() {
             {isReady ? (
               <>
                 <button
+                  type="button"
                   onClick={installNow}
-                  className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 active:scale-95"
+                  className="flex-1 h-10 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                 >
                   Reiniciar e instalar
                 </button>
                 <button
+                  type="button"
                   onClick={() => setDismissed(true)}
-                  className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
+                  className="h-10 rounded-full border border-border px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                 >
                   Más tarde
                 </button>
               </>
             ) : (
               <button
+                type="button"
                 onClick={() => setDismissed(true)}
-                className="flex-1 rounded-xl border border-border py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
+                className="flex-1 h-10 rounded-full border border-border px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
               >
                 Cerrar
               </button>

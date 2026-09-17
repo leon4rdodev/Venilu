@@ -14,6 +14,7 @@ Venilu es un sistema POS local-first para escritorio. Su objetivo es permitir qu
 | Inventario | Productos, categorias, SKU, codigo de barra, stock minimo |
 | Clientes | Datos de contacto, balance, limite de credito, historial y pagos |
 | Credito | Venta a credito, deuda acumulada, abonos aplicados a ventas pendientes |
+| Suplidores | Proveedores, compras que entran al inventario, cuentas por pagar y pagos |
 | Reportes | Metricas, productos mas/menos vendidos, ventas por periodo, PDF |
 | Configuracion | Datos del negocio, moneda, impresora, papel, logo |
 | Backups | Crear, listar, restaurar y eliminar copias SQLite |

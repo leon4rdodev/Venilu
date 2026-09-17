@@ -1,4 +1,6 @@
-import { BrowserWindow } from 'electron';
+import { app, BrowserWindow } from 'electron';
+import fs from 'fs';
+import path from 'path';
 import { SalesService } from '../../modules/sales/services/sales.service';
 import { SettingsService } from '../../modules/settings/services/settings.service';
 // import { UsersService } from '../../modules/users/services/users.service';
@@ -99,9 +101,6 @@ export class PrinterService {
         let logoBase64 = '';
         if (logo_filename) {
             try {
-                const fs = require('fs');
-                const path = require('path');
-                const { app } = require('electron');
                 const filePath = path.join(app.getPath('userData'), path.basename(logo_filename));
                 if (fs.existsSync(filePath)) {
                     const buffer = fs.readFileSync(filePath);

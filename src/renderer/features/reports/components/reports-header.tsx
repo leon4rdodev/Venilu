@@ -9,7 +9,7 @@ import {
 } from "@components/ui/dropdown-menu";
 import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { FileDown, FileText, FileSpreadsheet, ChevronDown, Landmark } from "lucide-react";
+import { FileDown, FileText, FileSpreadsheet, ChevronDown, Landmark, Loader2 } from "lucide-react";
 import { usePermissions } from "@renderer/features/auth/hooks/use-permission";
 import { cn } from "@lib/utils";
 import type { ExportKind } from "../hooks/use-reports";
@@ -72,6 +72,7 @@ export function ReportsHeader({
   const perms = usePermissions("reports:export_pdf");
   const canExport = perms["reports:export_pdf"];
   const [export607Open, setExport607Open] = useState(false);
+  const isExporting = exporting !== null;
 
   const activePresetKey = useMemo(() => {
     if (!dateRange.from || !dateRange.to) return null;
@@ -98,21 +99,28 @@ export function ReportsHeader({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="flex flex-wrap items-center gap-1.5">
-        {PRESETS.map((preset) => (
-          <button
-            key={preset.key}
-            onClick={() => handlePreset(preset)}
-            className={cn(
-              "px-3 h-9 rounded-full border text-xs font-medium transition-colors whitespace-nowrap",
-              activePresetKey === preset.key
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-card text-muted-foreground border-border hover:text-foreground hover:bg-muted"
-            )}
-          >
-            {preset.label}
-          </button>
-        ))}
+      {/* Presets: grupo de toggles (aria-pressed) con anillo de foco visible para teclado */}
+      <div role="group" aria-label="Períodos predefinidos" className="flex flex-wrap items-center gap-1.5">
+        {PRESETS.map((preset) => {
+          const isActive = activePresetKey === preset.key;
+          return (
+            <button
+              key={preset.key}
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => handlePreset(preset)}
+              className={cn(
+                "px-3 h-9 rounded-full border text-xs font-medium transition-colors whitespace-nowrap",
+                "outline-none focus-visible:ring-[1px] focus-visible:ring-ring focus-visible:border-ring",
+                isActive
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-muted-foreground border-border hover:text-foreground hover:bg-muted"
+              )}
+            >
+              {preset.label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="flex-1 min-w-2" />
@@ -122,23 +130,34 @@ export function ReportsHeader({
       {canExport && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button disabled={exporting !== null} className="h-9 shrink-0">
-              <FileDown className="h-4 w-4" strokeWidth={1.75} />
-              {exporting !== null ? "Generando..." : "Exportar"}
-              {exporting === null && <ChevronDown className="h-3.5 w-3.5 opacity-70" strokeWidth={1.75} />}
+            <Button
+              disabled={isExporting}
+              aria-busy={isExporting}
+              aria-label={isExporting ? "Generando reporte" : "Exportar reporte"}
+              className="h-9 shrink-0"
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} aria-hidden="true" />
+              ) : (
+                <FileDown className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              )}
+              {isExporting ? "Generando…" : "Exportar"}
+              {!isExporting && (
+                <ChevronDown className="h-3.5 w-3.5 opacity-70" strokeWidth={1.75} aria-hidden="true" />
+              )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="rounded-lg min-w-[180px]">
-            <DropdownMenuItem onClick={onGeneratePDF} disabled={exporting !== null}>
-              <FileText className="h-4 w-4" strokeWidth={1.75} />
+          <DropdownMenuContent align="end" aria-label="Opciones de exportación" className="rounded-lg min-w-[200px]">
+            <DropdownMenuItem onClick={onGeneratePDF} disabled={isExporting}>
+              <FileText className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               Exportar PDF
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onGenerateCSV} disabled={exporting !== null}>
-              <FileSpreadsheet className="h-4 w-4" strokeWidth={1.75} />
+            <DropdownMenuItem onClick={onGenerateCSV} disabled={isExporting}>
+              <FileSpreadsheet className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               Exportar CSV
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setExport607Open(true)} disabled={exporting !== null}>
-              <Landmark className="h-4 w-4" strokeWidth={1.75} />
+            <DropdownMenuItem onClick={() => setExport607Open(true)} disabled={isExporting}>
+              <Landmark className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               Reporte 607 (DGII)
             </DropdownMenuItem>
           </DropdownMenuContent>

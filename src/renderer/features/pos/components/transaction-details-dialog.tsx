@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Dialog, DialogContent } from '@components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@components/ui/dialog';
 import { Button } from '@components/ui/button';
 import { formatCurrency } from '@lib/currency';
 import { formatDateTime } from '@lib/formatters';
@@ -67,7 +67,7 @@ const methodConfig: Record<string, { label: string; icon: typeof Banknote; color
   cash: { label: 'Efectivo', icon: Banknote, color: 'text-emerald-600 dark:text-emerald-400' },
   card: { label: 'Tarjeta', icon: CreditCard, color: 'text-muted-foreground' },
   transfer: { label: 'Transferencia', icon: ArrowRightLeft, color: 'text-muted-foreground' },
-  credit: { label: 'Credito', icon: HandCoins, color: 'text-amber-600 dark:text-amber-400' },
+  credit: { label: 'Crédito', icon: HandCoins, color: 'text-amber-600 dark:text-amber-400' },
 }
 
 const getConfig = (method: string) => methodConfig[method.toLowerCase()] || { label: method, icon: Receipt, color: 'text-muted-foreground' }
@@ -87,6 +87,7 @@ export function TransactionDetailsDialog({
   const [confirmVoidOpen, setConfirmVoidOpen] = useState(false);
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const canVoid = usePermission(PERMISSIONS.SALES_VOID);
+  const canReturn = usePermission(PERMISSIONS.SALES_RETURN);
 
   const fetchSaleItems = useCallback(async () => {
     if (!transaction) return;
@@ -164,6 +165,12 @@ export function TransactionDetailsDialog({
     return soldUnits > returnedUnits;
   }, [saleItems, alreadyReturned]);
 
+  /** Venta fiada con deuda pendiente: no se devuelve, se anula (regla del servidor). */
+  const hasOutstandingCredit = useMemo(() => {
+    if (!transaction || transaction.payment_method !== 'credit') return false;
+    return Number(transaction.total_amount) - Number(transaction.amount_paid ?? 0) > 0.009;
+  }, [transaction]);
+
   const handleReturnSuccess = useCallback(() => {
     // Recarga items y devoluciones del diálogo (sin cerrarlo)
     fetchSaleItems();
@@ -240,7 +247,9 @@ export function TransactionDetailsDialog({
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base font-semibold tracking-tight">Venta #{transaction.id}</h2>
+                <DialogTitle className="text-base font-semibold tracking-tight leading-normal tabular-nums">
+                  Venta #{transaction.id}
+                </DialogTitle>
                 {isVoided && (
                   <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-600 dark:text-red-400">
                     Anulada
@@ -252,15 +261,15 @@ export function TransactionDetailsDialog({
                   </span>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground mt-0.5">
+              <DialogDescription className="text-sm text-muted-foreground mt-0.5 tabular-nums">
                 {formatDateTime(transaction.sale_date || transaction.created_at)}
-              </p>
+              </DialogDescription>
             </div>
           </div>
         </div>
 
         {/* Content */}
-        <div className={cn("flex-1 overflow-y-auto", isVoided && "opacity-60")}>
+        <div className="flex-1 overflow-y-auto">
           {/* Payment Summary */}
           <div className="px-5 pt-4 pb-3">
             <div className="bg-card border border-border rounded-lg divide-y divide-border text-sm">
@@ -306,15 +315,20 @@ export function TransactionDetailsDialog({
             </div>
             {/* Customer info */}
             {!hideCustomerName && transaction.customer_name && (
-              <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-muted/40 border border-border mt-2">
-                <User2 className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
-                <span className="text-sm text-muted-foreground">Cliente:</span>
-                <span className="text-sm font-medium">{transaction.customer_name}</span>
+              <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-muted/40 border border-border mt-2 min-w-0">
+                <User2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" strokeWidth={1.75} aria-hidden="true" />
+                <span className="text-sm text-muted-foreground shrink-0">Cliente:</span>
+                <span className="text-sm font-medium truncate" title={transaction.customer_name}>
+                  {transaction.customer_name}
+                </span>
               </div>
             )}
             {isVoided && (
-              <div className="mt-3 px-3.5 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs font-medium flex items-center gap-2">
-                <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+              <div
+                role="status"
+                className="mt-3 px-3.5 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs font-medium flex items-center gap-2"
+              >
+                <Trash2 className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
                 Esta venta fue anulada y los productos devueltos al inventario.
               </div>
             )}
@@ -323,10 +337,10 @@ export function TransactionDetailsDialog({
           {/* Comprobante Fiscal */}
           {transaction.ncf && (
             <div className="px-5 pb-3 space-y-2">
-              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                <ReceiptText className="h-3.5 w-3.5" strokeWidth={1.75} />
+              <h3 className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <ReceiptText className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
                 Comprobante Fiscal
-              </div>
+              </h3>
               <div className="bg-card border border-border rounded-lg divide-y divide-border text-sm">
                 <div className="flex items-center justify-between px-3.5 py-2.5">
                   <span className="text-muted-foreground">Tipo</span>
@@ -372,13 +386,18 @@ export function TransactionDetailsDialog({
 
           {/* Products */}
           <div className="px-5 pb-4 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-              <ShoppingBag className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Productos ({saleItems.length})
-            </div>
+            <h3 className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <ShoppingBag className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+              Productos{!isLoading && <span className="tabular-nums"> ({saleItems.length})</span>}
+            </h3>
 
             {isLoading ? (
-              <div className="bg-card border border-border rounded-lg divide-y divide-border">
+              <div
+                role="status"
+                aria-live="polite"
+                aria-label="Cargando productos de la venta"
+                className="bg-card border border-border rounded-lg divide-y divide-border"
+              >
                 {Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="flex items-center justify-between px-3.5 py-2.5 gap-3">
                     <div className="flex-1 space-y-1.5">
@@ -403,7 +422,7 @@ export function TransactionDetailsDialog({
                   <div key={index} className="flex items-center justify-between px-3.5 py-2.5 gap-3">
                     <div className="flex-1 min-w-0">
                       <p className={cn("text-sm font-medium truncate", isVoided && "line-through text-muted-foreground")} title={item.product_name}>{item.product_name}</p>
-                      <p className="text-xs text-muted-foreground truncate">
+                      <p className="text-xs text-muted-foreground truncate tabular-nums">
                         {item.quantity} × {formatCurrency(item.unit_price)}
                       </p>
                     </div>
@@ -423,10 +442,10 @@ export function TransactionDetailsDialog({
           {/* Devoluciones */}
           {saleReturns.length > 0 && (
             <div className="px-5 pb-4 space-y-2">
-              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                <Undo2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Devoluciones ({saleReturns.length})
-              </div>
+              <h3 className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <Undo2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                Devoluciones <span className="tabular-nums">({saleReturns.length})</span>
+              </h3>
               <div className="bg-card border border-border rounded-lg divide-y divide-border">
                 {saleReturns.map((ret) => {
                   const units = (ret.items || []).reduce((sum, item) => sum + item.quantity, 0);
@@ -434,14 +453,19 @@ export function TransactionDetailsDialog({
                     <div key={ret.id} className="flex items-center justify-between px-3.5 py-2.5 gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-medium">{formatRelativeDate(ret.created_at)}</p>
+                          <p className="text-sm font-medium" title={formatDateTime(ret.created_at)}>
+                            {formatRelativeDate(ret.created_at)}
+                          </p>
                           {ret.credit_note_ncf && (
                             <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground font-mono tabular-nums">
                               NC {ret.credit_note_ncf}
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground truncate">
+                        <p
+                          className="text-xs text-muted-foreground truncate tabular-nums"
+                          title={`Devolución #${ret.id}${ret.username ? ` · por ${ret.username}` : ''}`}
+                        >
                           #{ret.id} · {units} artículo{units === 1 ? '' : 's'}{ret.username ? ` · por ${ret.username}` : ''}
                         </p>
                       </div>
@@ -457,59 +481,64 @@ export function TransactionDetailsDialog({
         </div>
 
         {/* Actions */}
-        <div className="p-5 pt-3 border-t border-border flex flex-col gap-3 shrink-0">
+        <div className="p-5 pt-4 border-t border-border flex flex-col gap-3 shrink-0">
           <div className="flex gap-3 w-full">
             <Button
               variant="outline"
               onClick={handlePrint}
               disabled={isPrinting || isVoided}
-              className="flex-1 h-11"
+              aria-busy={isPrinting}
+              title={isVoided ? 'No se puede imprimir una venta anulada' : undefined}
+              className="flex-1 h-10"
             >
               {isPrinting ? (
                 <>Imprimiendo...</>
               ) : (
                 <>
-                  <Printer className="h-4 w-4" />
+                  <Printer className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                   Imprimir
                 </>
               )}
             </Button>
             <Button
               onClick={() => onOpenChange(false)}
-              className="flex-1 h-11"
+              className="flex-1 h-10"
             >
               Cerrar
             </Button>
           </div>
 
-          {!isVoided && canVoid && (
-            <div className="flex gap-3 w-full">
-              {hasReturnableUnits && (
+          {!isVoided && (canVoid || (canReturn && hasReturnableUnits && !hasOutstandingCredit)) && (
+            <div className="flex gap-3 w-full pt-3 border-t border-border">
+              {canReturn && hasReturnableUnits && !hasOutstandingCredit && (
                 <Button
                   variant="outline"
                   onClick={() => setReturnDialogOpen(true)}
                   disabled={isLoading}
                   className="flex-1 h-10 gap-2 text-sm font-medium"
                 >
-                  <Undo2 className="h-4 w-4" strokeWidth={1.75} />
+                  <Undo2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                   Devolver artículos
                 </Button>
               )}
+              {canVoid && (
               <Button
                 variant="ghost"
                 onClick={() => setConfirmVoidOpen(true)}
                 disabled={isVoiding}
-                className="flex-1 h-10 text-destructive hover:text-destructive hover:bg-destructive/10 gap-2 text-sm font-medium"
+                aria-busy={isVoiding}
+                className="flex-1 h-10 text-destructive hover:text-destructive hover:bg-destructive/10 focus-visible:ring-destructive/40 gap-2 text-sm font-medium"
               >
                 {isVoiding ? (
                   <>Anulando...</>
                 ) : (
                   <>
-                    <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                    <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                     Anular esta venta
                   </>
                 )}
               </Button>
+              )}
             </div>
           )}
         </div>

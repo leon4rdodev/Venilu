@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent } from "@components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@components/ui/dialog";
 import { Button } from "@components/ui/button";
+import { Label } from "@components/ui/label";
 import {
   Select,
   SelectContent,
@@ -8,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@components/ui/select";
-import { FileSpreadsheet } from "lucide-react";
+import { FileSpreadsheet, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { subMonths } from "date-fns";
 import { ipc } from "@lib/ipc";
@@ -78,24 +86,24 @@ export function Export607Dialog({ open, onOpenChange }: Export607DialogProps) {
   return (
     <Dialog open={open} onOpenChange={(o) => !isExporting && onOpenChange(o)}>
       <DialogContent className="sm:max-w-sm p-0 gap-0 overflow-hidden">
-        {/* Header */}
-        <div className="p-6 pb-4 space-y-1 border-b border-border">
-          <h2 className="text-lg font-semibold tracking-tight">Reporte 607 (DGII)</h2>
-          <p className="text-sm text-muted-foreground">
-            Exporta las ventas con comprobante fiscal del período seleccionado en formato CSV
-          </p>
-        </div>
+        {/* Header: título + descripción enlazados al diálogo por Radix (aria-labelledby/describedby) */}
+        <DialogHeader className="p-6 pb-4 gap-1 border-b border-border text-left">
+          <DialogTitle className="text-lg font-semibold tracking-tight">Reporte 607 (DGII)</DialogTitle>
+          <DialogDescription>
+            Exporta las ventas con comprobante fiscal del período seleccionado en formato CSV.
+          </DialogDescription>
+        </DialogHeader>
 
         {/* Period selectors */}
-        <div className="p-6 space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Mes</label>
+        <div className="p-6 space-y-4" aria-busy={isExporting}>
+          <div className="space-y-2">
+            <Label htmlFor="export-607-month" className="text-xs text-muted-foreground">Mes</Label>
             <Select
               value={String(month)}
               onValueChange={(v) => setMonth(Number(v))}
               disabled={isExporting}
             >
-              <SelectTrigger className="h-9 w-full bg-background">
+              <SelectTrigger id="export-607-month" className="h-9 w-full bg-background">
                 <SelectValue placeholder="Mes" />
               </SelectTrigger>
               <SelectContent>
@@ -106,14 +114,14 @@ export function Export607Dialog({ open, onOpenChange }: Export607DialogProps) {
             </Select>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Año</label>
+          <div className="space-y-2">
+            <Label htmlFor="export-607-year" className="text-xs text-muted-foreground">Año</Label>
             <Select
               value={String(year)}
               onValueChange={(v) => setYear(Number(v))}
               disabled={isExporting}
             >
-              <SelectTrigger className="h-9 w-full bg-background">
+              <SelectTrigger id="export-607-year" className="h-9 w-full bg-background">
                 <SelectValue placeholder="Año" />
               </SelectTrigger>
               <SelectContent>
@@ -127,9 +135,10 @@ export function Export607Dialog({ open, onOpenChange }: Export607DialogProps) {
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="p-6 pt-4 border-t border-border flex gap-3">
+        {/* Actions: cancelar a la izquierda, acción principal a la derecha */}
+        <DialogFooter className="p-6 pt-4 border-t border-border flex-row gap-3 sm:justify-stretch">
           <Button
+            type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isExporting}
@@ -138,20 +147,25 @@ export function Export607Dialog({ open, onOpenChange }: Export607DialogProps) {
             Cancelar
           </Button>
           <Button
+            type="button"
             onClick={handleExport}
             disabled={isExporting}
+            aria-busy={isExporting}
             className="flex-1 h-10 font-medium"
           >
             {isExporting ? (
-              <>Exportando...</>
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} aria-hidden="true" />
+                Exportando…
+              </>
             ) : (
               <>
-                <FileSpreadsheet className="h-4 w-4" strokeWidth={1.75} />
+                <FileSpreadsheet className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 Exportar 607
               </>
             )}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

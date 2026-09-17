@@ -23,8 +23,12 @@ export type PaymentMethod = "cash" | "card" | "transfer" | "credit";
 
 export interface PaymentBreakdownItem {
   method: PaymentMethod;
+  /** Dinero recibido por el método (para 'credit': saldo pendiente de cobro). */
   total: number;
+  /** Ventas cobradas con el método (para 'credit': ventas fiadas). */
   transactions: number;
+  /** Abonos a deuda recibidos por el método (no son ventas). */
+  debtPayments?: number;
 }
 
 export interface CategoryBreakdownItem {

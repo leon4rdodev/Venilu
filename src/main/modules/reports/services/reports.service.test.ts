@@ -193,8 +193,8 @@ describe('ReportsService', () => {
     it('agrupa por método excluyendo anuladas, ordenado por total DESC', async () => {
       const rows = await service.getPaymentMethodBreakdown(null, null);
       expect(rows).toEqual([
-        { method: 'cash', total: 200, transactions: 1 },
-        { method: 'card', total: 50, transactions: 1 },
+        { method: 'cash', total: 200, transactions: 1, debtPayments: 0 },
+        { method: 'card', total: 50, transactions: 1, debtPayments: 0 },
       ]);
     });
   });

@@ -1,4 +1,4 @@
-import { Dialog, DialogContent } from '@components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@components/ui/dialog';
 import { Button } from '@components/ui/button';
 import { formatCurrency } from '@lib/currency';
 import { formatTime } from '@lib/formatters';
@@ -22,36 +22,38 @@ export function ViewExpensesDialog({ isOpen, onClose, expenses, title }: ViewExp
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden max-h-[80vh] flex flex-col">
         {/* Header */}
-        <div className="p-5 pb-4 border-b border-border shrink-0">
+        <DialogHeader className="p-5 pb-4 gap-1 text-left border-b border-border shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-destructive/10 text-destructive flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-full bg-destructive/10 text-destructive flex items-center justify-center shrink-0" aria-hidden="true">
               <LayoutList className="h-4 w-4" strokeWidth={1.75} />
             </div>
-            <h2 className="text-lg font-semibold tracking-tight">{title || 'Salidas de Efectivo'}</h2>
+            <DialogTitle className="tracking-tight truncate" title={title || 'Salidas de Efectivo'}>
+              {title || 'Salidas de Efectivo'}
+            </DialogTitle>
           </div>
-          <p className="text-sm text-muted-foreground mt-1 ml-[42px]">
+          <DialogDescription className="ml-[42px]">
             Listado detallado de retiros realizados {title ? 'en este turno' : 'en el turno actual'}
-          </p>
-        </div>
+          </DialogDescription>
+        </DialogHeader>
 
         {/* List */}
         <div className="flex-1 overflow-y-auto px-5 py-1">
           {displayExpenses.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 text-center">
-              <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-3">
+              <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-3" aria-hidden="true">
                 <ReceiptPoundSterling className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} />
               </div>
               <p className="text-sm font-medium text-muted-foreground">No hay salidas registradas</p>
             </div>
           ) : (
-            <div className="divide-y divide-border">
+            <ul className="divide-y divide-border" aria-label="Salidas de efectivo">
               {[...displayExpenses].reverse().map((expense, idx) => (
-                <div
-                  key={idx}
+                <li
+                  key={expense.id ?? idx}
                   className="py-3 flex items-center justify-between gap-4"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
+                    <p className="text-sm font-medium text-foreground truncate" title={expense.reason}>
                       {expense.reason}
                     </p>
                     <p className="text-xs text-muted-foreground tabular-nums">
@@ -59,22 +61,22 @@ export function ViewExpensesDialog({ isOpen, onClose, expenses, title }: ViewExp
                     </p>
                   </div>
                   <span className="text-sm font-medium text-destructive font-mono tabular-nums shrink-0">
-                    -{formatCurrency(expense.amount)}
+                    -{formatCurrency(Number(expense.amount))}
                   </span>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </div>
 
         {/* Footer Summary */}
         <div className="p-5 border-t border-border shrink-0">
-          <div className="flex items-center justify-between mb-4">
-            <div className="space-y-0.5">
-              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Total Retiros</span>
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div className="space-y-0.5 min-w-0">
+              <span className="block text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Total Retiros</span>
               <p className="text-xs text-muted-foreground">Suma total de este listado</p>
             </div>
-            <span className="text-xl font-semibold tracking-tight text-destructive font-mono tabular-nums">
+            <span className="text-xl font-semibold tracking-tight text-destructive font-mono tabular-nums truncate" title={formatCurrency(totalExpenses)}>
               {formatCurrency(totalExpenses)}
             </span>
           </div>

@@ -164,7 +164,8 @@ export function useDashboard() {
           title: 'Alertas Stock',
           value: alerts,
           icon: AlertTriangle,
-          variant: 'danger' as const,
+          // Red only when there is something to act on — zero alerts is a healthy state
+          variant: alerts > 0 ? 'danger' : 'default',
         },
       );
     }
@@ -177,6 +178,7 @@ export function useDashboard() {
     shiftSummary: shiftQuery.data ?? null,
     statCards,
     hourlySales: hourlyQuery.data ?? [],
+    hourlyLoading: canViewSummary && hourlyQuery.isPending,
     hourlyDay,
     setHourlyDay,
     paymentTotals: paymentsQuery.data ?? [],

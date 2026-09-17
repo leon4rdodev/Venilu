@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Lock, Eye, EyeOff, AlertCircle, LogOut } from 'lucide-react';
+import { Lock, Eye, EyeOff, AlertCircle, LogOut, Loader2 } from 'lucide-react';
 import { User } from '@shared/types/models';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Button } from '@components/ui/button';
 import { useUser } from '@renderer/features/auth';
 import { useLock } from './use-lock';
+
+// Anillo de foco visible compartido por los controles a medida de esta pantalla
+const FOCUS_RING =
+  'outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card';
 
 /**
  * Overlay de pantalla completa que cubre toda la app mientras la caja está
@@ -60,6 +64,10 @@ function LockOverlay({ user }: { user: User }) {
   return (
     <div
       data-lock-screen
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="lock-title"
+      aria-describedby="lock-subtitle"
       className="fixed inset-0 z-[999] flex flex-col items-center justify-center overflow-hidden p-6"
       style={{
         background: 'linear-gradient(160deg, oklch(0.07 0 0), oklch(0.13 0 0))',
@@ -67,6 +75,7 @@ function LockOverlay({ user }: { user: User }) {
     >
       {/* Grid decorativo con máscara */}
       <div
+        aria-hidden
         className="absolute inset-0 opacity-[0.05]"
         style={{
           backgroundImage:
@@ -79,10 +88,12 @@ function LockOverlay({ user }: { user: User }) {
 
       {/* Orbes de luz */}
       <div
+        aria-hidden
         className="absolute -top-24 left-1/2 -translate-x-1/2 w-[36rem] h-[36rem] rounded-full opacity-[0.12] blur-3xl pointer-events-none"
         style={{ background: 'oklch(0.6 0 0)' }}
       />
       <div
+        aria-hidden
         className="absolute bottom-0 -right-32 w-80 h-80 rounded-full opacity-[0.08] blur-3xl pointer-events-none"
         style={{ background: 'oklch(0.45 0 0)' }}
       />
@@ -91,12 +102,17 @@ function LockOverlay({ user }: { user: User }) {
       <div className="relative z-10 w-full max-w-sm">
         <div className="bg-card border border-border rounded-2xl shadow-2xl p-8 space-y-6">
           <div className="flex flex-col items-center text-center space-y-3">
-            <div className="w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+            <div
+              aria-hidden
+              className="w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
+            >
               <Lock className="w-6 h-6" strokeWidth={1.75} />
             </div>
             <div className="space-y-1">
-              <h2 className="text-xl font-semibold tracking-tight">Caja bloqueada</h2>
-              <p className="text-sm text-muted-foreground">
+              <h2 id="lock-title" className="text-xl font-semibold tracking-tight">
+                Caja bloqueada
+              </h2>
+              <p id="lock-subtitle" className="text-sm text-muted-foreground">
                 Ingresa tu contraseña para desbloquear
               </p>
             </div>
@@ -104,7 +120,10 @@ function LockOverlay({ user }: { user: User }) {
 
           {/* Usuario actual */}
           <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/40 px-3 py-2.5">
-            <div className="w-10 h-10 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold">
+            <div
+              aria-hidden
+              className="w-10 h-10 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold"
+            >
               {initial}
             </div>
             <div className="flex-1 min-w-0">
@@ -115,7 +134,7 @@ function LockOverlay({ user }: { user: User }) {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="space-y-2">
               <Label htmlFor="lock-password" className="text-sm font-medium">
                 Contraseña
@@ -129,28 +148,36 @@ function LockOverlay({ user }: { user: User }) {
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-11 pr-11"
+                  className="h-11 pr-12"
                   disabled={isLoading}
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={error ? 'lock-error' : undefined}
                 />
                 <button
                   type="button"
-                  tabIndex={-1}
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  disabled={isLoading}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  aria-pressed={showPassword}
+                  className={`absolute right-1.5 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 ${FOCUS_RING}`}
                 >
                   {showPassword ? (
-                    <EyeOff className="w-4 h-4" strokeWidth={1.75} />
+                    <EyeOff className="w-4 h-4" strokeWidth={1.75} aria-hidden />
                   ) : (
-                    <Eye className="w-4 h-4" strokeWidth={1.75} />
+                    <Eye className="w-4 h-4" strokeWidth={1.75} aria-hidden />
                   )}
                 </button>
               </div>
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/8 border border-destructive/20 rounded-lg px-3 py-2.5">
-                <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={1.75} />
-                {error}
+              <div
+                id="lock-error"
+                role="alert"
+                className="flex items-start gap-2 text-destructive text-sm bg-destructive/8 border border-destructive/20 rounded-lg px-3 py-2.5"
+              >
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={1.75} aria-hidden />
+                <span>{error}</span>
               </div>
             )}
 
@@ -158,8 +185,16 @@ function LockOverlay({ user }: { user: User }) {
               type="submit"
               className="w-full h-11 text-sm font-semibold"
               disabled={isLoading || password.length === 0}
+              aria-busy={isLoading || undefined}
             >
-              {isLoading ? 'Verificando...' : 'Desbloquear'}
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden />
+                  Verificando…
+                </>
+              ) : (
+                'Desbloquear'
+              )}
             </Button>
           </form>
         </div>
@@ -169,10 +204,10 @@ function LockOverlay({ user }: { user: User }) {
           <button
             type="button"
             onClick={() => void logout()}
-            className="flex items-center gap-1.5 text-xs transition-colors hover:underline"
-            style={{ color: 'oklch(0.6 0 0)' }}
+            className={`flex h-8 items-center gap-1.5 rounded-full px-3 text-xs transition-colors hover:underline ${FOCUS_RING} focus-visible:ring-offset-0`}
+            style={{ color: 'oklch(0.65 0 0)' }}
           >
-            <LogOut className="w-3.5 h-3.5" strokeWidth={1.75} />
+            <LogOut className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden />
             Cerrar sesión
           </button>
         </div>

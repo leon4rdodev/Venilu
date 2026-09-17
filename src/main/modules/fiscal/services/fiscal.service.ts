@@ -127,6 +127,21 @@ export class FiscalService {
         }
 
         const repo = AppDataSource.getRepository(NcfSequence);
+
+        // Un rango autorizado por la DGII es único: dos secuencias del mismo
+        // tipo NO pueden solaparse (se emitirían NCF duplicados al agotarse
+        // la primera). Se valida contra todas las del tipo, activas o no.
+        const siblings = await repo.find({ where: { type: data.type } });
+        const clash = siblings.find(s =>
+            s.id !== data.id && from <= s.to_number && to >= s.from_number
+        );
+        if (clash) {
+            throw new Error(
+                `El rango ${from}–${to} se solapa con la secuencia ${data.type} ${clash.from_number}–${clash.to_number}` +
+                ` (${clash.active ? 'activa' : 'inactiva'}). Edita o elimina esa secuencia primero.`
+            );
+        }
+
         if (data.id) {
             const existing = await repo.findOneBy({ id: data.id });
             if (!existing) throw new Error('Secuencia no encontrada');

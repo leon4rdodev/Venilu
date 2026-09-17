@@ -1,3 +1,4 @@
+import { auditService } from '@main/modules/audit/services/audit.service';
 import { ipcMain } from "electron";
 import { CustomersService } from "@main/modules/customers/services/customers.service";
 import { requirePermission, hasPermission } from "@main/shared/session";
@@ -91,7 +92,9 @@ export function registerCustomersHandlers() {
     ipcMain.handle('delete-customer', async (_event, customerId) => {
         try {
             requirePermission('customers:delete');
+            const victim = await customersService.findOne(customerId).catch(() => null);
             await customersService.delete(customerId);
+            auditService.log('customers:delete', String(customerId), victim?.name);
             return { success: true };
         } catch (error: any) {
             return { success: false, message: error.message };

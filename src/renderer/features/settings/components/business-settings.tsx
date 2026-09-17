@@ -110,7 +110,11 @@ export function BusinessSettings() {
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
       <div className="p-6 border-b border-border">
-        <WidgetHeader icon={Building2} title="Información del Negocio" />
+        <WidgetHeader
+          icon={Building2}
+          title="Información del Negocio"
+          subtitle="Estos datos aparecen en los recibos y comprobantes que emites"
+        />
       </div>
       <div className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-border">
 
@@ -119,38 +123,56 @@ export function BusinessSettings() {
 
             {/* Logo */}
             <div className="space-y-3">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                <ImageIcon className="h-3.5 w-3.5" strokeWidth={1.75} />
+              <h3 className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <ImageIcon className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
                 Logotipo
-              </div>
+              </h3>
               <div className="flex flex-col items-center gap-3">
                 <div className="relative group w-full flex justify-center">
                   {logoPreview ? (
                     <div className="relative">
                       <img
                         src={logoPreview}
-                        alt="Logo"
+                        alt="Logo del negocio"
                         className="w-48 h-48 object-contain rounded-lg border border-border bg-muted"
                       />
                       <Button
+                        type="button"
                         size="icon"
                         variant="destructive"
-                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label="Quitar logo"
+                        title="Quitar logo"
+                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                         onClick={handleRemoveLogo}
                         disabled={isUploadingLogo}
                       >
-                        <X className="h-3 w-3" />
+                        <X className="h-3 w-3" aria-hidden="true" />
                       </Button>
                     </div>
                   ) : (
-                    <div className="w-48 h-48 rounded-lg border border-dashed border-border bg-muted/50 flex flex-col items-center justify-center gap-2 group-hover:border-foreground/30 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                      <ImageIcon className="h-10 w-10 text-muted-foreground/40" strokeWidth={1.5} />
-                      <span className="text-xs text-muted-foreground/60 font-medium">Sin logo</span>
-                    </div>
+                    <button
+                      type="button"
+                      aria-label="Cargar logo"
+                      disabled={isUploadingLogo || isSaving}
+                      className="w-48 h-48 rounded-lg border border-dashed border-border bg-muted/50 flex flex-col items-center justify-center gap-2 hover:border-foreground/30 hover:bg-muted transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <ImageIcon className="h-10 w-10 text-muted-foreground/40" strokeWidth={1.5} aria-hidden="true" />
+                      <span className="text-xs text-muted-foreground font-medium">Sin logo</span>
+                    </button>
                   )}
                 </div>
-                <input ref={fileInputRef} type="file" accept=".png,.jpg,.jpeg" onChange={handleLogoSelect} className="hidden" />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".png,.jpg,.jpeg"
+                  onChange={handleLogoSelect}
+                  className="hidden"
+                  aria-hidden="true"
+                  tabIndex={-1}
+                />
                 <Button
+                  type="button"
                   size="sm"
                   variant="outline"
                   className="h-8 text-xs px-4 w-full"
@@ -158,33 +180,42 @@ export function BusinessSettings() {
                   disabled={isUploadingLogo || isSaving}
                 >
                   {isUploadingLogo ? (
-                    "Subiendo..."
+                    "Subiendo…"
                   ) : (
                     <>
-                      <Upload className="h-3 w-3 mr-1.5" />
+                      <Upload className="h-3 w-3" aria-hidden="true" />
                       {logoPreview ? "Cambiar logo" : "Cargar logo"}
                     </>
                   )}
                 </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  PNG o JPG. Se imprime en la cabecera de los recibos.
+                </p>
               </div>
             </div>
           </div>
 
           {/* RIGHT — Business Info */}
           <div className="flex-1 p-6 space-y-5">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              <Building2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+            <h3 className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <Building2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
               Datos del Negocio
-            </div>
+            </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="business-name" className="text-sm">Nombre del Negocio *</Label>
+                <Label htmlFor="business-name" className="text-sm gap-1">
+                  Nombre del Negocio
+                  <span aria-hidden="true" className="text-muted-foreground">*</span>
+                  <span className="sr-only">(obligatorio)</span>
+                </Label>
                 <Input
                   id="business-name"
                   placeholder="Ej: Mi Cafetería"
                   value={formData.business_name}
                   onChange={(e) => handleInputChange("business_name", e.target.value)}
+                  aria-required="true"
+                  autoComplete="organization"
                   disabled={isSaving}
                   className="h-9"
                 />
@@ -195,22 +226,30 @@ export function BusinessSettings() {
                 <Input
                   id="tax-id"
                   placeholder="123-4567890-1"
+                  inputMode="numeric"
                   value={formData.business_tax_id}
                   onChange={(e) => handleInputChange("business_tax_id", formatRNC(e.target.value))}
+                  aria-describedby="tax-id-hint"
                   disabled={isSaving}
-                  className="h-9"
+                  className="h-9 font-mono tabular-nums"
                 />
+                <p id="tax-id-hint" className="text-xs text-muted-foreground">
+                  Obligatorio para emitir comprobantes fiscales (NCF).
+                </p>
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="phone" className="text-sm">Teléfono</Label>
                 <Input
                   id="phone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
                   placeholder="(809) 555-1234"
                   value={formData.business_phone}
                   onChange={(e) => handleInputChange("business_phone", formatPhoneNumber(e.target.value))}
                   disabled={isSaving}
-                  className="h-9"
+                  className="h-9 tabular-nums"
                 />
               </div>
 
@@ -218,6 +257,7 @@ export function BusinessSettings() {
                 <Label htmlFor="address" className="text-sm">Dirección</Label>
                 <Input
                   id="address"
+                  autoComplete="street-address"
                   placeholder="Ej: Calle Principal #123"
                   value={formData.business_address}
                   onChange={(e) => handleInputChange("business_address", e.target.value)}
@@ -231,6 +271,10 @@ export function BusinessSettings() {
                 <Input
                   id="email"
                   type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  autoCapitalize="off"
+                  spellCheck={false}
                   placeholder="info@minegocio.com"
                   value={formData.business_email}
                   onChange={(e) => handleInputChange("business_email", e.target.value)}
@@ -240,9 +284,17 @@ export function BusinessSettings() {
               </div>
             </div>
 
-            <div className="flex justify-end pt-1">
-              <Button onClick={handleSave} disabled={isSaving || isUploadingLogo} className="h-9 px-6">
-                {isSaving ? "Guardando..." : "Guardar Cambios"}
+            <div className="flex items-center justify-between gap-4 pt-1">
+              <p className="text-xs text-muted-foreground">
+                Los cambios se aplican al guardar.
+              </p>
+              <Button
+                type="button"
+                onClick={handleSave}
+                disabled={isSaving || isUploadingLogo}
+                className="h-9 px-6 shrink-0"
+              >
+                {isSaving ? "Guardando…" : "Guardar Cambios"}
               </Button>
             </div>
           </div>

@@ -7,8 +7,10 @@ import {
   Package,
   BarChart,
   Users,
+  Truck,
   Settings,
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@components/ui/tooltip';
 import { usePermission } from '@renderer/features/auth/hooks/use-permission';
 
 interface NavItem {
@@ -21,15 +23,20 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Inicio',         permission: null },
-  { to: '/pos',       icon: ShoppingCart,    label: 'Punto de Venta', permission: 'pos:access' },
+  { to: '/pos',       icon: ShoppingCart,    label: 'Punto de venta', permission: 'pos:access' },
   { to: '/inventory', icon: Package,         label: 'Inventario',     permission: 'inventory:view' },
   { to: '/customers', icon: Users,           label: 'Clientes',       permission: 'customers:view' },
+  { to: '/suppliers', icon: Truck,           label: 'Suplidores',     permission: 'suppliers:view' },
   { to: '/reports',   icon: BarChart,        label: 'Reportes',       permission: 'reports:view_full' },
 ];
 
 const SETTINGS_ITEM: NavItem = {
   to: '/settings', icon: Settings, label: 'Ajustes', permission: 'settings:view',
 };
+
+/** Route match that also covers nested routes (/inventory/123 → Inventario). */
+const matchesRoute = (pathname: string, to: string) =>
+  pathname === to || pathname.startsWith(`${to}/`);
 
 /**
  * Vercel-style icon rail. The active indicator is a single CSS pill moved with
@@ -50,6 +57,7 @@ export function Sidebar() {
   const posAccess      = usePermission('pos:access');
   const invView        = usePermission('inventory:view');
   const custView       = usePermission('customers:view');
+  const supView        = usePermission('suppliers:view');
   const rptFull        = usePermission('reports:view_full');
   const settingsView   = usePermission('settings:view');
 
@@ -57,6 +65,7 @@ export function Sidebar() {
     'pos:access':          posAccess,
     'inventory:view':      invView,
     'customers:view':      custView,
+    'suppliers:view':      supView,
     'reports:view_full':   rptFull,
     'settings:view':       settingsView,
   };
@@ -64,13 +73,19 @@ export function Sidebar() {
   const visibleItems = useMemo(
     () => NAV_ITEMS.filter((item) => item.permission === null || permMap[item.permission]),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [posAccess, invView, custView, rptFull],
+    [posAccess, invView, custView, supView, rptFull, settingsView],
   );
+
+  // The rail item whose route is active (nested routes included)
+  const activeTo = useMemo(() => {
+    const all = settingsView ? [...visibleItems, SETTINGS_ITEM] : visibleItems;
+    return all.find((item) => matchesRoute(pathname, item.to))?.to ?? null;
+  }, [pathname, visibleItems, settingsView]);
 
   // Position the pill under the active item BEFORE paint (no flash), and keep
   // it anchored when the rail resizes (Ajustes is pinned to the bottom).
   useLayoutEffect(() => {
-    const el = itemRefs.current.get(pathname);
+    const el = activeTo ? itemRefs.current.get(activeTo) : undefined;
     if (!el) {
       setPill(null);
       hasPositionedRef.current = false;
@@ -79,56 +94,72 @@ export function Sidebar() {
     // offsetParent is the relative <nav>, so offsetLeft/Top are rail-local
     setPill({ x: el.offsetLeft, y: el.offsetTop });
     hasPositionedRef.current = true;
-  }, [pathname, visibleItems, settingsView]);
+  }, [activeTo, visibleItems, settingsView]);
 
   useEffect(() => {
     const nav = navRef.current;
     if (!nav || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => {
-      const el = itemRefs.current.get(pathname);
+      const el = activeTo ? itemRefs.current.get(activeTo) : undefined;
       if (el) setPill({ x: el.offsetLeft, y: el.offsetTop });
     });
     observer.observe(nav);
     return () => observer.disconnect();
-  }, [pathname]);
+  }, [activeTo]);
 
   const renderItem = (item: NavItem) => {
-    const isActive = pathname === item.to;
+    const isActive = activeTo === item.to;
     return (
-      <Link key={item.to} to={item.to}>
-        <div
-          ref={(el) => {
-            if (el) itemRefs.current.set(item.to, el);
-            else itemRefs.current.delete(item.to);
-          }}
-          className="relative h-10 w-10"
-          title={item.label}
-        >
-          <div
-            className={cn(
-              'relative z-10 flex h-10 w-10 items-center justify-center rounded-md transition-colors duration-200',
-              isActive
-                ? 'text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-            )}
+      <Tooltip key={item.to} delayDuration={300}>
+        <TooltipTrigger asChild>
+          <Link
+            to={item.to}
+            aria-label={item.label}
+            aria-current={isActive ? 'page' : undefined}
+            className="block rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
-            <item.icon className="h-5 w-5" strokeWidth={1.75} />
-          </div>
-        </div>
-      </Link>
+            <div
+              ref={(el) => {
+                if (el) itemRefs.current.set(item.to, el);
+                else itemRefs.current.delete(item.to);
+              }}
+              className="relative h-10 w-10"
+            >
+              <div
+                className={cn(
+                  'relative z-10 flex h-10 w-10 items-center justify-center rounded-md transition-colors duration-200',
+                  isActive
+                    ? 'text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                <item.icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+              </div>
+            </div>
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent side="right" sideOffset={6}>
+          {item.label}
+        </TooltipContent>
+      </Tooltip>
     );
   };
 
   return (
     <aside className="fixed left-0 top-16 bottom-0 z-30 w-16 border-r border-border bg-background">
-      <nav ref={navRef} className="relative flex h-full flex-col items-center py-4">
+      <nav
+        ref={navRef}
+        aria-label="Navegación principal"
+        className="relative flex h-full flex-col items-center py-4"
+      >
         {/* Active pill — GPU-composited transform, glides between items */}
         {pill && (
           <div
             aria-hidden
             className={cn(
               'absolute left-0 top-0 h-10 w-10 rounded-md bg-primary shadow-sm will-change-transform',
-              hasPositionedRef.current && 'transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+              hasPositionedRef.current &&
+                'transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
             )}
             style={{ transform: `translate(${pill.x}px, ${pill.y}px)` }}
           />

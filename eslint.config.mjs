@@ -104,7 +104,9 @@ export default [
     languageOptions: {
       parser: tseslintParser,
       parserOptions: {
-        project: './tsconfig.json',
+        // Tests live in their own project (tsconfig.tests.json) — without it
+        // every *.test.ts(x) fails to parse.
+        project: ['./tsconfig.json', './tsconfig.tests.json'],
         ecmaFeatures: { jsx: true },
       },
     },
@@ -115,6 +117,10 @@ export default [
       ...tseslintPlugin.configs.recommended.rules,
       // Disable the base JS rule — @typescript-eslint/no-unused-vars supersedes it for TS files
       "no-unused-vars": "off",
+      // TypeScript already checks undefined names and redeclarations
+      // (the base rules misfire on type-only usages like React.FormEvent).
+      "no-undef": "off",
+      "no-redeclare": "off",
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-unused-vars": ["warn", {
         "vars": "all",
@@ -128,11 +134,11 @@ export default [
     },
   },
   {
-    files: ["src/main/**/*.{ts,tsx}"],
+    files: ["src/main/**/*.{ts,tsx}", "src/preload.ts"],
     languageOptions: {
       parser: tseslintParser,
       parserOptions: {
-        project: './tsconfig.electron.json',
+        project: ['./tsconfig.electron.json', './tsconfig.tests.json'],
         ecmaFeatures: { jsx: true },
       },
       globals: globals.node,

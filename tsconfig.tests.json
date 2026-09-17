@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
@@ -13,20 +17,38 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "useDefineForClassFields": false,
-    "types": ["node", "vitest/globals"],
+    "types": [
+      "node",
+      "vitest/globals"
+    ],
     "baseUrl": ".",
     "paths": {
-      "@renderer/*": ["src/renderer/*"],
-      "@main/*": ["src/main/*"],
-      "@shared/*": ["src/shared/*"],
-      "@components/*": ["./src/renderer/shared/components/*"],
-      "@hooks/*": ["./src/renderer/shared/hooks/*"],
-      "@lib/*": ["./src/renderer/shared/lib/*"],
-      "@pages/*": ["./src/renderer/pages/*"]
+      "@renderer/*": [
+        "src/renderer/*"
+      ],
+      "@main/*": [
+        "src/main/*"
+      ],
+      "@shared/*": [
+        "src/shared/*"
+      ],
+      "@components/*": [
+        "./src/renderer/shared/components/*"
+      ],
+      "@hooks/*": [
+        "./src/renderer/shared/hooks/*"
+      ],
+      "@lib/*": [
+        "./src/renderer/shared/lib/*"
+      ],
+      "@pages/*": [
+        "./src/renderer/pages/*"
+      ]
     }
   },
   "include": [
     "src/test",
+    "src/renderer/global.d.ts",
     "src/main/**/*.test.ts",
     "src/shared/**/*.test.ts",
     "src/renderer/**/*.test.ts",

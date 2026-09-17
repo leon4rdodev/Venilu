@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent } from "@components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@components/ui/dialog";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
 import { Textarea } from "@components/ui/textarea";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ipc } from "@lib/ipc";
+import { getCurrencySymbol } from "@lib/currency";
 
 interface ForceCloseDialogProps {
   open: boolean;
@@ -68,44 +69,51 @@ export function ForceCloseDialog({ open, onOpenChange, shiftId, onSuccess }: For
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px] p-0 gap-0 overflow-hidden">
         {/* Header */}
-        <div className="p-5 pb-4 border-b border-border">
+        <DialogHeader className="p-5 pb-4 gap-1 text-left border-b border-border">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-destructive/10 text-destructive flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-full bg-destructive/10 text-destructive flex items-center justify-center shrink-0" aria-hidden="true">
               <AlertTriangle className="h-4 w-4" strokeWidth={1.75} />
             </div>
-            <h2 className="text-lg font-semibold tracking-tight">Cerrar Turno Forzosamente</h2>
+            <DialogTitle className="tracking-tight">Cerrar Turno Forzosamente</DialogTitle>
           </div>
-          <p className="text-sm text-muted-foreground mt-1 ml-[42px]">
+          <DialogDescription className="ml-[42px]">
             Estás a punto de cerrar el turno de otro usuario. Esta acción quedará registrada en el historial.
-          </p>
-        </div>
+          </DialogDescription>
+        </DialogHeader>
 
         <div className="p-5 grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="finalCash">Efectivo Físico en Caja</Label>
-            <Input
-              id="finalCash"
-              type="text"
-              inputMode="decimal"
-              value={finalCash}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v === '' || /^\d*\.?\d{0,2}$/.test(v)) setFinalCash(v);
-              }}
-              placeholder="0.00"
-              autoComplete="off"
-              className="h-10 bg-background text-right font-mono tabular-nums"
-            />
+            <Label htmlFor="force-close-final-cash">Efectivo Físico en Caja</Label>
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground pointer-events-none" aria-hidden="true">
+                {getCurrencySymbol()}
+              </div>
+              <Input
+                id="force-close-final-cash"
+                type="text"
+                inputMode="decimal"
+                value={finalCash}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === '' || /^\d*\.?\d{0,2}$/.test(v)) setFinalCash(v);
+                }}
+                placeholder="0.00"
+                autoComplete="off"
+                disabled={isLoading}
+                className="h-10 pl-16 pr-4 bg-background text-right font-mono tabular-nums"
+              />
+            </div>
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="reason">Razón / Observaciones (Obligatorio)</Label>
+            <Label htmlFor="force-close-reason">Razón / Observaciones (Obligatorio)</Label>
             <Textarea
-              id="reason"
+              id="force-close-reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Ej: El cajero tuvo que salir de emergencia..."
               rows={3}
+              disabled={isLoading}
               className="bg-background resize-none"
             />
           </div>
@@ -116,8 +124,17 @@ export function ForceCloseDialog({ open, onOpenChange, shiftId, onSuccess }: For
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
             Cancelar
           </Button>
-          <Button variant="destructive" onClick={handleForceClose} disabled={isLoading || !finalCash || !reason.trim()}>
-            {isLoading ? "Cerrando..." : "Cerrar Turno"}
+          <Button
+            variant="destructive"
+            onClick={handleForceClose}
+            disabled={isLoading || !finalCash || !reason.trim()}
+            aria-busy={isLoading}
+          >
+            {isLoading ? (
+              <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />Cerrando...</>
+            ) : (
+              "Cerrar Turno"
+            )}
           </Button>
         </div>
       </DialogContent>

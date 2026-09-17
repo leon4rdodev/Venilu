@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { Dialog, DialogContent } from '@components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@components/ui/dialog';
 import { Button } from '@components/ui/button';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Textarea } from '@components/ui/textarea';
-import { MinusCircle, AlertCircle } from 'lucide-react';
+import { MinusCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useShift } from '../hooks/use-shift';
 import { getCurrencySymbol } from '@lib/currency';
@@ -89,42 +89,42 @@ export function AddExpenseDialog({ isOpen, onClose, onSuccess }: AddExpenseDialo
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
         {/* Header */}
-        <div className="p-5 pb-4 border-b border-border">
+        <DialogHeader className="p-5 pb-4 gap-1 text-left border-b border-border">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-destructive/10 text-destructive flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-full bg-destructive/10 text-destructive flex items-center justify-center shrink-0" aria-hidden="true">
               <MinusCircle className="h-4 w-4" strokeWidth={1.75} />
             </div>
-            <h2 className="text-lg font-semibold tracking-tight">Registrar Salida de Efectivo</h2>
+            <DialogTitle className="tracking-tight">Registrar Salida de Efectivo</DialogTitle>
           </div>
-          <p className="text-sm text-muted-foreground mt-1 ml-[42px]">
+          <DialogDescription className="ml-[42px]">
             Registra gastos o retiros de efectivo realizados durante el turno
-          </p>
-        </div>
+          </DialogDescription>
+        </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col">
           <div className="p-5 space-y-4">
             {/* Warning info */}
-            <div className="bg-destructive/10 p-3.5 rounded-lg flex gap-3 text-xs text-destructive border border-destructive/20 leading-relaxed">
-              <AlertCircle className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+            <div role="note" className="bg-destructive/10 p-3.5 rounded-lg flex gap-3 text-xs text-destructive border border-destructive/20 leading-relaxed">
+              <AlertCircle className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
               <p>Este retiro se restará automáticamente del arqueo final de caja. Asegúrate de conservar el comprobante físico si es necesario.</p>
             </div>
 
             {/* Amount Field */}
             <div className="space-y-1.5">
-              <Label htmlFor="amount" className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <Label htmlFor="expense-amount" className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 Monto del Retiro
               </Label>
               <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold text-muted-foreground pointer-events-none">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold text-muted-foreground pointer-events-none" aria-hidden="true">
                   {getCurrencySymbol()}
                 </div>
                 <Input
                   ref={inputRef}
-                  id="amount"
+                  id="expense-amount"
                   type="text"
                   inputMode="decimal"
                   placeholder="0.00"
-                  className="h-12 text-lg! pl-12 pr-5 font-semibold tabular-nums text-right bg-background"
+                  className="h-12 text-lg! pl-18 pr-5 font-semibold tabular-nums text-right rounded-lg bg-background"
                   style={{ fontSize: '1.25rem' }}
                   value={amount}
                   onChange={handleAmountChange}
@@ -135,11 +135,11 @@ export function AddExpenseDialog({ isOpen, onClose, onSuccess }: AddExpenseDialo
 
             {/* Reason Field */}
             <div className="space-y-1.5">
-              <Label htmlFor="reason" className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <Label htmlFor="expense-reason" className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 Motivo o Concepto
               </Label>
               <Textarea
-                id="reason"
+                id="expense-reason"
                 placeholder="Ej: Pago de delivery, Compra de suministros, Retiro parcial..."
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -164,12 +164,13 @@ export function AddExpenseDialog({ isOpen, onClose, onSuccess }: AddExpenseDialo
               type="submit"
               variant="destructive"
               disabled={isSubmitting || !isValid}
+              aria-busy={isSubmitting}
               className="flex-1 h-11 gap-2"
             >
               {isSubmitting ? (
-                <>Registrando...</>
+                <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />Registrando...</>
               ) : (
-                <><MinusCircle className="h-4 w-4" strokeWidth={1.75} /> Registrar Retiro</>
+                <><MinusCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />Registrar Retiro</>
               )}
             </Button>
           </div>

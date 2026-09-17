@@ -8,7 +8,7 @@ import {
   ReceiptText,
   Trash2,
 } from "lucide-react";
-import { Button } from "@components/ui/button";
+import { Button, buttonVariants } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
 import { Switch } from "@components/ui/switch";
@@ -16,6 +16,8 @@ import { Skeleton } from "@components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogTitle,
 } from "@components/ui/dialog";
 import {
   Select,
@@ -153,16 +155,19 @@ function FiscalToggleCard({ canEdit }: { canEdit: boolean }) {
         {/* Interruptor principal — guardado inmediato */}
         <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-4">
           <div className="min-w-0">
-            <p className="text-sm font-medium">Emitir comprobantes fiscales</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <Label htmlFor="fiscal-enabled" className="text-sm font-medium cursor-pointer">
+              Emitir comprobantes fiscales
+            </Label>
+            <p id="fiscal-enabled-hint" className="text-xs text-muted-foreground mt-1">
               Cada venta consumirá un NCF de las secuencias autorizadas por la DGII.
             </p>
           </div>
           <Switch
+            id="fiscal-enabled"
             checked={fiscalEnabled}
             onCheckedChange={handleToggleFiscal}
             disabled={!canEdit}
-            aria-label="Emitir comprobantes fiscales"
+            aria-describedby="fiscal-enabled-hint"
           />
         </div>
 
@@ -181,10 +186,11 @@ function FiscalToggleCard({ canEdit }: { canEdit: boolean }) {
               onBlur={commitItbisRate}
               onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
               disabled={!canEdit}
+              aria-describedby="itbis-rate-hint"
               className="h-9 tabular-nums"
             />
-            <p className="text-xs text-muted-foreground">
-              El ITBIS ya está incluido en tus precios de venta. Tasa vigente en RD: 18%.
+            <p id="itbis-rate-hint" className="text-xs text-muted-foreground">
+              El ITBIS ya está incluido en tus precios de venta. Tasa vigente en RD: 18%. Se guarda al salir del campo.
             </p>
           </div>
         </div>
@@ -196,9 +202,9 @@ function FiscalToggleCard({ canEdit }: { canEdit: boolean }) {
             <span className="text-sm font-mono tabular-nums font-medium">{businessRnc}</span>
           </div>
         ) : (
-          <div className="flex items-start gap-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3">
-            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />
-            <p className="text-sm text-amber-600 dark:text-amber-400">
+          <div role="status" className="flex items-start gap-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm text-amber-700 dark:text-amber-300">
               Configura el RNC de tu negocio en Ajustes → Negocio: es obligatorio en los comprobantes.
             </p>
           </div>
@@ -330,14 +336,19 @@ function SequenceDialog({
       <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="p-6 pb-4 border-b border-border space-y-1 shrink-0">
-          <h2 className="text-lg font-semibold tracking-tight">
-            {isEditing ? "Editar Secuencia" : "Nueva Secuencia"}
-          </h2>
-          <p className="text-sm text-muted-foreground">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-muted text-foreground flex items-center justify-center shrink-0">
+              <Landmark className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            </div>
+            <DialogTitle className="text-lg font-semibold tracking-tight">
+              {isEditing ? "Editar Secuencia" : "Nueva Secuencia"}
+            </DialogTitle>
+          </div>
+          <DialogDescription className="text-sm text-muted-foreground">
             {isEditing
-              ? "Modifica el rango autorizado por la DGII"
-              : "Registra un rango de NCF autorizado por la DGII"}
-          </p>
+              ? "Modifica el rango autorizado por la DGII."
+              : "Registra un rango de NCF autorizado por la DGII."}
+          </DialogDescription>
         </div>
 
         {/* Body */}
@@ -351,7 +362,11 @@ function SequenceDialog({
               }
               disabled={isSaving || isEditing}
             >
-              <SelectTrigger id="ncf-type" className="bg-background">
+              <SelectTrigger
+                id="ncf-type"
+                className="bg-background w-full"
+                aria-describedby={isEditing ? "ncf-type-hint" : undefined}
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -362,42 +377,58 @@ function SequenceDialog({
                 ))}
               </SelectContent>
             </Select>
+            {isEditing && (
+              <p id="ncf-type-hint" className="text-xs text-muted-foreground">
+                El tipo no se puede cambiar una vez registrada la secuencia.
+              </p>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="from_number">Desde</Label>
-              <Input
-                id="from_number"
-                type="number"
-                min={1}
-                max={MAX_NCF_NUMBER}
-                placeholder="1"
-                value={formData.from_number}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, from_number: e.target.value }))
-                }
-                disabled={isSaving}
-                className="h-9 bg-background tabular-nums"
-              />
+          <fieldset className="space-y-2 min-w-0">
+            <legend className="text-sm font-medium leading-none mb-2">Rango autorizado</legend>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="from_number">Desde</Label>
+                <Input
+                  id="from_number"
+                  type="number"
+                  min={1}
+                  max={MAX_NCF_NUMBER}
+                  placeholder="1"
+                  inputMode="numeric"
+                  value={formData.from_number}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, from_number: e.target.value }))
+                  }
+                  aria-required="true"
+                  disabled={isSaving}
+                  className="h-9 bg-background tabular-nums"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="to_number">Hasta</Label>
+                <Input
+                  id="to_number"
+                  type="number"
+                  min={1}
+                  max={MAX_NCF_NUMBER}
+                  placeholder="500"
+                  inputMode="numeric"
+                  value={formData.to_number}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, to_number: e.target.value }))
+                  }
+                  aria-required="true"
+                  aria-describedby="range-hint"
+                  disabled={isSaving}
+                  className="h-9 bg-background tabular-nums"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="to_number">Hasta</Label>
-              <Input
-                id="to_number"
-                type="number"
-                min={1}
-                max={MAX_NCF_NUMBER}
-                placeholder="500"
-                value={formData.to_number}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, to_number: e.target.value }))
-                }
-                disabled={isSaving}
-                className="h-9 bg-background tabular-nums"
-              />
-            </div>
-          </div>
+            <p id="range-hint" className="text-xs text-muted-foreground">
+              Números de secuencia tal como aparecen en la autorización de la DGII (máx. 99,999,999).
+            </p>
+          </fieldset>
 
           {isEditing && (
             <div className="space-y-2">
@@ -407,14 +438,16 @@ function SequenceDialog({
                 type="number"
                 min={1}
                 max={MAX_NCF_NUMBER + 1}
+                inputMode="numeric"
                 value={formData.next_number}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, next_number: e.target.value }))
                 }
+                aria-describedby="next_number-hint"
                 disabled={isSaving}
                 className="h-9 bg-background tabular-nums"
               />
-              <p className="text-xs text-muted-foreground">
+              <p id="next_number-hint" className="text-xs text-muted-foreground">
                 No puede retroceder por debajo de lo ya emitido.
               </p>
             </div>
@@ -429,25 +462,30 @@ function SequenceDialog({
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, expires_at: e.target.value }))
               }
+              aria-describedby="expires_at-hint"
               disabled={isSaving}
               className="h-9 bg-background"
             />
+            <p id="expires_at-hint" className="text-xs text-muted-foreground">
+              Al vencer, la secuencia deja de emitir comprobantes automáticamente.
+            </p>
           </div>
 
           <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-3.5">
             <div className="min-w-0">
-              <p className="text-sm font-medium">Activa</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <Label htmlFor="sequence-active" className="text-sm font-medium cursor-pointer">Activa</Label>
+              <p id="sequence-active-hint" className="text-xs text-muted-foreground mt-1">
                 Solo las secuencias activas emiten comprobantes.
               </p>
             </div>
             <Switch
+              id="sequence-active"
               checked={formData.active}
               onCheckedChange={(checked) =>
                 setFormData((prev) => ({ ...prev, active: checked }))
               }
               disabled={isSaving}
-              aria-label="Secuencia activa"
+              aria-describedby="sequence-active-hint"
             />
           </div>
         </div>
@@ -467,7 +505,7 @@ function SequenceDialog({
             disabled={!canSubmit || isSaving}
             className="flex-1 h-10"
           >
-            {isSaving ? "Guardando..." : isEditing ? "Guardar Cambios" : "Registrar Secuencia"}
+            {isSaving ? "Guardando…" : isEditing ? "Guardar Cambios" : "Registrar Secuencia"}
           </Button>
         </div>
       </DialogContent>
@@ -485,18 +523,29 @@ function typePill(type: NcfType) {
   );
 }
 
+/** Restantes: color + texto (HIG › Accesibilidad: no transmitir información solo con color). */
 function remainingPill(remaining: number) {
   if (remaining === 0) {
     return (
-      <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-1 text-xs font-medium font-mono tabular-nums text-red-600 dark:text-red-400 whitespace-nowrap">
-        0
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full bg-destructive/10 px-2 py-1 text-xs font-medium text-red-700 dark:text-red-300 whitespace-nowrap"
+        title="La secuencia no tiene comprobantes disponibles"
+      >
+        <span className="font-mono tabular-nums">0</span>
+        <span aria-hidden="true">·</span>
+        Agotada
       </span>
     );
   }
   if (remaining < 50) {
     return (
-      <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-1 text-xs font-medium font-mono tabular-nums text-amber-600 dark:text-amber-400 whitespace-nowrap">
-        {remaining.toLocaleString("es-DO")}
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300 whitespace-nowrap"
+        title="Quedan pocos comprobantes: solicita una nueva secuencia a la DGII"
+      >
+        <span className="font-mono tabular-nums">{remaining.toLocaleString("es-DO")}</span>
+        <span aria-hidden="true">·</span>
+        Pocos
       </span>
     );
   }
@@ -576,7 +625,7 @@ function SequencesCard({
                 setDialogOpen(true);
               }}
             >
-              <Plus className="h-4 w-4 mr-2" strokeWidth={1.75} />
+              <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               Nueva Secuencia
             </Button>
           ) : undefined
@@ -584,9 +633,9 @@ function SequencesCard({
       />
 
       {fiscalEnabled && missingB04 && (
-        <div className="mt-4 flex items-start gap-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3">
-          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />
-          <p className="text-sm text-amber-600 dark:text-amber-400">
+        <div role="status" className="mt-4 flex items-start gap-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3">
+          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" strokeWidth={1.75} aria-hidden="true" />
+          <p className="text-sm text-amber-700 dark:text-amber-300">
             Sin secuencia B04 activa no podrás anular ventas con comprobante.
           </p>
         </div>
@@ -596,7 +645,7 @@ function SequencesCard({
         {sequences.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-3">
-              <Landmark className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} />
+              <Landmark className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} aria-hidden="true" />
             </div>
             <p className="text-sm font-medium text-muted-foreground">
               No hay secuencias registradas
@@ -615,8 +664,8 @@ function SequencesCard({
                   <TableRow className="border-b border-border hover:bg-transparent">
                     <TableHead className="text-xs text-muted-foreground font-medium">Tipo</TableHead>
                     <TableHead className="text-xs text-muted-foreground font-medium">Rango</TableHead>
-                    <TableHead className="text-xs text-muted-foreground font-medium">Próximo</TableHead>
-                    <TableHead className="text-xs text-muted-foreground font-medium">Restantes</TableHead>
+                    <TableHead className="text-xs text-muted-foreground font-medium text-right">Próximo</TableHead>
+                    <TableHead className="text-xs text-muted-foreground font-medium text-right">Restantes</TableHead>
                     <TableHead className="text-xs text-muted-foreground font-medium">Vence</TableHead>
                     <TableHead className="text-xs text-muted-foreground font-medium">Estado</TableHead>
                     {canEdit && (
@@ -633,15 +682,15 @@ function SequencesCard({
                       <TableCell className="font-mono text-sm tabular-nums whitespace-nowrap">
                         {seq.from_number.toLocaleString("es-DO")}–{seq.to_number.toLocaleString("es-DO")}
                       </TableCell>
-                      <TableCell className="font-mono text-sm tabular-nums whitespace-nowrap">
+                      <TableCell className="font-mono text-sm tabular-nums whitespace-nowrap text-right">
                         {seq.next_number > seq.to_number
                           ? "—"
                           : seq.next_number.toLocaleString("es-DO")}
                       </TableCell>
-                      <TableCell>{remainingPill(seq.remaining)}</TableCell>
+                      <TableCell className="text-right">{remainingPill(seq.remaining)}</TableCell>
                       <TableCell className="whitespace-nowrap">
                         {seq.expired ? (
-                          <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 whitespace-nowrap">
+                          <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-1 text-xs font-medium text-red-700 dark:text-red-300 whitespace-nowrap">
                             Vencida
                           </span>
                         ) : seq.expires_at ? (
@@ -670,20 +719,32 @@ function SequencesCard({
                             <Button
                               variant="outline"
                               size="sm"
+                              aria-label={`Editar secuencia ${seq.type}`}
                               onClick={() => {
                                 setEditingSequence(seq);
                                 setDialogOpen(true);
                               }}
                             >
-                              <Pencil className="h-4 w-4 mr-1" strokeWidth={1.75} />
+                              <Pencil className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                               Editar
                             </Button>
                             <Button
                               variant="outline"
-                              size="sm"
+                              size="icon-sm"
+                              aria-label={
+                                seq.next_number > seq.from_number
+                                  ? `Desactivar secuencia ${seq.type}`
+                                  : `Eliminar secuencia ${seq.type}`
+                              }
+                              title={
+                                seq.next_number > seq.from_number
+                                  ? "Desactivar secuencia"
+                                  : "Eliminar secuencia"
+                              }
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
                               onClick={() => setDeleteTarget(seq)}
                             >
-                              <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                              <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                             </Button>
                           </div>
                         </TableCell>
@@ -734,7 +795,7 @@ function SequencesCard({
             <AlertDialogAction
               onClick={handleDelete}
               disabled={isDeleting}
-              className="bg-destructive hover:bg-destructive/90"
+              className={buttonVariants({ variant: "destructive" })}
             >
               {deleteTargetHasEmitted ? "Desactivar" : "Eliminar"}
             </AlertDialogAction>
@@ -825,8 +886,8 @@ export function FiscalSettings() {
             title="Secuencias de NCF"
             subtitle="Rangos de comprobantes autorizados por la DGII"
           />
-          <div className="mt-4 flex items-start gap-2.5 rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3">
-            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-destructive" strokeWidth={1.75} />
+          <div role="alert" className="mt-4 flex items-start gap-2.5 rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-destructive" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm text-destructive">
               {sequencesQuery.error instanceof Error
                 ? sequencesQuery.error.message

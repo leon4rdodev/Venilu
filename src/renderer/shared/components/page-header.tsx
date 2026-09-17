@@ -13,8 +13,8 @@ interface PageHeaderProps {
 export function PageHeader({ title, description, action }: PageHeaderProps) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-semibold tracking-tighter text-foreground">
+      <div className="flex min-w-0 flex-col gap-1">
+        <h1 className="text-3xl font-semibold tracking-tighter text-foreground text-balance">
           {title}
         </h1>
         {description && (
@@ -24,7 +24,7 @@ export function PageHeader({ title, description, action }: PageHeaderProps) {
         )}
       </div>
       {action && (
-        <div className="shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
           {action}
         </div>
       )}

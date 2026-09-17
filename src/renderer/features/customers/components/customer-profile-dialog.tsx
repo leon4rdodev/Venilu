@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatCurrency } from "@lib/currency";
 import { formatDateTime, formatPhone } from "@lib/formatters";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs";
 import { Button } from "@components/ui/button";
 import { Skeleton } from "@components/ui/skeleton";
@@ -13,8 +13,40 @@ import { CustomerSummaryResponse } from "../types";
 import { usePermission } from "@renderer/features/auth/hooks/use-permission";
 import { PERMISSIONS } from "@shared/permissions";
 import { TransactionDetailsDialog } from "@renderer/features/pos/components/transaction-details-dialog";
-import { ShoppingBag, HandCoins, User, Phone, Mail, MapPin, FileText, ArrowRightLeft, CreditCard, Banknote, Eye, Receipt, CalendarClock, LucideIcon } from "lucide-react";
+import { ShoppingBag, HandCoins, User, Phone, Mail, MapPin, FileText, ArrowRightLeft, CreditCard, Banknote, Eye, Receipt, CalendarClock, Loader2, LucideIcon } from "lucide-react";
+import { EmptyState } from "@renderer/shared/components/empty-state";
 import { cn } from "@lib/utils";
+
+// Pestañas subrayadas: mismo estilo que Suplidores e Historial de ventas.
+const TAB_TRIGGER_CLASS =
+  "flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 pt-1 pb-3 text-sm font-medium text-muted-foreground gap-2 shadow-none transition-colors hover:text-foreground data-[state=active]:border-foreground data-[state=active]:text-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none dark:data-[state=active]:border-foreground dark:data-[state=active]:bg-transparent";
+
+/** Fila de contacto del encabezado: icono decorativo + etiqueta sr-only + valor truncado con tooltip. */
+function ContactRow({
+  icon: Icon,
+  label,
+  value,
+  emptyText,
+  tabular,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string | null | undefined;
+  emptyText: string;
+  tabular?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2 min-w-0 text-sm">
+      <Icon className="h-4 w-4 text-muted-foreground shrink-0" strokeWidth={1.75} aria-hidden="true" />
+      <span className="sr-only">{label}:</span>
+      {value ? (
+        <span className={cn("truncate text-foreground", tabular && "tabular-nums")} title={value}>{value}</span>
+      ) : (
+        <span className="truncate text-muted-foreground/70 italic">{emptyText}</span>
+      )}
+    </div>
+  );
+}
 
 /** Compact relative date in Spanish ("Hoy", "Ayer", "Hace 3 días", …). */
 function formatRelativeDate(iso: string): string {
@@ -45,10 +77,15 @@ function MiniStat({
   title?: string;
 }) {
   return (
-    <div className="bg-card border border-border rounded-lg p-3 min-w-0">
+    <div
+      className="bg-card border border-border rounded-lg p-3 min-w-0"
+      role="group"
+      aria-label={loading ? `${label}: cargando` : `${label}: ${value}`}
+      aria-busy={loading || undefined}
+    >
       <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1">
-        <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-        <span className="truncate">{label}</span>
+        <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+        <span className="truncate" title={label}>{label}</span>
       </div>
       {loading ? (
         <Skeleton className="h-5 w-16" />
@@ -60,6 +97,26 @@ function MiniStat({
           {value}
         </p>
       )}
+    </div>
+  );
+}
+
+/** Placeholder de lista mientras carga el historial (misma silueta que las filas reales). */
+function HistorySkeleton() {
+  return (
+    <div className="rounded-lg border border-border divide-y divide-border overflow-hidden" aria-hidden="true">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="flex items-center justify-between px-3.5 py-2.5">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-8 w-8 rounded-full" />
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-28" />
+            </div>
+          </div>
+          <Skeleton className="h-4 w-16" />
+        </div>
+      ))}
     </div>
   );
 }
@@ -220,9 +277,14 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
     (effCreditLimit !== null ? Math.max(effCreditLimit - effBalance, 0) : null);
   const creditUsedRatio =
     effCreditLimit === null ? 0 : effCreditLimit > 0 ? effBalance / effCreditLimit : 1;
+  const creditUsedPercent = Math.round(Math.min(Math.max(creditUsedRatio, 0), 1) * 100);
+  // Color + texto (porcentaje y montos): nunca color solo para transmitir el estado.
   const creditFillClass =
-    creditUsedRatio >= 1 ? "bg-destructive" : creditUsedRatio > 0.7 ? "bg-amber-500" : "bg-primary";
+    creditUsedRatio >= 1 ? "bg-red-600 dark:bg-red-500" : creditUsedRatio > 0.7 ? "bg-amber-600 dark:bg-amber-500" : "bg-foreground";
   const hasCreditActivity = effBalance > 0 || sales.some((s) => s.payment_method === "credit");
+  // Contadores reales (del resumen), no solo la página cargada.
+  const salesCount = summary?.purchasesCount ?? sales.length;
+  const paymentsCount = summary?.paymentsCount ?? payments.length;
 
   // Helpers for formatting
   const getPaymentMethodIcon = (method: string) => {
@@ -240,7 +302,7 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
       case 'cash': return 'Efectivo';
       case 'card': return 'Tarjeta';
       case 'transfer': return 'Transferencia';
-      case 'credit': return 'Credito';
+      case 'credit': return 'Crédito';
       default: return method;
     }
   };
@@ -248,47 +310,39 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
-        <DialogHeader className="p-6 pb-4 pr-10 border-b border-border space-y-1 shrink-0">
-          <div className="flex items-start justify-between">
-            <div className="flex flex-col gap-1">
-              <DialogTitle className="text-lg font-semibold tracking-tight flex items-center gap-2.5">
-                <span className="w-8 h-8 rounded-full bg-muted text-foreground flex items-center justify-center shrink-0">
-                  <User className="h-4 w-4" strokeWidth={1.75} />
-                </span>
-                {localCustomer.name}
-              </DialogTitle>
-              {canViewBalance && isOverLimit && (
-                <span className="w-fit mt-1 px-2 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-600 dark:text-red-400">
-                  Límite excedido
-                </span>
-              )}
+        <DialogHeader className="p-6 pb-4 pr-12 border-b border-border space-y-0 shrink-0 text-left">
+          <div className="flex items-start gap-3 min-w-0">
+            <span
+              className="w-10 h-10 rounded-full bg-muted text-foreground flex items-center justify-center shrink-0 text-sm font-semibold select-none"
+              aria-hidden="true"
+            >
+              {localCustomer.name.trim().charAt(0).toUpperCase() || <User className="h-4 w-4" strokeWidth={1.75} />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 min-w-0">
+                <DialogTitle className="text-lg font-semibold tracking-tight truncate" title={localCustomer.name}>
+                  {localCustomer.name}
+                </DialogTitle>
+                {canViewBalance && isOverLimit && (
+                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[11px] leading-4 font-medium bg-red-500/10 text-red-700 dark:text-red-400">
+                    Límite excedido
+                  </span>
+                )}
+              </div>
+              <DialogDescription className="text-sm text-muted-foreground">
+                Perfil del cliente: contacto, resumen e historial de compras y pagos.
+              </DialogDescription>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-6 text-sm">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Phone className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
-              {localCustomer.phone ? (
-                <span className="text-sm font-medium">{formatPhone(localCustomer.phone)}</span>
-              ) : (
-                <span className="text-sm italic text-muted-foreground">No registrado</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Mail className="h-4 w-4" strokeWidth={1.75} />
-              <span className="truncate">{localCustomer.email || 'Sin correo'}</span>
-            </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <MapPin className="h-4 w-4" strokeWidth={1.75} />
-              <span className="truncate">{localCustomer.address || 'Sin dirección'}</span>
-            </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <FileText className="h-4 w-4" strokeWidth={1.75} />
-              <span className="truncate">{localCustomer.notes || 'Sin notas'}</span>
-            </div>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-5">
+            <ContactRow icon={Phone} label="Teléfono" value={localCustomer.phone ? formatPhone(localCustomer.phone) : null} emptyText="Sin teléfono" tabular />
+            <ContactRow icon={Mail} label="Correo" value={localCustomer.email} emptyText="Sin correo" />
+            <ContactRow icon={MapPin} label="Dirección" value={localCustomer.address} emptyText="Sin dirección" />
+            <ContactRow icon={FileText} label="Notas" value={localCustomer.notes} emptyText="Sin notas" />
           </div>
 
-          <div className={cn("grid gap-2 mt-6 pt-4 border-t border-border", canViewBalance ? "grid-cols-5" : "grid-cols-2")}>
+          <div className={cn("grid gap-2 mt-5 pt-4 border-t border-border", canViewBalance ? "grid-cols-5" : "grid-cols-2")}>
             {canViewBalance && (
               <MiniStat
                 icon={Banknote}
@@ -326,7 +380,7 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
                 loading={summaryLoading}
                 valueClassName={
                   summary && summary.totalPaidDebt > 0
-                    ? "text-emerald-600 dark:text-emerald-400"
+                    ? "text-emerald-700 dark:text-emerald-400"
                     : undefined
                 }
               />
@@ -335,127 +389,157 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
 
           {canViewBalance && effCreditLimit !== null && (
             <div className="mt-3 space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <CreditCard className="h-3.5 w-3.5 text-muted-foreground shrink-0" strokeWidth={1.75} />
-                  <span className="text-xs font-medium text-muted-foreground">Crédito</span>
+                  <CreditCard className="h-3.5 w-3.5 text-muted-foreground shrink-0" strokeWidth={1.75} aria-hidden="true" />
+                  <span id="credit-usage-label" className="text-xs font-medium text-muted-foreground">
+                    Crédito usado
+                  </span>
+                  <span
+                    className={cn(
+                      "text-xs font-mono tabular-nums font-medium",
+                      creditUsedRatio >= 1
+                        ? "text-red-700 dark:text-red-400"
+                        : creditUsedRatio > 0.7
+                        ? "text-amber-700 dark:text-amber-400"
+                        : "text-foreground"
+                    )}
+                  >
+                    {creditUsedPercent}%
+                  </span>
                 </div>
                 <span className="text-xs font-mono tabular-nums text-muted-foreground whitespace-nowrap truncate">
-                  Usado {formatCurrency(effBalance)} de {formatCurrency(effCreditLimit)} · Disponible {formatCurrency(creditAvailable ?? 0)}
+                  <span className="text-foreground">{formatCurrency(effBalance)}</span> de {formatCurrency(effCreditLimit)}
+                  <span className="mx-1.5" aria-hidden="true">·</span>
+                  Disponible <span className="text-foreground">{formatCurrency(creditAvailable ?? 0)}</span>
                 </span>
               </div>
-              <div className="h-1 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-1.5 rounded-full bg-muted overflow-hidden"
+                role="progressbar"
+                aria-labelledby="credit-usage-label"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={creditUsedPercent}
+                aria-valuetext={`${formatCurrency(effBalance)} de ${formatCurrency(effCreditLimit)} usados, ${formatCurrency(creditAvailable ?? 0)} disponibles`}
+              >
                 <div
-                  className={cn("h-full rounded-full transition-all duration-500", creditFillClass)}
+                  className={cn("h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none", creditFillClass)}
                   style={{ width: `${Math.min(Math.max(creditUsedRatio, 0), 1) * 100}%` }}
                 />
               </div>
             </div>
           )}
           {canViewBalance && effCreditLimit === null && hasCreditActivity && (
-            <p className="mt-3 text-xs font-medium text-muted-foreground">Crédito ilimitado</p>
+            <p className="mt-3 text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <CreditCard className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+              Crédito sin límite
+            </p>
           )}
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden p-6 pt-4">
-          <Tabs defaultValue="sales" className="h-full flex flex-col">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="sales" className="flex items-center gap-2">
-                <ShoppingBag className="h-4 w-4" strokeWidth={1.75} />
-                Historial de Compras ({sales.length})
+        <div className="flex-1 overflow-hidden px-6 pb-6 pt-2 flex flex-col min-h-0">
+          <Tabs defaultValue="sales" className="h-full flex flex-col min-h-0 gap-0">
+            <TabsList className="w-full h-auto justify-start bg-transparent p-0 pt-1 gap-6 rounded-none border-b border-border shrink-0">
+              <TabsTrigger value="sales" className={TAB_TRIGGER_CLASS}>
+                <ShoppingBag className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                Compras
+                <span className="text-xs tabular-nums text-muted-foreground" aria-label={`${salesCount} compras`}>
+                  ({salesCount})
+                </span>
               </TabsTrigger>
-              <TabsTrigger value="payments" className="flex items-center gap-2">
-                <HandCoins className="h-4 w-4" strokeWidth={1.75} />
-                Historial de Pagos ({payments.length})
+              <TabsTrigger value="payments" className={TAB_TRIGGER_CLASS}>
+                <HandCoins className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                Pagos
+                <span className="text-xs tabular-nums text-muted-foreground" aria-label={`${paymentsCount} pagos`}>
+                  ({paymentsCount})
+                </span>
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="sales" className="flex-1 overflow-y-auto mt-4 pr-2 space-y-2">
+            <TabsContent value="sales" className="flex-1 min-h-0 overflow-y-auto mt-4 pr-1 space-y-2 focus-visible:outline-none">
               {isLoading ? (
-                <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="flex items-center justify-between p-3">
-                      <div className="flex items-center gap-3">
-                        <Skeleton className="h-8 w-8 rounded-full" />
-                        <div className="space-y-1.5">
-                          <Skeleton className="h-4 w-40" />
-                          <Skeleton className="h-3 w-28" />
-                        </div>
-                      </div>
-                      <Skeleton className="h-4 w-16" />
-                    </div>
-                  ))}
-                </div>
+                <HistorySkeleton />
               ) : sales.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-40 text-center text-muted-foreground">
-                  <ShoppingBag className="h-8 w-8 mb-2 opacity-20" strokeWidth={1.75} />
-                  <p className="text-sm font-medium">No hay compras registradas</p>
-                </div>
+                <EmptyState
+                  icon={ShoppingBag}
+                  title="No hay compras registradas"
+                  description="Las ventas de este cliente aparecerán aquí."
+                />
               ) : (
                 <>
-                  <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
-                   {sales.map((sale) => {
-                    const isVoided = sale.status === 'voided';
-                    return (
-                      <button
-                        key={sale.id}
-                        type="button"
-                        onClick={() => handleViewTransaction(sale)}
-                        className={cn(
-                          "group w-full text-left flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-card hover:bg-accent/40 transition-colors cursor-pointer",
-                          isVoided && "opacity-60 bg-muted/30"
-                        )}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-                            {getPaymentMethodIcon(sale.payment_method)}
-                          </div>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className={cn("font-semibold text-sm", isVoided && "line-through")}>
-                                Venta #{sale.id.slice(0, 8)}...
-                              </span>
-                              {isVoided ? (
-                                <span className="px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap bg-red-500/10 text-red-600 dark:text-red-400">
-                                  Anulada
-                                </span>
-                              ) : (
-                                sale.payment_method === 'credit' && (
-                                  sale.status === 'paid' ? (
-                                    <span className="px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                                      Crédito — Pagado
-                                    </span>
-                                  ) : sale.status === 'partial' ? (
-                                    <span className="px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                                      Crédito — Parcial
+                  <ul className="rounded-lg border border-border divide-y divide-border overflow-hidden" aria-label="Historial de compras">
+                    {sales.map((sale) => {
+                      const isVoided = sale.status === 'voided';
+                      const shortId = sale.id.slice(0, 8);
+                      return (
+                        <li key={sale.id}>
+                          <button
+                            type="button"
+                            onClick={() => handleViewTransaction(sale)}
+                            aria-label={`Ver detalle de la venta ${shortId}, ${formatCurrency(sale.total_amount)}${isVoided ? ", anulada" : ""}`}
+                            className={cn(
+                              "group w-full text-left flex items-center justify-between gap-4 px-3.5 py-2.5 bg-card hover:bg-accent/40 transition-colors cursor-pointer",
+                              "focus-visible:outline-none focus-visible:bg-accent/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                              isVoided && "bg-muted/30"
+                            )}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={cn("w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0", isVoided && "opacity-60")} aria-hidden="true">
+                                {getPaymentMethodIcon(sale.payment_method)}
+                              </div>
+                              <div className="min-w-0 space-y-0.5">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className={cn("font-medium text-sm font-mono tabular-nums", isVoided && "line-through text-muted-foreground")}>
+                                    Venta #{shortId}
+                                  </span>
+                                  {isVoided ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[11px] leading-4 font-medium whitespace-nowrap bg-red-500/10 text-red-700 dark:text-red-400">
+                                      Anulada
                                     </span>
                                   ) : (
-                                    <span className="px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap bg-red-500/10 text-red-600 dark:text-red-400">
-                                      Crédito — Pendiente
-                                    </span>
-                                  )
-                                )
-                              )}
+                                    sale.payment_method === 'credit' && (
+                                      sale.status === 'paid' ? (
+                                        <span className="px-2 py-0.5 rounded-full text-[11px] leading-4 font-medium whitespace-nowrap bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                                          Crédito — Pagado
+                                        </span>
+                                      ) : sale.status === 'partial' ? (
+                                        <span className="px-2 py-0.5 rounded-full text-[11px] leading-4 font-medium whitespace-nowrap bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                                          Crédito — Parcial
+                                        </span>
+                                      ) : (
+                                        <span className="px-2 py-0.5 rounded-full text-[11px] leading-4 font-medium whitespace-nowrap bg-red-500/10 text-red-700 dark:text-red-400">
+                                          Crédito — Pendiente
+                                        </span>
+                                      )
+                                    )
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground truncate" title={formatDateTime(sale.created_at)}>
+                                  {formatDateTime(sale.created_at)} · {getPaymentMethodLabel(sale.payment_method)}
+                                </p>
+                              </div>
                             </div>
-                            <p className="text-xs text-muted-foreground">
-                              {formatDateTime(sale.created_at)} • {getPaymentMethodLabel(sale.payment_method)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="mt-2 sm:mt-0 sm:text-right flex items-center justify-between sm:block">
-                          <span className={cn("text-sm font-mono font-medium tabular-nums ml-11 sm:ml-0 flex items-center gap-2", isVoided && "line-through text-muted-foreground")}>
-                            <Eye className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" strokeWidth={1.75} />
-                            {formatCurrency(sale.total_amount)}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                  </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Eye
+                                className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity"
+                                strokeWidth={1.75}
+                                aria-hidden="true"
+                              />
+                              <span className={cn("text-sm font-mono font-medium tabular-nums whitespace-nowrap", isVoided && "line-through text-muted-foreground")}>
+                                {formatCurrency(sale.total_amount)}
+                              </span>
+                            </div>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
                   {salesPage < salesTotalPages && (
-                    <div className="flex justify-center pt-2 pb-6">
-                      <Button variant="outline" size="sm" onClick={loadMoreSales} disabled={salesLoadingMore}>
-                        Cargar más
+                    <div className="flex justify-center pt-2 pb-4">
+                      <Button variant="outline" size="sm" onClick={loadMoreSales} disabled={salesLoadingMore} aria-busy={salesLoadingMore || undefined}>
+                        {salesLoadingMore && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} aria-hidden="true" />}
+                        {salesLoadingMore ? "Cargando…" : "Cargar más compras"}
                       </Button>
                     </div>
                   )}
@@ -463,65 +547,52 @@ export function CustomerProfileDialog({ open, onOpenChange, customer }: Customer
               )}
             </TabsContent>
 
-            <TabsContent value="payments" className="flex-1 overflow-y-auto mt-4 pr-2 space-y-2">
+            <TabsContent value="payments" className="flex-1 min-h-0 overflow-y-auto mt-4 pr-1 space-y-2 focus-visible:outline-none">
               {isLoading ? (
-                <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="flex items-center justify-between p-3">
-                      <div className="flex items-center gap-3">
-                        <Skeleton className="h-8 w-8 rounded-full" />
-                        <div className="space-y-1.5">
-                          <Skeleton className="h-4 w-40" />
-                          <Skeleton className="h-3 w-28" />
-                        </div>
-                      </div>
-                      <Skeleton className="h-4 w-16" />
-                    </div>
-                  ))}
-                </div>
+                <HistorySkeleton />
               ) : payments.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-40 text-center text-muted-foreground">
-                  <HandCoins className="h-8 w-8 mb-2 opacity-20" strokeWidth={1.75} />
-                  <p className="text-sm font-medium">No hay pagos registrados</p>
-                </div>
+                <EmptyState
+                  icon={HandCoins}
+                  title="No hay pagos registrados"
+                  description="Los abonos a deuda de este cliente aparecerán aquí."
+                />
               ) : (
                 <>
-                  <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
-                  {payments.map((payment) => (
-                    <div key={payment.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-card hover:bg-accent/30 transition-colors">
-                      <div className="flex items-start gap-3">
-                        <div className="mt-0.5 w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-                          {getPaymentMethodIcon(payment.payment_method)}
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-sm">Abono</span>
-                            <span className="text-xs font-medium text-muted-foreground">
-                              {getPaymentMethodLabel(payment.payment_method)}
-                            </span>
+                  <ul className="rounded-lg border border-border divide-y divide-border overflow-hidden" aria-label="Historial de pagos">
+                    {payments.map((payment) => (
+                      <li key={payment.id} className="flex items-center justify-between gap-4 px-3.5 py-2.5 bg-card hover:bg-accent/30 transition-colors">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0" aria-hidden="true">
+                            {getPaymentMethodIcon(payment.payment_method)}
                           </div>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDateTime(payment.created_at)}
-                          </p>
-                          {payment.notes && (
-                            <p className="text-xs mt-1 text-muted-foreground italic">
-                              "{payment.notes}"
+                          <div className="min-w-0 space-y-0.5">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="font-medium text-sm">Abono</span>
+                              <span className="text-xs font-medium text-muted-foreground">
+                                {getPaymentMethodLabel(payment.payment_method)}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate" title={formatDateTime(payment.created_at)}>
+                              {formatDateTime(payment.created_at)}
                             </p>
-                          )}
+                            {payment.notes && (
+                              <p className="text-xs text-muted-foreground italic truncate" title={payment.notes}>
+                                “{payment.notes}”
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <div className="mt-2 sm:mt-0 sm:text-right flex items-center justify-between sm:block">
-                        <span className="text-sm font-mono font-medium text-emerald-600 dark:text-emerald-400 tabular-nums ml-11 sm:ml-0">
+                        <span className="text-sm font-mono font-medium text-emerald-700 dark:text-emerald-400 tabular-nums whitespace-nowrap shrink-0">
                           +{formatCurrency(payment.amount)}
                         </span>
-                      </div>
-                    </div>
-                  ))}
-                  </div>
+                      </li>
+                    ))}
+                  </ul>
                   {paymentsPage < paymentsTotalPages && (
-                    <div className="flex justify-center pt-2 pb-6">
-                      <Button variant="outline" size="sm" onClick={loadMorePayments} disabled={paymentsLoadingMore}>
-                        Cargar más
+                    <div className="flex justify-center pt-2 pb-4">
+                      <Button variant="outline" size="sm" onClick={loadMorePayments} disabled={paymentsLoadingMore} aria-busy={paymentsLoadingMore || undefined}>
+                        {paymentsLoadingMore && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} aria-hidden="true" />}
+                        {paymentsLoadingMore ? "Cargando…" : "Cargar más pagos"}
                       </Button>
                     </div>
                   )}

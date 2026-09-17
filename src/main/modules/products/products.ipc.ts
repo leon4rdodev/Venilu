@@ -65,6 +65,9 @@ export function registerProductsHandlers() {
     try {
       requirePermission('inventory:create');
       const product = await productsService.create(productData);
+      auditService.log('inventory:create', product.id, product.name, {
+        sale_price: product.sale_price, cost_price: product.cost_price, stock: product.stock,
+      });
       return { success: true, data: product };
     } catch (err: any) {
       return { success: false, message: err.message };
@@ -77,10 +80,36 @@ export function registerProductsHandlers() {
       // gated inside the service (only when the value actually changes).
       requirePermission('inventory:edit');
 
+      const before = await productsService.getById(productId);
       const product = await productsService.update(productId, productData, {
         canEditPrice: hasPermission('inventory:edit_price'),
         canAdjustStock: hasPermission('inventory:adjust_stock'),
       });
+
+      // Audit: price changes and manual stock adjustments are the sensitive
+      // ones (the manual promises both); anything else is a plain edit.
+      if (before) {
+        const priceChanged = Number(before.sale_price) !== Number(product.sale_price)
+          || Number(before.cost_price) !== Number(product.cost_price);
+        const stockChanged = Number(before.stock) !== Number(product.stock);
+        if (priceChanged) {
+          auditService.log('inventory:update_price', product.id,
+            `${product.name}: venta ${Number(before.sale_price).toFixed(2)} → ${Number(product.sale_price).toFixed(2)}`
+            + (Number(before.cost_price) !== Number(product.cost_price)
+              ? ` · costo ${Number(before.cost_price).toFixed(2)} → ${Number(product.cost_price).toFixed(2)}` : ''),
+            { before: { sale_price: before.sale_price, cost_price: before.cost_price }, after: { sale_price: product.sale_price, cost_price: product.cost_price } });
+        }
+        if (stockChanged) {
+          auditService.log('inventory:adjust_stock', product.id,
+            `${product.name}: ${before.stock} → ${product.stock}`,
+            { before: before.stock, after: product.stock });
+        }
+        if (!priceChanged && !stockChanged) {
+          auditService.log('inventory:update', product.id, product.name, {
+            fields: Object.keys(productData ?? {}).filter(k => k !== 'image'),
+          });
+        }
+      }
       return { success: true, data: product };
     } catch (err: any) {
       return { success: false, message: err.message };
@@ -112,7 +141,23 @@ export function registerProductsHandlers() {
     try {
       requirePermission('inventory:view');
       const stats = await productsService.getInventoryStats();
+      // Cost figures are confidential — same rule as get-products.
+      if (!hasPermission('inventory:view_costs')) {
+        (stats as any).totalStockValue = null;
+      }
       return { success: true, data: stats };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  /** Presentaciones (variantes) de un producto. */
+  ipcMain.handle('get-product-variants', async (_event, { productId } = {}) => {
+    try {
+      requirePermission('inventory:view');
+      if (typeof productId !== 'string' || !productId) throw new Error('Producto requerido');
+      const data = await productsService.getVariants(productId);
+      return { success: true, data };
     } catch (err: any) {
       return { success: false, message: err.message };
     }

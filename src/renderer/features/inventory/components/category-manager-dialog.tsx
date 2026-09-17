@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent } from "@components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@components/ui/dialog";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
+import { Label } from "@components/ui/label";
 import { Pencil, Trash2, Check, X, Plus, Tags } from "lucide-react";
 import { toast } from "sonner";
 import { DeleteConfirmDialog } from "@renderer/shared/components/delete-confirm-dialog";
@@ -144,33 +145,39 @@ export function CategoryManagerDialog({
           {/* Header */}
           <div className="p-6 pb-4 border-b border-border space-y-4 shrink-0">
             <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">Gestionar Categorías</h2>
-              <p className="text-sm text-muted-foreground">
+              <DialogTitle className="text-lg font-semibold tracking-tight">Gestionar Categorías</DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
                 Crea, edita o elimina categorías para organizar tu inventario
-              </p>
+              </DialogDescription>
             </div>
             {/* New category input — fixed in header */}
-            <div className="flex gap-2">
-              <Input
-                id="new-category"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Nombre de la nueva categoría..."
-                disabled={isCreating}
-                className="h-9 bg-background"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleCreate();
-                  if (e.key === "Escape") setNewName("");
-                }}
-              />
-              <Button
-                onClick={handleCreate}
-                disabled={isCreating || !newName.trim()}
-                className="shrink-0 h-9 gap-1.5"
-              >
-                <Plus className="h-4 w-4" strokeWidth={1.75} />
-                {isCreating ? "Creando..." : "Agregar"}
-              </Button>
+            <div className="space-y-2">
+              <Label htmlFor="new-category">Nueva categoría</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="new-category"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Ej: Bebidas"
+                  disabled={isCreating}
+                  autoComplete="off"
+                  className="h-9 bg-background"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleCreate();
+                    if (e.key === "Escape") setNewName("");
+                  }}
+                />
+                <Button
+                  type="button"
+                  onClick={handleCreate}
+                  disabled={isCreating || !newName.trim()}
+                  aria-busy={isCreating}
+                  className="shrink-0 h-9 gap-1.5"
+                >
+                  <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                  {isCreating ? "Creando..." : "Agregar"}
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -179,17 +186,20 @@ export function CategoryManagerDialog({
             <div className="border border-border rounded-lg overflow-hidden">
               {categories.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                    <Tags className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+                  <div className="w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-1">
+                    <Tags className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} aria-hidden="true" />
                   </div>
-                  <p className="text-sm text-muted-foreground">No hay categorías creadas aún</p>
+                  <p className="text-sm font-medium text-foreground">No hay categorías creadas aún</p>
+                  <p className="text-sm text-muted-foreground max-w-[260px]">
+                    Escribe un nombre arriba y pulsa «Agregar» para crear la primera.
+                  </p>
                 </div>
               ) : (
-                <div className="divide-y divide-border">
+                <ul className="divide-y divide-border" aria-label="Categorías">
                   {categories.map((category) => {
                     const isEditing = editingId === category.id;
                     return (
-                      <div
+                      <li
                         key={category.id}
                         className={`flex items-center gap-3 px-4 py-3 ${
                           isEditing ? "bg-muted/30" : "hover:bg-muted/30"
@@ -205,65 +215,75 @@ export function CategoryManagerDialog({
                                 if (e.key === "Enter") handleSaveEdit();
                                 if (e.key === "Escape") handleCancelEdit();
                               }}
+                              aria-label={`Nuevo nombre para ${category.name}`}
+                              autoComplete="off"
                               className="h-8 text-sm bg-background flex-1"
                             />
                             <div className="flex items-center gap-1 shrink-0">
                               <Button
+                                type="button"
                                 variant="ghost"
                                 size="sm"
                                 onClick={handleSaveEdit}
                                 disabled={!editingName.trim()}
                                 className="h-8 w-8 p-0 text-foreground"
                                 title="Guardar cambios"
+                                aria-label="Guardar cambios"
                               >
-                                <Check className="h-4 w-4" strokeWidth={1.75} />
+                                <Check className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                               </Button>
                               <Button
+                                type="button"
                                 variant="ghost"
                                 size="sm"
                                 onClick={handleCancelEdit}
                                 className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                                 title="Cancelar edición"
+                                aria-label="Cancelar edición"
                               >
-                                <X className="h-4 w-4" strokeWidth={1.75} />
+                                <X className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                               </Button>
                             </div>
                           </>
                         ) : (
                           <>
                             <div className="flex-1 min-w-0 flex items-center gap-2">
-                              <span className="text-sm font-medium truncate">{category.name}</span>
-                              <span className="rounded-full text-xs font-medium px-2 py-1 bg-muted text-muted-foreground shrink-0">
+                              <span className="text-sm font-medium truncate" title={category.name}>{category.name}</span>
+                              <span className="rounded-full text-xs font-medium px-2 py-0.5 bg-muted text-muted-foreground shrink-0 tabular-nums">
                                 {category.product_count || 0} producto
                                 {category.product_count !== 1 ? "s" : ""}
                               </span>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
                               <Button
+                                type="button"
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleStartEdit(category)}
                                 className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                                 title="Editar categoría"
+                                aria-label={`Editar categoría ${category.name}`}
                               >
-                                <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} />
+                                <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
                               </Button>
                               <Button
+                                type="button"
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleDeleteClick(category)}
                                 className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                                 title="Eliminar categoría"
+                                aria-label={`Eliminar categoría ${category.name}`}
                               >
-                                <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                                <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
                               </Button>
                             </div>
                           </>
                         )}
-                      </div>
+                      </li>
                     );
                   })}
-                </div>
+                </ul>
               )}
             </div>
           </div>

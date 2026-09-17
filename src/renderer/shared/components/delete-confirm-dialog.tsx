@@ -4,9 +4,12 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
+  AlertDialogHeader,
   AlertDialogTitle,
 } from "@components/ui/alert-dialog";
-import { AlertTriangle } from "lucide-react";
+import { buttonVariants } from "@components/ui/button";
+import { cn } from "@lib/utils";
+import { AlertTriangle, Loader2 } from "lucide-react";
 
 interface DeleteConfirmDialogProps {
   open: boolean;
@@ -18,6 +21,11 @@ interface DeleteConfirmDialogProps {
   confirmLabel?: string;
 }
 
+/**
+ * Destructive confirmation (delete / deactivate). The confirm action is always
+ * red so the irreversible choice is unmistakable; Cancel keeps the default
+ * focus so Enter never deletes by accident.
+ */
 export function DeleteConfirmDialog({
   open,
   onOpenChange,
@@ -28,19 +36,22 @@ export function DeleteConfirmDialog({
   confirmLabel = "Eliminar",
 }: DeleteConfirmDialogProps) {
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={(o) => !isLoading && onOpenChange(o)}>
       <AlertDialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
         {/* Header */}
-        <div className="p-6 pb-4 border-b border-border">
+        <AlertDialogHeader className="p-6 pb-4 border-b border-border space-y-0 text-left">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-destructive/10 text-destructive flex items-center justify-center shrink-0">
+            <div
+              aria-hidden
+              className="w-9 h-9 rounded-full bg-destructive/10 text-destructive flex items-center justify-center shrink-0"
+            >
               <AlertTriangle className="h-4 w-4" strokeWidth={1.75} />
             </div>
             <AlertDialogTitle className="text-lg font-semibold tracking-tight">
               {title}
             </AlertDialogTitle>
           </div>
-        </div>
+        </AlertDialogHeader>
 
         {/* Body */}
         <div className="p-6">
@@ -57,9 +68,17 @@ export function DeleteConfirmDialog({
           <AlertDialogAction
             onClick={onConfirm}
             disabled={isLoading}
-            className="flex-1 h-10"
+            aria-busy={isLoading || undefined}
+            className={cn(buttonVariants({ variant: "destructive" }), "flex-1 h-10")}
           >
-            {isLoading ? "Eliminando..." : confirmLabel}
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden />
+                Eliminando…
+              </>
+            ) : (
+              confirmLabel
+            )}
           </AlertDialogAction>
         </div>
       </AlertDialogContent>

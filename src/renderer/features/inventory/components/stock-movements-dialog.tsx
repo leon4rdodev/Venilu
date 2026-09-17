@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { History } from "lucide-react";
-import { Dialog, DialogContent } from "@components/ui/dialog";
+import { History, AlertCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@components/ui/dialog";
+import { Button } from "@components/ui/button";
 import { Skeleton } from "@components/ui/skeleton";
 import {
   Table,
@@ -25,6 +26,8 @@ const TYPE_LABELS: Record<StockMovementEntry["type"], string> = {
   adjustment: "Ajuste",
   initial: "Inicial",
   return: "Devolución",
+  purchase: "Compra",
+  purchase_void: "Compra anulada",
 };
 
 /** "Hoy HH:mm" / "Ayer HH:mm" / "dd MMM yyyy, HH:mm" */
@@ -77,12 +80,13 @@ interface StockMovementsDialogProps {
  * Read-only; available to anyone with access to the inventory module.
  */
 export function StockMovementsDialog({ open, onOpenChange, product }: StockMovementsDialogProps) {
-  const [page, setPage] = useState(1);
-
-  // Fresh page whenever the dialog opens or targets another product
-  useEffect(() => {
-    if (open) setPage(1);
-  }, [open, product?.id]);
+  // Fresh page whenever the dialog opens or targets another product:
+  // "reset state when a prop changes" pattern, no effect needed.
+  const resetKey = open ? (product?.id ?? "") : null;
+  const [paging, setPaging] = useState<{ key: string | null; page: number }>({ key: resetKey, page: 1 });
+  if (paging.key !== resetKey) setPaging({ key: resetKey, page: 1 });
+  const page = paging.key === resetKey ? paging.page : 1;
+  const setPage = (next: number) => setPaging({ key: resetKey, page: next });
 
   const movementsQuery = useQuery({
     queryKey: ["stock-movements", product?.id, page],
@@ -114,15 +118,15 @@ export function StockMovementsDialog({ open, onOpenChange, product }: StockMovem
         {/* Header */}
         <div className="p-6 pb-4 border-b border-border space-y-1 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-muted text-foreground flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-full bg-muted text-foreground flex items-center justify-center shrink-0" aria-hidden="true">
               <History className="h-4 w-4" strokeWidth={1.75} />
             </div>
-            <h2 className="text-lg font-semibold tracking-tight">Movimientos de Stock</h2>
+            <DialogTitle className="text-lg font-semibold tracking-tight">Movimientos de Stock</DialogTitle>
           </div>
-          <p className="text-sm text-muted-foreground truncate" title={product.name}>
+          <DialogDescription className="text-sm text-muted-foreground truncate" title={product.name}>
             {product.name} · Stock actual:{" "}
             <span className="font-mono font-medium tabular-nums text-foreground">{product.stock}</span>
-          </p>
+          </DialogDescription>
         </div>
 
         {/* Body */}
@@ -134,14 +138,14 @@ export function StockMovementsDialog({ open, onOpenChange, product }: StockMovem
                   <TableHead className="text-xs font-medium text-muted-foreground w-[150px]">Fecha</TableHead>
                   <TableHead className="text-xs font-medium text-muted-foreground">Tipo</TableHead>
                   <TableHead className="text-xs font-medium text-muted-foreground text-right">Cambio</TableHead>
-                  <TableHead className="text-xs font-medium text-muted-foreground text-right">Stock</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground text-right">Stock final</TableHead>
                   <TableHead className="text-xs font-medium text-muted-foreground">Detalle</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y divide-border">
                 {showSkeleton ? (
                   Array.from({ length: 6 }).map((_, i) => (
-                    <TableRow key={i} className="hover:bg-transparent">
+                    <TableRow key={i} className="hover:bg-transparent" aria-busy="true" aria-hidden="true">
                       <TableCell className="py-3">
                         <Skeleton className="h-4 w-24" />
                       </TableCell>
@@ -162,11 +166,23 @@ export function StockMovementsDialog({ open, onOpenChange, product }: StockMovem
                 ) : movementsQuery.isError ? (
                   <TableRow className="hover:bg-transparent">
                     <TableCell colSpan={5}>
-                      <div className="flex flex-col items-center justify-center py-10 text-center">
-                        <p className="text-sm text-destructive">Error al cargar los movimientos</p>
-                        <p className="text-sm text-muted-foreground mt-1">
+                      <div className="flex flex-col items-center justify-center py-10 text-center" role="alert">
+                        <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mb-3">
+                          <AlertCircle className="h-6 w-6 text-destructive" strokeWidth={1.5} aria-hidden="true" />
+                        </div>
+                        <p className="text-sm font-medium">No se pudieron cargar los movimientos</p>
+                        <p className="text-sm text-muted-foreground mt-1 max-w-xs">
                           {movementsQuery.error instanceof Error ? movementsQuery.error.message : "Intenta de nuevo"}
                         </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="mt-4 h-9"
+                          onClick={() => void movementsQuery.refetch()}
+                          disabled={movementsQuery.isFetching}
+                        >
+                          Reintentar
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -175,9 +191,9 @@ export function StockMovementsDialog({ open, onOpenChange, product }: StockMovem
                     <TableCell colSpan={5}>
                       <div className="flex flex-col items-center justify-center py-12 text-center">
                         <div className="w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-3">
-                          <History className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} />
+                          <History className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} aria-hidden="true" />
                         </div>
-                        <p className="text-sm font-medium text-muted-foreground">Sin movimientos registrados</p>
+                        <p className="text-sm font-medium text-foreground">Sin movimientos registrados</p>
                         <p className="text-sm text-muted-foreground mt-1">
                           Las ventas y ajustes de este producto aparecerán aquí
                         </p>
@@ -208,6 +224,9 @@ export function StockMovementsDialog({ open, onOpenChange, product }: StockMovem
                           )}
                         >
                           {movement.quantity_delta > 0 ? `+${movement.quantity_delta}` : movement.quantity_delta}
+                          <span className="sr-only">
+                            {movement.quantity_delta > 0 ? " (entrada)" : movement.quantity_delta < 0 ? " (salida)" : ""}
+                          </span>
                         </TableCell>
                         <TableCell className="py-3 text-right font-mono text-sm tabular-nums whitespace-nowrap">
                           {movement.stock_after}

@@ -47,8 +47,9 @@ export function ReportsInterface() {
         onGenerateCSV={handleGenerateCSV}
       />
 
-      {/* Page entrance is handled by AnimatedPage — no extra animation layers */}
-      <div className="space-y-6">
+      {/* Page entrance is handled by AnimatedPage — no extra animation layers.
+          aria-busy avisa a tecnologías asistivas mientras se muestran skeletons. */}
+      <div className="space-y-6" aria-busy={showSkeleton}>
         <SalesMetricsGrid salesMetrics={salesMetrics} loading={showSkeleton} />
 
         <SalesOverTimeChart salesOverTime={salesOverTime} loading={showSkeleton} interval={interval} />

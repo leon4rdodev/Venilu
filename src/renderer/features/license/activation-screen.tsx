@@ -39,6 +39,7 @@ export function ActivationScreen() {
     >
       {/* Decorative grid overlay */}
       <div
+        aria-hidden
         className="absolute inset-0 opacity-[0.05]"
         style={{
           backgroundImage:
@@ -51,10 +52,12 @@ export function ActivationScreen() {
 
       {/* Glow orbs */}
       <div
+        aria-hidden
         className="absolute -top-24 left-1/2 -translate-x-1/2 w-[36rem] h-[36rem] rounded-full opacity-[0.12] blur-3xl pointer-events-none"
         style={{ background: 'oklch(0.6 0 0)' }}
       />
       <div
+        aria-hidden
         className="absolute bottom-0 -right-32 w-80 h-80 rounded-full opacity-[0.08] blur-3xl pointer-events-none"
         style={{ background: 'oklch(0.45 0 0)' }}
       />
@@ -65,7 +68,12 @@ export function ActivationScreen() {
           className="w-8 h-8 rounded-lg flex items-center justify-center"
           style={{ background: 'oklch(1 0 0)' }}
         >
-          <ShoppingCart className="w-4 h-4" strokeWidth={2} style={{ color: 'oklch(0.145 0 0)' }} />
+          <ShoppingCart
+            className="w-4 h-4"
+            strokeWidth={2}
+            style={{ color: 'oklch(0.145 0 0)' }}
+            aria-hidden
+          />
         </div>
         <span className="text-lg font-bold tracking-tight" style={{ color: 'oklch(0.985 0 0)' }}>
           Venilu
@@ -73,16 +81,19 @@ export function ActivationScreen() {
       </div>
 
       {/* Centered card */}
-      <div className="relative z-10 w-full max-w-md">
+      <main className="relative z-10 w-full max-w-md">
         <div className="bg-card border border-border rounded-2xl shadow-2xl p-8 space-y-6">
           <div className="flex flex-col items-center text-center space-y-3">
-            <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
+            <div
+              aria-hidden
+              className="w-14 h-14 rounded-full bg-muted flex items-center justify-center"
+            >
               <KeyRound className="w-6 h-6 text-foreground" strokeWidth={1.75} />
             </div>
-            <div className="space-y-1">
-              <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
-              {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
-              <p className="text-sm text-muted-foreground">
+            <div className="space-y-2">
+              <h1 className="text-xl font-semibold tracking-tight text-balance">{title}</h1>
+              {subtitle && <p className="text-sm text-muted-foreground text-balance">{subtitle}</p>}
+              <p className="text-sm text-muted-foreground text-balance">
                 Activa tu licencia para seguir usando Venilu. Tus datos están intactos y seguros.
               </p>
             </div>
@@ -94,14 +105,14 @@ export function ActivationScreen() {
             ¿Aún no tienes licencia? Escríbenos para adquirirla.
           </p>
         </div>
-      </div>
+      </main>
 
       {/* Footer */}
-      <div className="absolute bottom-0 inset-x-0 p-6 text-center z-10">
-        <p className="text-xs" style={{ color: 'oklch(0.45 0 0)' }}>
+      <footer className="absolute bottom-0 inset-x-0 p-6 text-center z-10">
+        <p className="text-xs" style={{ color: 'oklch(0.55 0 0)' }}>
           Venilu · Sistema POS · © {new Date().getFullYear()}
         </p>
-      </div>
+      </footer>
     </div>
   );
 }

@@ -7,6 +7,9 @@ import { Product } from "./product.entity";
  *   - 'void'       → restock from a voided sale (positive delta), reference = sale id
  *   - 'adjustment' → manual stock edit from inventory (either sign)
  *   - 'initial'    → opening stock recorded at product creation
+ *   - 'return'     → restock from a partial return, reference = sale id
+ *   - 'purchase'   → goods received from a supplier, reference = purchase id
+ *   - 'purchase_void' → reversal of a cancelled purchase
  */
 @Entity("stock_movements")
 @Index("idx_stock_movements_product", ["product_id"])
@@ -23,7 +26,7 @@ export class StockMovement {
     product?: Product;
 
     @Column()
-    type!: 'sale' | 'void' | 'adjustment' | 'initial' | 'return';
+    type!: 'sale' | 'void' | 'adjustment' | 'initial' | 'return' | 'purchase' | 'purchase_void';
 
     /** Signed change: negative for sales, positive for restocks/increases. */
     @Column("integer")

@@ -21,8 +21,11 @@ export function TablePagination({ page, totalPages, pageSize, totalItems, onPage
   const to = Math.min(page * pageSize, totalItems);
 
   return (
-    <div className="flex items-center justify-between pt-1">
-      <p className="text-sm text-muted-foreground tabular-nums">
+    <nav
+      aria-label="Paginación"
+      className="flex items-center justify-between gap-4 pt-1"
+    >
+      <p className="text-sm text-muted-foreground tabular-nums" aria-live="polite">
         Mostrando {from}–{to} de {totalItems}
       </p>
       <div className="flex items-center gap-2">
@@ -32,10 +35,11 @@ export function TablePagination({ page, totalPages, pageSize, totalItems, onPage
           className="h-8 w-8"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
+          aria-label="Página anterior"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4" aria-hidden />
         </Button>
-        <span className="text-sm font-medium tabular-nums">
+        <span className="text-sm font-medium tabular-nums min-w-[3.5rem] text-center" aria-current="page">
           {page} / {totalPages}
         </span>
         <Button
@@ -44,10 +48,11 @@ export function TablePagination({ page, totalPages, pageSize, totalItems, onPage
           className="h-8 w-8"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
+          aria-label="Página siguiente"
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-4 w-4" aria-hidden />
         </Button>
       </div>
-    </div>
+    </nav>
   );
 }

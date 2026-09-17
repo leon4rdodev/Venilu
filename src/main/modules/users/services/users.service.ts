@@ -1,4 +1,5 @@
 import { AppDataSource } from "@main/config/data-source";
+import { Role } from "@main/modules/users/entities/role.entity";
 import { User as UserEntity } from "@main/modules/users/entities/user.entity";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
@@ -87,12 +88,23 @@ export class UsersService {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        // Sin role_id explícito, enlazar el rol de sistema equivalente para que
+        // la UI muestre "Administrador"/"Empleado Base" desde el primer momento
+        // (antes solo se asignaba en el siguiente arranque).
+        let roleId = typeof userData.role_id === 'string' && userData.role_id ? userData.role_id : undefined;
+        if (!roleId) {
+            const systemRole = await AppDataSource.getRepository(Role).findOneBy({
+                name: role === 'admin' ? 'Administrador' : 'Empleado Base',
+            });
+            roleId = systemRole?.id;
+        }
+
         const newUser = this.userRepository.create({
             username,
             name,
             password: hashedPassword,
             role,
-            role_id: typeof userData.role_id === 'string' && userData.role_id ? userData.role_id : undefined,
+            role_id: roleId,
         });
 
         return this.userRepository.save(newUser);

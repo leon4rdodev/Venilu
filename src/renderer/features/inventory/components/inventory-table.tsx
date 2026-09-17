@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select";
@@ -7,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   Plus, Search, Tag, Package, X, LayoutGrid, List,
   ArrowUpNarrowWide, ArrowDownWideNarrow, Pencil, Trash2, Boxes, Download, History, Barcode,
+  AlertTriangle, XCircle, AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { InventoryStats } from "./inventory-stats";
@@ -67,8 +69,11 @@ export function InventoryTable() {
     handlePageChange,
   } = useProducts();
 
+  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  /** Padre al crear una nueva presentación desde el dialog */
+  const [variantParent, setVariantParent] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
@@ -105,8 +110,26 @@ export function InventoryTable() {
   useBarcodeScanner({ onScan: handleBarcodeScan });
 
   const handleEdit = useCallback((product: Product) => {
+    setVariantParent(null);
     setEditingProduct(product);
     setDialogOpen(true);
+  }, []);
+
+  /** Desde el dialog del padre: pasa a editar una de sus presentaciones (remonta el dialog). */
+  const handleEditVariant = useCallback((variant: Product) => {
+    setVariantParent(null);
+    setEditingProduct(variant);
+  }, []);
+
+  /** Desde el dialog del padre: reabre en modo "nueva presentación". */
+  const handleAddVariant = useCallback((parent: Product) => {
+    setEditingProduct(null);
+    setVariantParent(parent);
+  }, []);
+
+  const handleDialogOpenChange = useCallback((open: boolean) => {
+    setDialogOpen(open);
+    if (!open) setVariantParent(null);
   }, []);
 
   const handleDeleteClick = useCallback((id: string) => {
@@ -141,11 +164,27 @@ export function InventoryTable() {
 
   const handleSaveProduct = async (productData: Product) => {
     const success = await handleSave(productData, editingProduct);
-    if (success) setDialogOpen(false);
+    if (success) {
+      // Al guardar una presentación, refresca la lista de presentaciones del padre
+      if (productData.parent_product_id) {
+        void queryClient.invalidateQueries({
+          queryKey: ["product-variants", productData.parent_product_id],
+        });
+      }
+      setDialogOpen(false);
+      setVariantParent(null);
+    }
   };
 
   const showCostColumn = products.some((p) => p.cost_price !== undefined && p.cost_price !== null);
   const showSkeleton = useMinimumLoading(isLoading && products.length === 0, 500);
+  const hasActiveFilters = !!searchQuery || selectedCategory !== "all" || stockFilter !== "all";
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setSelectedCategory("all");
+    setStockFilter("all");
+  };
 
   return (
     <>
@@ -156,7 +195,7 @@ export function InventoryTable() {
         <WidgetHeader
           icon={Package}
           title="Lista de Productos"
-          subtitle={`${pagination.totalItems} producto${pagination.totalItems !== 1 ? "s" : ""} registrado${pagination.totalItems !== 1 ? "s" : ""}`}
+          subtitle={`${pagination.totalItems.toLocaleString("es-DO")} producto${pagination.totalItems !== 1 ? "s" : ""} registrado${pagination.totalItems !== 1 ? "s" : ""}`}
           action={
             <div className="flex items-center gap-2 shrink-0">
               <Button
@@ -164,10 +203,12 @@ export function InventoryTable() {
                 size="icon"
                 className="h-9 w-9"
                 title="Exportar inventario a CSV"
+                aria-label={isExporting ? "Exportando inventario…" : "Exportar inventario a CSV"}
+                aria-busy={isExporting}
                 onClick={handleExportCsv}
                 disabled={isLoading || isExporting}
               >
-                <Download className="h-4 w-4" strokeWidth={1.75} />
+                <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               </Button>
               <Button
                 variant="outline"
@@ -176,16 +217,16 @@ export function InventoryTable() {
                 onClick={() => setCategoryDialogOpen(true)}
                 disabled={isLoading}
               >
-                <Tag className="h-4 w-4" strokeWidth={1.75} />
+                <Tag className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 Categorías
               </Button>
               <Button
                 size="sm"
                 className="h-9"
-                onClick={() => { setEditingProduct(null); setDialogOpen(true); }}
+                onClick={() => { setEditingProduct(null); setVariantParent(null); setDialogOpen(true); }}
                 disabled={isLoading}
               >
-                <Plus className="h-4 w-4" strokeWidth={1.75} />
+                <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 Nuevo Producto
               </Button>
             </div>
@@ -196,34 +237,43 @@ export function InventoryTable() {
         <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
           <div className="relative w-56 shrink-0">
             <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none"
               strokeWidth={1.75}
+              aria-hidden="true"
             />
             <Input
+              type="search"
               placeholder="Buscar producto, SKU o código..."
-              className="h-9 pl-9 pr-8 bg-background"
+              aria-label="Buscar producto, SKU o código"
+              className="h-9 pl-9 pr-9 bg-background [&::-webkit-search-cancel-button]:hidden"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               disabled={isLoading}
             />
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-full hover:bg-muted transition-colors"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-[1px] focus-visible:ring-ring"
                 title="Limpiar búsqueda"
+                aria-label="Limpiar búsqueda"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             )}
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5" role="group" aria-label="Filtrar por nivel de stock">
             {STOCK_FILTERS.map((f) => (
               <button
                 key={f.value}
+                type="button"
                 onClick={() => setStockFilter(f.value)}
+                aria-pressed={stockFilter === f.value}
+                disabled={isLoading}
                 className={cn(
                   "px-3 h-9 rounded-full border text-xs font-medium transition-colors whitespace-nowrap",
+                  "focus-visible:outline-none focus-visible:ring-[1px] focus-visible:ring-ring disabled:opacity-50 disabled:pointer-events-none",
                   stockFilter === f.value
                     ? "bg-foreground text-background border-foreground"
                     : "bg-card text-muted-foreground border-border hover:text-foreground hover:bg-muted"
@@ -237,7 +287,7 @@ export function InventoryTable() {
           <div className="flex-1 min-w-2" />
 
           <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={isLoading}>
-            <SelectTrigger className="h-9 w-[160px] bg-background">
+            <SelectTrigger className="h-9 w-[160px] bg-background" aria-label="Filtrar por categoría">
               <SelectValue placeholder="Categoría" />
             </SelectTrigger>
             <SelectContent>
@@ -250,7 +300,7 @@ export function InventoryTable() {
           </Select>
 
           <Select value={sortBy} onValueChange={setSortBy} disabled={isLoading}>
-            <SelectTrigger className="h-9 w-[150px] bg-background">
+            <SelectTrigger className="h-9 w-[150px] bg-background" aria-label="Ordenar por">
               <SelectValue placeholder="Ordenar por" />
             </SelectTrigger>
             <SelectContent>
@@ -265,51 +315,76 @@ export function InventoryTable() {
             variant="outline"
             size="icon"
             className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-            title={sortOrder === "ASC" ? "Ascendente" : "Descendente"}
+            title={sortOrder === "ASC" ? "Orden ascendente" : "Orden descendente"}
+            aria-label={
+              sortOrder === "ASC"
+                ? "Orden ascendente. Cambiar a descendente"
+                : "Orden descendente. Cambiar a ascendente"
+            }
             onClick={() => setSortOrder(sortOrder === "ASC" ? "DESC" : "ASC")}
             disabled={isLoading}
           >
             {sortOrder === "ASC" ? (
-              <ArrowUpNarrowWide className="h-4 w-4" strokeWidth={1.75} />
+              <ArrowUpNarrowWide className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             ) : (
-              <ArrowDownWideNarrow className="h-4 w-4" strokeWidth={1.75} />
+              <ArrowDownWideNarrow className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             )}
           </Button>
 
-          <div className="flex items-center rounded-full border border-border p-0.5 shrink-0">
+          <div
+            className="flex items-center rounded-full border border-border p-0.5 shrink-0"
+            role="group"
+            aria-label="Modo de vista"
+          >
             <button
+              type="button"
               onClick={() => setViewMode("grid")}
               title="Vista de tarjetas"
+              aria-label="Vista de tarjetas"
+              aria-pressed={viewMode === "grid"}
               className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
+                "focus-visible:outline-none focus-visible:ring-[1px] focus-visible:ring-ring",
                 viewMode === "grid" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <LayoutGrid className="h-4 w-4" strokeWidth={1.75} />
+              <LayoutGrid className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             </button>
             <button
+              type="button"
               onClick={() => setViewMode("table")}
               title="Vista de tabla"
+              aria-label="Vista de tabla"
+              aria-pressed={viewMode === "table"}
               className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
+                "focus-visible:outline-none focus-visible:ring-[1px] focus-visible:ring-ring",
                 viewMode === "table" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <List className="h-4 w-4" strokeWidth={1.75} />
+              <List className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             </button>
           </div>
         </div>
 
         {/* Content */}
         {error ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-destructive mb-2">Error al cargar productos</p>
-            <p className="text-sm text-muted-foreground mb-4">{error}</p>
-            <Button onClick={() => fetchProducts()} variant="outline">Reintentar</Button>
+          <div className="flex flex-col items-center justify-center py-12 text-center" role="alert">
+            <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mb-3">
+              <AlertCircle className="h-6 w-6 text-destructive" strokeWidth={1.5} aria-hidden="true" />
+            </div>
+            <h3 className="text-base font-semibold mb-1">No se pudieron cargar los productos</h3>
+            <p className="text-sm text-muted-foreground mb-4 max-w-sm">{error}</p>
+            <Button onClick={() => fetchProducts()} variant="outline" className="h-9">Reintentar</Button>
           </div>
         ) : showSkeleton ? (
           // EXACT replica of the inventory card grid
-          <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
+          <div
+            className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
+            role="status"
+            aria-busy="true"
+            aria-label="Cargando productos"
+          >
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="border border-border rounded-lg overflow-hidden flex flex-col bg-card h-full">
                 <div className="relative w-full aspect-square bg-muted/30 shrink-0">
@@ -342,18 +417,30 @@ export function InventoryTable() {
         ) : products.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-              <Package className="h-10 w-10 text-muted-foreground/40" />
+              <Package className="h-10 w-10 text-muted-foreground/40" aria-hidden="true" />
             </div>
             <h3 className="text-base font-semibold mb-1">
-              {searchQuery || selectedCategory !== "all" || stockFilter !== "all"
-                ? "No se encontraron productos"
-                : "No hay productos registrados"}
+              {hasActiveFilters ? "No se encontraron productos" : "No hay productos registrados"}
             </h3>
             <p className="text-sm text-muted-foreground max-w-xs">
-              {searchQuery || selectedCategory !== "all" || stockFilter !== "all"
+              {hasActiveFilters
                 ? "Intenta ajustar los filtros de búsqueda"
                 : "Agrega tu primer producto para comenzar"}
             </p>
+            {hasActiveFilters ? (
+              <Button variant="outline" className="mt-4 h-9" onClick={clearFilters}>
+                <X className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                Limpiar filtros
+              </Button>
+            ) : (
+              <Button
+                className="mt-4 h-9"
+                onClick={() => { setEditingProduct(null); setVariantParent(null); setDialogOpen(true); }}
+              >
+                <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                Nuevo Producto
+              </Button>
+            )}
           </div>
         ) : viewMode === "grid" ? (
           // Same card size as the POS grid
@@ -385,14 +472,22 @@ export function InventoryTable() {
                   )}
                   <TableHead className="text-xs font-medium text-muted-foreground text-right">Venta</TableHead>
                   <TableHead className="text-xs font-medium text-muted-foreground text-center">Stock</TableHead>
-                  <TableHead className="text-xs font-medium text-muted-foreground text-right">Acciones</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground text-right">
+                    <span className="sr-only">Acciones</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y divide-border">
                 {products.map((product) => {
                   const imageSrc = productImageSrc(product.image);
+                  const minStock = product.min_stock || 5;
                   const isOut = product.stock === 0;
-                  const isLow = product.stock > 0 && product.stock <= (product.min_stock || 5);
+                  const isLow = product.stock > 0 && product.stock <= minStock;
+                  const stockTitle = isOut
+                    ? "Agotado"
+                    : isLow
+                      ? `Stock bajo (mínimo ${minStock})`
+                      : `${product.stock} unidades`;
                   return (
                     <TableRow key={product.id} className="hover:bg-muted/40">
                       <TableCell className="max-w-[240px]">
@@ -408,17 +503,27 @@ export function InventoryTable() {
                           <span className="text-sm font-medium truncate" title={product.name}>
                             {product.name}
                           </span>
+                          {product.variant_name && (
+                            <span
+                              className="rounded-full bg-muted text-xs px-2 py-0.5 text-muted-foreground whitespace-nowrap shrink-0 max-w-[120px] truncate"
+                              title={product.variant_name}
+                            >
+                              {product.variant_name}
+                            </span>
+                          )}
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground truncate max-w-[110px]" title={product.sku}>
-                        {product.sku || "—"}
+                      <TableCell className="font-mono text-xs text-muted-foreground truncate max-w-[110px]" title={product.sku || undefined}>
+                        {product.sku || <span aria-label="Sin SKU">—</span>}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground truncate max-w-[130px]" title={product.category?.name}>
-                        {product.category?.name || "—"}
+                        {product.category?.name || <span aria-label="Sin categoría">—</span>}
                       </TableCell>
                       {showCostColumn && (
-                        <TableCell className="text-right font-mono text-sm tabular-nums whitespace-nowrap">
-                          {product.cost_price !== undefined ? formatCurrency(product.cost_price) : "—"}
+                        <TableCell className="text-right font-mono text-sm tabular-nums whitespace-nowrap text-muted-foreground">
+                          {product.cost_price !== undefined && product.cost_price !== null
+                            ? formatCurrency(product.cost_price)
+                            : "—"}
                         </TableCell>
                       )}
                       <TableCell className="text-right font-mono text-sm font-medium tabular-nums whitespace-nowrap">
@@ -426,8 +531,9 @@ export function InventoryTable() {
                       </TableCell>
                       <TableCell className="text-center">
                         <span
+                          title={stockTitle}
                           className={cn(
-                            "inline-flex px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap",
+                            "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap tabular-nums",
                             isOut
                               ? "bg-red-500/10 text-red-600 dark:text-red-400"
                               : isLow
@@ -435,7 +541,20 @@ export function InventoryTable() {
                                 : "bg-muted text-foreground"
                           )}
                         >
-                          {product.stock} uds
+                          {isOut ? (
+                            <>
+                              <XCircle className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+                              Agotado
+                            </>
+                          ) : isLow ? (
+                            <>
+                              <AlertTriangle className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+                              {product.stock} uds
+                              <span className="sr-only"> (stock bajo)</span>
+                            </>
+                          ) : (
+                            <>{product.stock} uds</>
+                          )}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
@@ -446,8 +565,9 @@ export function InventoryTable() {
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
                             onClick={() => handlePrintLabels(product)}
                             title="Imprimir etiquetas"
+                            aria-label={`Imprimir etiquetas de ${product.name}`}
                           >
-                            <Barcode className="h-4 w-4" strokeWidth={1.75} />
+                            <Barcode className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -455,8 +575,9 @@ export function InventoryTable() {
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
                             onClick={() => handleViewMovements(product)}
                             title="Movimientos de stock"
+                            aria-label={`Movimientos de stock de ${product.name}`}
                           >
-                            <History className="h-4 w-4" strokeWidth={1.75} />
+                            <History className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -464,8 +585,9 @@ export function InventoryTable() {
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
                             onClick={() => handleAdjustClick(product)}
                             title="Ajustar stock"
+                            aria-label={`Ajustar stock de ${product.name}`}
                           >
-                            <Boxes className="h-4 w-4" strokeWidth={1.75} />
+                            <Boxes className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -473,8 +595,9 @@ export function InventoryTable() {
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
                             onClick={() => handleEdit(product)}
                             title="Editar"
+                            aria-label={`Editar ${product.name}`}
                           >
-                            <Pencil className="h-4 w-4" strokeWidth={1.75} />
+                            <Pencil className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -482,9 +605,14 @@ export function InventoryTable() {
                             className="h-8 w-8 text-muted-foreground hover:text-destructive"
                             onClick={() => !product.has_sales && handleDeleteClick(product.id)}
                             disabled={!!product.has_sales}
-                            title={product.has_sales ? "No eliminable (tiene ventas)" : "Eliminar"}
+                            title={product.has_sales ? "No se puede eliminar: tiene ventas registradas" : "Eliminar"}
+                            aria-label={
+                              product.has_sales
+                                ? `No se puede eliminar ${product.name}: tiene ventas registradas`
+                                : `Eliminar ${product.name}`
+                            }
                           >
-                            <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                            <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                           </Button>
                         </div>
                       </TableCell>
@@ -506,12 +634,15 @@ export function InventoryTable() {
       </div>
 
       <ProductDialog
-        key={dialogOpen ? (editingProduct?.id || 'new') : 'closed'}
+        key={dialogOpen ? (editingProduct?.id || (variantParent ? `variant-of-${variantParent.id}` : 'new')) : 'closed'}
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={handleDialogOpenChange}
         product={editingProduct}
         onSave={handleSaveProduct}
         isSaving={isSaving}
+        variantParent={variantParent}
+        onEditVariant={handleEditVariant}
+        onAddVariant={handleAddVariant}
       />
 
       <AdjustStockDialog

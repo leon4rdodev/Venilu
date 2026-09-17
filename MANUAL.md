@@ -14,6 +14,7 @@ Bienvenido a Venilu, su punto de venta. Este manual le explica, paso a paso, có
 4. [Fiao / crédito](#4-fiao--crédito)
 5. [Inventario](#5-inventario)
 6. [Clientes](#6-clientes)
+6b. [Suplidores y compras](#6b-suplidores-y-compras)
 7. [Cierre de caja](#7-cierre-de-caja)
 8. [Reportes](#8-reportes)
 9. [Ajustes](#9-ajustes)
@@ -199,6 +200,45 @@ En **Clientes** tiene su lista de clientes con todo su historial.
 
 ---
 
+## 6b. Suplidores y compras
+
+En **Suplidores** lleva el control de a quién le compra la mercancía, cuánto le debe y qué entró al inventario.
+
+### Registrar un suplidor
+
+1. Pulse **"Nuevo Suplidor"**: nombre o empresa (obligatorio), RNC, contacto o vendedor, teléfono, correo, dirección y notas.
+2. **Días de crédito**: si el suplidor le fía, ponga los días que le da para pagar (0 = paga de contado). Con eso la app calcula cuándo vence cada compra.
+
+### Registrar una compra (entrada de mercancía)
+
+Cuando llega el camión, pulse **"Nueva Compra"** (desde la lista de suplidores, la pestaña **Compras** o la ficha del suplidor):
+
+1. Elija el suplidor y, si quiere, anote el número de factura.
+2. Busque cada producto y agréguelo: ponga la **cantidad** que recibió y el **costo unitario** de la factura. La app le muestra cómo queda el stock y si el costo cambió.
+3. **Actualizar costo de los productos** viene activado: el costo de esta compra pasa a ser el costo del producto (así sus márgenes en Reportes son reales). Apáguelo si fue un precio excepcional.
+4. Forma de pago:
+   - **Efectivo**: sale de la caja de su turno (queda como salida de caja en el arqueo). Necesita un turno abierto.
+   - **Transferencia**: no afecta la caja.
+   - **A crédito**: no paga nada ahora; el total queda como **cuenta por pagar** con su fecha de vencimiento.
+   - También puede pagar una parte ahora y dejar el resto a crédito.
+5. Pulse **"Registrar compra"**. La mercancía entra al inventario y queda anotada en el kardex de cada producto como **Compra**.
+
+### Cuentas por pagar y pagos
+
+- Las tarjetas de arriba muestran lo que debe en total, lo **vencido**, las compras y los pagos del mes.
+- Para abonarle a un suplidor pulse **"Pagar"** en su fila o en su ficha: elija **Efectivo** (sale de su caja; necesita turno abierto) o **Transferencia**, y el monto. El pago se aplica a las compras más antiguas primero.
+- En la ficha del suplidor ve sus compras, sus pagos y el saldo.
+
+### Anular una compra
+
+Si registró una compra por error, ábrala desde la pestaña **Compras** y pulse **"Anular compra"**: la mercancía sale del inventario, el costo vuelve al anterior y la cuenta por pagar se elimina. **Solo se puede anular si aún no le ha hecho ningún pago y no ha vendido esa mercancía**; en ese caso corrija con un ajuste de stock.
+
+### Eliminar o desactivar
+
+Un suplidor sin compras se puede eliminar. Si ya tiene compras, al eliminarlo la app lo **desactiva** (deja de aparecer al comprar) para conservar el historial. No se puede eliminar un suplidor al que todavía le debe dinero.
+
+---
+
 ## 7. Cierre de caja
 
 Al final del turno, cierre la caja para cuadrarla:
@@ -277,7 +317,7 @@ Cree una cuenta para cada persona que use la caja: **"Agregar Usuario"** → nom
 
 ### Roles y Permisos
 
-Los roles definen qué puede hacer cada quien. Viene el rol **Administrador** (todo) y **Empleado Base** (vender, abrir/cerrar su turno, ver inventario y cobrar abonos). Con **"Crear Nuevo Rol"** puede armar roles a su medida — por ejemplo, un cajero que no vea los costos ni pueda anular ventas, o un encargado que sí pueda ajustar stock.
+Los roles definen qué puede hacer cada quien. Viene el rol **Administrador** (todo) y **Empleado Base** (vender, abrir/cerrar su turno, ver inventario y cobrar abonos). Los permisos de **Suplidores y Compras** (ver, gestionar suplidores, registrar y anular compras, pagar) se asignan por rol. Con **"Crear Nuevo Rol"** puede armar roles a su medida — por ejemplo, un cajero que no vea los costos ni pueda anular ventas, o un encargado que sí pueda ajustar stock.
 
 ### Impresora
 
@@ -289,7 +329,7 @@ Sus datos son su negocio — protéjalos:
 
 - **Backup Automático**: elija la **frecuencia** (**Diario** o **Semanal**) y cuántas copias conservar. La copia se crea sola al abrir la aplicación.
 - **"Crear Copia de Seguridad"**: haga una copia manual cuando quiera. Con **"Exportar"** puede guardarla en una memoria USB — hágalo de vez en cuando, por si algo le pasa a la computadora.
-- **"Restaurar"**: vuelve a los datos de una copia anterior. Antes de restaurar, la app crea sola un respaldo de los datos actuales, y al terminar se reinicia.
+- **"Restaurar"**: vuelve a los datos de una copia anterior. Antes de restaurar, la app crea sola un respaldo de los datos actuales, y al terminar le pedirá iniciar sesión de nuevo.
 
 ### Actividad
 

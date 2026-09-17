@@ -101,6 +101,8 @@ export function registerUsersHandlers() {
       // the wizard can finish the initial configuration (settings:update).
       if (!onboarding.completed) {
         await establishSession(user.id);
+      } else {
+        auditService.log('users:create', user.id, user.username);
       }
 
       return { success: true, data: UsersService.toSafeUser(user) };
@@ -113,6 +115,10 @@ export function registerUsersHandlers() {
     try {
       const actor = requirePermission('users:manage');
       await usersService.update(userId, userData, actor.id);
+      auditService.log('users:update', userId, userData?.username, {
+        fields: Object.keys(userData ?? {}).filter(k => k !== 'password'),
+        passwordChanged: Boolean(userData?.password),
+      });
       return { success: true };
     } catch (err: unknown) {
       return { success: false, message: err instanceof Error ? err.message : String(err) };
@@ -147,6 +153,7 @@ export function registerUsersHandlers() {
     try {
       requirePermission('users:roles');
       const role = await rolesService.create(data);
+      auditService.log('roles:create', role.id, role.name);
       return { success: true, data: role };
     } catch (err: unknown) {
       return { success: false, message: err instanceof Error ? err.message : String(err) };
@@ -157,6 +164,7 @@ export function registerUsersHandlers() {
     try {
       requirePermission('users:roles');
       const role = await rolesService.update(roleId, data);
+      auditService.log('roles:update', roleId, role?.name ?? data?.name);
       return { success: true, data: role };
     } catch (err: unknown) {
       return { success: false, message: err instanceof Error ? err.message : String(err) };

@@ -82,6 +82,10 @@ export class Sale {
     @Column({ nullable: true })
     credit_note_ncf?: string;
 
+    /** Fecha de anulación (la Nota de Crédito B04 se reporta con esta fecha). */
+    @Column({ type: "datetime", nullable: true })
+    voided_at?: Date;
+
     @CreateDateColumn()
     created_at!: Date;
 

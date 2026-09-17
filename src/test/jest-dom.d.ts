@@ -7,8 +7,9 @@
 import type { TestingLibraryMatchers } from '@testing-library/jest-dom/types/matchers';
 
 declare module '@vitest/expect' {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Declaration merging requires interfaces here (a type alias would not merge)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-object-type
   interface Assertion<T = any> extends TestingLibraryMatchers<any, T> {}
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-object-type
   interface AsymmetricMatchersContaining extends TestingLibraryMatchers<any, any> {}
 }

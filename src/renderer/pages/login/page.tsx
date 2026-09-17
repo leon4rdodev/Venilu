@@ -14,6 +14,7 @@ import {
   AlertCircle,
   ArrowLeft,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ipc } from "@lib/ipc";
@@ -33,6 +34,103 @@ interface LoginProfile {
 }
 
 const LAST_USER_KEY = "venilu_last_username";
+
+// Anillo de foco visible compartido por los controles a medida de esta pantalla
+const FOCUS_RING =
+  "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card";
+
+/** Campo de contraseña con toggle de visibilidad accesible y error inline enlazado. */
+function PasswordField({
+  inputRef,
+  value,
+  onChange,
+  show,
+  onToggleShow,
+  disabled,
+  error,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  value: string;
+  onChange: (v: string) => void;
+  show: boolean;
+  onToggleShow: () => void;
+  disabled: boolean;
+  error: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="password" className="text-sm font-medium">
+        Contraseña
+      </Label>
+      <div className="relative">
+        <Input
+          id="password"
+          ref={inputRef}
+          placeholder="••••••••"
+          type={show ? "text" : "password"}
+          autoComplete="current-password"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-11 pr-12"
+          disabled={disabled}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? "login-error" : undefined}
+        />
+        <button
+          type="button"
+          onClick={onToggleShow}
+          disabled={disabled}
+          aria-label={show ? "Ocultar contraseña" : "Mostrar contraseña"}
+          aria-pressed={show}
+          className={`absolute right-1.5 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 ${FOCUS_RING}`}
+        >
+          {show ? (
+            <EyeOff className="w-4 h-4" strokeWidth={1.75} aria-hidden />
+          ) : (
+            <Eye className="w-4 h-4" strokeWidth={1.75} aria-hidden />
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function InlineError({ message }: { message: string }) {
+  if (!message) return null;
+  return (
+    <div
+      id="login-error"
+      role="alert"
+      className="flex items-start gap-2 text-destructive text-sm bg-destructive/8 border border-destructive/20 rounded-lg px-3 py-2.5"
+    >
+      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={1.75} aria-hidden />
+      <span>{message}</span>
+    </div>
+  );
+}
+
+function SubmitButton({ isLoading, disabled }: { isLoading: boolean; disabled: boolean }) {
+  return (
+    <Button
+      type="submit"
+      className="w-full h-11 text-sm font-semibold"
+      disabled={disabled}
+      aria-busy={isLoading || undefined}
+    >
+      {isLoading ? (
+        <>
+          <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden />
+          Ingresando…
+        </>
+      ) : (
+        <>
+          <LogIn className="w-4 h-4" aria-hidden />
+          Iniciar sesión
+        </>
+      )}
+    </Button>
+  );
+}
 
 export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promise<void> }) {
   const navigate = useNavigate();
@@ -177,6 +275,7 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promis
     >
       {/* Decorative grid overlay */}
       <div
+        aria-hidden
         className="absolute inset-0 opacity-[0.05]"
         style={{
           backgroundImage:
@@ -189,10 +288,12 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promis
 
       {/* Glow orbs */}
       <div
+        aria-hidden
         className="absolute -top-24 left-1/2 -translate-x-1/2 w-[36rem] h-[36rem] rounded-full opacity-[0.12] blur-3xl pointer-events-none"
         style={{ background: "oklch(0.6 0 0)" }}
       />
       <div
+        aria-hidden
         className="absolute bottom-0 -right-32 w-80 h-80 rounded-full opacity-[0.08] blur-3xl pointer-events-none"
         style={{ background: "oklch(0.45 0 0)" }}
       />
@@ -203,7 +304,12 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promis
           className="w-8 h-8 rounded-lg flex items-center justify-center"
           style={{ background: "oklch(1 0 0)" }}
         >
-          <ShoppingCart className="w-4 h-4" strokeWidth={2} style={{ color: "oklch(0.145 0 0)" }} />
+          <ShoppingCart
+            className="w-4 h-4"
+            strokeWidth={2}
+            style={{ color: "oklch(0.145 0 0)" }}
+            aria-hidden
+          />
         </div>
         <span className="text-lg font-bold tracking-tight" style={{ color: "oklch(0.985 0 0)" }}>
           Venilu
@@ -211,7 +317,7 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promis
       </div>
 
       {/* Centered card */}
-      <div className="relative z-10 w-full max-w-sm">
+      <main className="relative z-10 w-full max-w-sm">
         <div className="bg-card border border-border rounded-2xl shadow-2xl p-8 space-y-6">
           {/* Business identity */}
           <div className="flex flex-col items-center text-center space-y-3">
@@ -222,12 +328,15 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promis
                 className="w-14 h-14 rounded-xl object-cover border border-border"
               />
             ) : (
-              <div className="w-14 h-14 rounded-xl bg-primary text-primary-foreground flex items-center justify-center">
+              <div
+                aria-hidden
+                className="w-14 h-14 rounded-xl bg-primary text-primary-foreground flex items-center justify-center"
+              >
                 <ShoppingCart className="w-6 h-6" strokeWidth={1.75} />
               </div>
             )}
             <div className="space-y-1">
-              <h2 className="text-xl font-semibold tracking-tight">Bienvenido de nuevo</h2>
+              <h1 className="text-xl font-semibold tracking-tight">Bienvenido de nuevo</h1>
               <p className="text-sm text-muted-foreground">
                 {showPicker
                   ? "Selecciona tu usuario para continuar"
@@ -238,36 +347,49 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promis
 
           {/* ── Step 1: user picker ── */}
           {showPicker && (
-            <div className="space-y-1.5 max-h-72 overflow-y-auto -mx-2 px-2">
-              {profiles === null
-                ? // Skeleton réplica of the user tiles while profiles load
-                  Array.from({ length: 3 }).map((_, i) => (
+            <div
+              className="space-y-1.5 max-h-72 overflow-y-auto -mx-2 px-2 py-1"
+              aria-busy={profiles === null || undefined}
+            >
+              {profiles === null ? (
+                <>
+                  <span className="sr-only">Cargando usuarios…</span>
+                  {/* Skeleton réplica of the user tiles while profiles load */}
+                  {Array.from({ length: 3 }).map((_, i) => (
                     <div
                       key={i}
+                      aria-hidden
                       className="flex items-center gap-3 rounded-xl border border-border px-3 py-2.5"
                     >
-                      <div className="w-10 h-10 rounded-full bg-muted animate-pulse shrink-0" />
+                      <div className="w-10 h-10 rounded-full bg-muted animate-pulse motion-reduce:animate-none shrink-0" />
                       <div className="flex-1 space-y-1.5">
-                        <div className="h-3.5 w-28 bg-muted animate-pulse rounded" />
-                        <div className="h-3 w-20 bg-muted animate-pulse rounded" />
+                        <div className="h-3.5 w-28 bg-muted animate-pulse motion-reduce:animate-none rounded" />
+                        <div className="h-3 w-20 bg-muted animate-pulse motion-reduce:animate-none rounded" />
                       </div>
                     </div>
-                  ))
-                : profiles.map((p) => (
+                  ))}
+                </>
+              ) : (
+                profiles.map((p) => {
+                  const isLast = p.username === lastUsername;
+                  return (
                     <button
                       key={p.id}
                       type="button"
                       onClick={() => handleSelect(p)}
-                      className="w-full flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5 text-left transition-colors hover:bg-muted/60 hover:border-muted-foreground/30 group"
+                      className={`w-full flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5 text-left transition-colors hover:bg-muted/60 hover:border-muted-foreground/30 group ${FOCUS_RING}`}
                     >
-                      <div className="w-10 h-10 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold">
+                      <div
+                        aria-hidden
+                        className="w-10 h-10 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold"
+                      >
                         {initialOf(p)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium truncate">{p.name}</p>
-                          {p.username === lastUsername && (
-                            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          {isLast && (
+                            <span className="shrink-0 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium leading-4 text-muted-foreground">
                               Último acceso
                             </span>
                           )}
@@ -275,19 +397,25 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promis
                         <p className="text-xs text-muted-foreground truncate">{p.roleLabel}</p>
                       </div>
                       <ChevronRight
-                        className="w-4 h-4 shrink-0 text-muted-foreground/50 group-hover:text-foreground transition-colors"
+                        className="w-4 h-4 shrink-0 text-muted-foreground/50 group-hover:text-foreground group-focus-visible:text-foreground transition-colors"
                         strokeWidth={1.75}
+                        aria-hidden
                       />
                     </button>
-                  ))}
+                  );
+                })
+              )}
             </div>
           )}
 
           {/* ── Step 2: password for the selected user ── */}
           {selected && (
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-4" noValidate>
               <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/40 px-3 py-2.5">
-                <div className="w-10 h-10 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold">
+                <div
+                  aria-hidden
+                  className="w-10 h-10 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold"
+                >
                   {initialOf(selected)}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -299,68 +427,33 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promis
                     type="button"
                     onClick={handleBack}
                     disabled={isLoading}
-                    className="shrink-0 flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    className={`shrink-0 -mr-1 flex h-8 items-center gap-1 rounded-full px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 ${FOCUS_RING}`}
                   >
-                    <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden />
                     Cambiar
                   </button>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium">
-                  Contraseña
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    ref={passwordRef}
-                    placeholder="••••••••"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="h-11 pr-11"
-                    disabled={isLoading}
-                  />
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
+              <PasswordField
+                inputRef={passwordRef}
+                value={password}
+                onChange={setPassword}
+                show={showPassword}
+                onToggleShow={() => setShowPassword((v) => !v)}
+                disabled={isLoading}
+                error={error}
+              />
 
-              {error && (
-                <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/8 border border-destructive/20 rounded-lg px-3 py-2.5">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  {error}
-                </div>
-              )}
+              <InlineError message={error} />
 
-              <Button
-                type="submit"
-                className="w-full h-11 text-sm font-semibold"
-                disabled={isLoading || !canSubmit}
-              >
-                {isLoading ? (
-                  "Ingresando..."
-                ) : (
-                  <>
-                    <LogIn className="w-4 h-4 mr-2" />
-                    Iniciar Sesión
-                  </>
-                )}
-              </Button>
+              <SubmitButton isLoading={isLoading} disabled={isLoading || !canSubmit} />
             </form>
           )}
 
           {/* ── Fallback: manual credentials (profiles unavailable) ── */}
           {profilesFailed && !selected && (
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-4" noValidate>
               <div className="space-y-2">
                 <Label htmlFor="username" className="text-sm font-medium">
                   Usuario
@@ -371,84 +464,57 @@ export default function LoginPage({ onLogin }: { onLogin: (data: User) => Promis
                   placeholder="Tu nombre de usuario"
                   type="text"
                   autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="h-11"
                   disabled={isLoading}
+                  aria-invalid={error ? true : undefined}
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium">
-                  Contraseña
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    ref={passwordRef}
-                    placeholder="••••••••"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="h-11 pr-11"
-                    disabled={isLoading}
-                  />
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
+              <PasswordField
+                inputRef={passwordRef}
+                value={password}
+                onChange={setPassword}
+                show={showPassword}
+                onToggleShow={() => setShowPassword((v) => !v)}
+                disabled={isLoading}
+                error={error}
+              />
 
-              {error && (
-                <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/8 border border-destructive/20 rounded-lg px-3 py-2.5">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  {error}
-                </div>
-              )}
+              <InlineError message={error} />
 
-              <Button
-                type="submit"
-                className="w-full h-11 text-sm font-semibold"
-                disabled={isLoading || !canSubmit}
-              >
-                {isLoading ? (
-                  "Ingresando..."
-                ) : (
-                  <>
-                    <LogIn className="w-4 h-4 mr-2" />
-                    Iniciar Sesión
-                  </>
-                )}
-              </Button>
+              <SubmitButton isLoading={isLoading} disabled={isLoading || !canSubmit} />
             </form>
           )}
         </div>
 
         {/* Feature strip */}
-        <div className="mt-6 flex items-center justify-center gap-6">
+        <ul className="mt-6 flex items-center justify-center gap-6" aria-label="Módulos de Venilu">
           {features.map((f) => (
-            <div key={f.label} className="flex items-center gap-1.5">
-              <f.icon className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "oklch(0.6 0 0)" }} />
+            <li key={f.label} className="flex items-center gap-1.5">
+              <f.icon
+                className="w-3.5 h-3.5"
+                strokeWidth={1.75}
+                style={{ color: "oklch(0.6 0 0)" }}
+                aria-hidden
+              />
               <span className="text-xs" style={{ color: "oklch(0.6 0 0)" }}>
                 {f.label}
               </span>
-            </div>
+            </li>
           ))}
-        </div>
-      </div>
+        </ul>
+      </main>
 
       {/* Footer */}
-      <div className="absolute bottom-0 inset-x-0 p-6 text-center z-10">
-        <p className="text-xs" style={{ color: "oklch(0.45 0 0)" }}>
+      <footer className="absolute bottom-0 inset-x-0 p-6 text-center z-10">
+        <p className="text-xs" style={{ color: "oklch(0.55 0 0)" }}>
           Venilu · Sistema POS · © {new Date().getFullYear()}
         </p>
-      </div>
+      </footer>
     </div>
   );
 }

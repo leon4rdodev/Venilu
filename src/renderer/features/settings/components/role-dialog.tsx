@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent } from '@components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@components/ui/dialog';
 import { Button } from '@components/ui/button';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Switch } from '@components/ui/switch';
-import { Plus, Check } from 'lucide-react';
+import { Plus, Check, ShieldCheck, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { Role } from '@shared/types/models';
 import { PERMISSIONS, Permission } from '@shared/permissions';
@@ -56,6 +56,16 @@ const PERMISSION_GROUPS = [
     ]
   },
   {
+    title: 'Suplidores y Compras',
+    permissions: [
+      { id: PERMISSIONS.SUP_VIEW, label: 'Ver suplidores, compras y cuentas por pagar' },
+      { id: PERMISSIONS.SUP_MANAGE, label: 'Crear, editar y eliminar suplidores' },
+      { id: PERMISSIONS.PUR_CREATE, label: 'Registrar compras (entrada de mercancía)' },
+      { id: PERMISSIONS.PUR_CANCEL, label: 'Anular compras' },
+      { id: PERMISSIONS.SUP_PAY, label: 'Pagar cuentas a suplidores' },
+    ]
+  },
+  {
     title: 'Ventas y Reportes',
     permissions: [
       { id: PERMISSIONS.SALES_VIEW, label: 'Ver historial de ventas' },
@@ -91,6 +101,8 @@ const PERMISSION_GROUPS = [
     ]
   }
 ];
+
+const TOTAL_PERMISSIONS = PERMISSION_GROUPS.reduce((sum, g) => sum + g.permissions.length, 0);
 
 export function RoleDialog({ role, isOpen, onClose, onSave }: RoleDialogProps) {
   const [name, setName] = useState('');
@@ -188,63 +200,113 @@ export function RoleDialog({ role, isOpen, onClose, onSave }: RoleDialogProps) {
       <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="p-6 pb-4 border-b border-border space-y-1 shrink-0">
-          <h2 className="text-lg font-semibold tracking-tight">
-            {role ? 'Editar Rol' : 'Crear Nuevo Rol'}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {isSystem 
-              ? 'Los roles del sistema son de solo lectura.' 
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-muted text-foreground flex items-center justify-center shrink-0">
+              {isAdminRole
+                ? <Lock className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                : <ShieldCheck className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />}
+            </div>
+            <DialogTitle className="text-lg font-semibold tracking-tight">
+              {isAdminRole ? 'Rol Administrador' : role ? 'Editar Rol' : 'Crear Nuevo Rol'}
+            </DialogTitle>
+          </div>
+          <DialogDescription className="text-sm text-muted-foreground">
+            {isSystem
+              ? 'Los roles del sistema son de solo lectura.'
               : 'Configura el nombre y los accesos específicos para este rol.'}
-          </p>
+          </DialogDescription>
         </div>
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6" style={{ scrollbarWidth: 'thin' }}>
           <div className="space-y-2">
-            <Label htmlFor="role-name">Nombre del Rol *</Label>
+            <Label htmlFor="role-name" className="gap-1">
+              Nombre del Rol
+              {!isSystem && (
+                <>
+                  <span aria-hidden="true" className="text-muted-foreground">*</span>
+                  <span className="sr-only">(obligatorio)</span>
+                </>
+              )}
+            </Label>
             <Input
               id="role-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ej: Supervisor de Inventario"
+              autoComplete="off"
+              aria-required={!isSystem}
+              aria-describedby={isSystem ? 'role-name-hint' : undefined}
               disabled={isSaving || isSystem}
               className="h-10 bg-background"
             />
+            {isSystem && (
+              <p id="role-name-hint" className="text-xs text-muted-foreground">
+                El nombre de los roles del sistema no se puede cambiar.
+              </p>
+            )}
           </div>
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-border">
-              <Label className="text-sm font-semibold tracking-tight">Permisos del Sistema</Label>
-              <span className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium text-foreground">
-                {selectedPermissions.size} seleccionados
+            <div className="flex items-center justify-between gap-3 pb-2 border-b border-border">
+              <div className="min-w-0">
+                <h3 id="permissions-heading" className="text-sm font-semibold tracking-tight">Permisos del Sistema</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {isAdminRole
+                    ? 'El rol Administrador siempre tiene todos los permisos.'
+                    : 'Activa solo lo que este rol necesita para su trabajo.'}
+                </p>
+              </div>
+              <span
+                className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium text-foreground tabular-nums whitespace-nowrap shrink-0"
+                aria-live="polite"
+              >
+                {selectedPermissions.size} de {TOTAL_PERMISSIONS}
               </span>
             </div>
-            
-            <div className="grid grid-cols-1 gap-y-4 mt-4">
+
+            <div role="group" aria-labelledby="permissions-heading" className="grid grid-cols-1 gap-y-4">
               {PERMISSION_GROUPS.map((group, idx) => {
                 const groupIds = group.permissions.map(p => p.id as Permission);
-                const isGroupAllSelected = groupIds.every(id => selectedPermissions.has(id));
+                const selectedInGroup = groupIds.filter(id => selectedPermissions.has(id)).length;
+                const isGroupAllSelected = selectedInGroup === groupIds.length;
+                const groupHeadingId = `perm-group-${idx}`;
 
                 return (
-                  <div key={idx} className="border border-border rounded-lg overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-                      <h4 className="text-sm font-semibold tracking-tight text-foreground">{group.title}</h4>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleGroup(group.permissions as {id: Permission}[])}
-                        disabled={isAdminRole || isSaving}
-                        className="h-7 px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
-                      >
-                        {isGroupAllSelected ? 'Desmarcar' : 'Marcar Todo'}
-                      </Button>
+                  <fieldset
+                    key={idx}
+                    aria-labelledby={groupHeadingId}
+                    className="border border-border rounded-lg overflow-hidden min-w-0"
+                  >
+                    <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-border bg-muted/30">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <h4 id={groupHeadingId} className="text-sm font-semibold tracking-tight text-foreground truncate">
+                          {group.title}
+                        </h4>
+                        <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+                          {selectedInGroup}/{groupIds.length}
+                        </span>
+                      </div>
+                      {!isAdminRole && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleGroup(group.permissions as {id: Permission}[])}
+                          disabled={isSaving}
+                          aria-label={`${isGroupAllSelected ? 'Desmarcar todo' : 'Marcar todo'} en ${group.title}`}
+                          className="h-7 px-2 text-xs font-medium text-muted-foreground hover:text-foreground shrink-0"
+                        >
+                          {isGroupAllSelected ? 'Desmarcar' : 'Marcar Todo'}
+                        </Button>
+                      )}
                     </div>
                     <div className="divide-y divide-border">
                       {group.permissions.map((perm) => (
-                        <div key={perm.id} className="flex items-center justify-between gap-2 px-4 py-1.5">
+                        <div key={perm.id} className="flex items-center justify-between gap-3 px-4 py-1.5">
                           <Label
                             htmlFor={`perm-${perm.id}`}
-                            className="text-sm font-medium text-foreground cursor-pointer flex-1 leading-snug py-1.5"
+                            className="text-sm font-normal text-foreground cursor-pointer flex-1 leading-snug py-1.5"
                           >
                             {perm.label}
                           </Label>
@@ -257,7 +319,7 @@ export function RoleDialog({ role, isOpen, onClose, onSave }: RoleDialogProps) {
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </fieldset>
                 );
               })}
             </div>
@@ -271,10 +333,10 @@ export function RoleDialog({ role, isOpen, onClose, onSave }: RoleDialogProps) {
           </Button>
           {!isAdminRole && (
             <Button onClick={handleSubmit} disabled={!name.trim() || isSaving} className="flex-1 h-10 gap-2">
-              {isSaving ? 'Guardando...' : role ? (
-                <><Check className="h-4 w-4" strokeWidth={1.75} />Guardar Cambios</>
+              {isSaving ? 'Guardando…' : role ? (
+                <><Check className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />Guardar Cambios</>
               ) : (
-                <><Plus className="h-4 w-4" strokeWidth={1.75} />Crear Rol</>
+                <><Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />Crear Rol</>
               )}
             </Button>
           )}

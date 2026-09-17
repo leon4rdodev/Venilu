@@ -78,7 +78,7 @@ export default function Cart({
         <div className="shrink-0 px-4 py-3 border-b border-border bg-card flex items-center justify-between gap-2">
           <div className="min-w-0">
             <h2 className="text-base font-semibold tracking-tight">Pedido Actual</h2>
-            <p className="text-xs text-muted-foreground truncate">
+            <p className="text-xs text-muted-foreground truncate tabular-nums">
               {cart.length === 0
                 ? "Sin artículos"
                 : `${totalItems} artículo${totalItems !== 1 ? 's' : ''} • ${cart.length} producto${cart.length !== 1 ? 's' : ''}`}
@@ -90,13 +90,18 @@ export default function Cart({
               variant="ghost"
               size="sm"
               className={cn(
-                "h-8 gap-1 text-xs",
-                parkedSales.length > 0 ? "text-foreground" : "text-muted-foreground"
+                "h-9 min-w-9 px-2.5 gap-1 text-xs",
+                parkedSales.length > 0 ? "text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
               onClick={() => onParkedDialogOpenChange(true)}
               title="Ventas en espera (F4)"
+              aria-label={
+                parkedSales.length > 0
+                  ? `Ventas en espera (${parkedSales.length})`
+                  : "Ventas en espera"
+              }
             >
-              <PauseCircle className="h-3.5 w-3.5" strokeWidth={1.75} />
+              <PauseCircle className="h-4 w-4" strokeWidth={1.75} />
               {parkedSales.length > 0 && (
                 <span className="font-semibold tabular-nums">{parkedSales.length}</span>
               )}
@@ -105,21 +110,23 @@ export default function Cart({
               <>
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                  size="icon"
+                  className="h-9 w-9 text-muted-foreground hover:text-foreground"
                   onClick={onParkSale}
                   title="Poner esta venta en espera (F3)"
+                  aria-label="Poner esta venta en espera"
                 >
-                  <Pause className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  <Pause className="h-4 w-4" strokeWidth={1.75} />
                 </Button>
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className="h-8 text-xs text-muted-foreground hover:text-destructive"
+                  size="icon"
+                  className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                   onClick={onClearCart}
                   title="Vaciar carrito"
+                  aria-label="Vaciar carrito"
                 >
-                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  <Trash2 className="h-4 w-4" strokeWidth={1.75} />
                 </Button>
               </>
             )}
@@ -132,18 +139,22 @@ export default function Cart({
             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted shrink-0">
               <User2 className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
             </div>
-            <span className="font-medium truncate flex-1 min-w-0">{selectedCustomer.name}</span>
+            <span className="font-medium truncate flex-1 min-w-0" title={selectedCustomer.name}>
+              {selectedCustomer.name}
+            </span>
             {Number(selectedCustomer.balance) > 0 && (
               <span className="text-xs font-medium text-amber-600 dark:text-amber-400 whitespace-nowrap font-mono tabular-nums">
                 Deuda {formatCurrency(Number(selectedCustomer.balance))}
               </span>
             )}
             <button
+              type="button"
               onClick={() => onSelectCustomer(null)}
-              className="p-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+              className="flex h-7 w-7 -mr-1 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0 outline-none focus-visible:ring-[1px] focus-visible:ring-ring"
               title="Quitar cliente"
+              aria-label={`Quitar cliente ${selectedCustomer.name}`}
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-4 w-4" strokeWidth={1.75} />
             </button>
           </div>
         )}
@@ -151,12 +162,12 @@ export default function Cart({
         {/* CONTENIDO SCROLLEABLE */}
         <div className="flex-1 overflow-y-auto min-h-0">
           {cart.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center px-4 text-center text-muted-foreground">
+            <div className="h-full flex flex-col items-center justify-center px-4 text-center" role="status">
               <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-3">
-                <ShoppingBag className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} />
+                <ShoppingBag className="h-6 w-6 text-muted-foreground" strokeWidth={1.5} />
               </div>
-              <p className="text-sm font-medium">Carrito vacío</p>
-              <p className="text-xs mt-1">Toca un producto para agregarlo</p>
+              <p className="text-sm font-medium text-foreground">Carrito vacío</p>
+              <p className="text-xs text-muted-foreground mt-1">Toca un producto para agregarlo</p>
             </div>
           ) : (
             <div className="p-3 space-y-2">
@@ -174,8 +185,8 @@ export default function Cart({
 
         {/* FOOTER */}
         <div className="shrink-0 border-t border-border bg-card p-4 space-y-3">
-          {/* Subtotal & Descuento */}
-          <div className="flex flex-col gap-2 mb-2">
+          {/* Subtotal, Descuento e ITBIS — una sola pila con ritmo de 8px */}
+          <div className="flex flex-col gap-2">
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground">Subtotal</span>
               <span className="font-medium text-foreground font-mono tabular-nums">
@@ -183,18 +194,28 @@ export default function Cart({
               </span>
             </div>
 
-            <div className={cn("flex justify-between items-center text-sm", !canDiscount && "opacity-60")}>
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground">Descuento</span>
-                {!canDiscount && <Lock className="h-3 w-3 text-muted-foreground/50" />}
-              </div>
-              <div className="flex items-center gap-1 w-24">
-                <span className="text-muted-foreground text-xs">{getCurrencySymbol()}</span>
+            <div className={cn("flex justify-between items-center text-sm gap-3", !canDiscount && "opacity-60")}>
+              <label
+                htmlFor="pos-cart-discount"
+                className="flex items-center gap-1.5 text-muted-foreground"
+                title={canDiscount ? undefined : "Sin permiso para aplicar descuentos"}
+              >
+                Descuento
+                {!canDiscount && <Lock className="h-3 w-3 text-muted-foreground" strokeWidth={1.75} />}
+              </label>
+              <div className="flex items-center gap-1.5 w-28">
+                <span id="pos-cart-discount-currency" className="text-muted-foreground text-xs shrink-0">
+                  {getCurrencySymbol()}
+                </span>
                 <Input
+                  id="pos-cart-discount"
                   type="number"
+                  inputMode="decimal"
                   min="0"
                   max={subtotal}
+                  step="0.01"
                   disabled={!canDiscount}
+                  aria-describedby="pos-cart-discount-currency"
                   value={discountAmount === 0 ? "" : discountAmount}
                   onChange={(e) => {
                     const val = parseFloat(e.target.value);
@@ -207,32 +228,37 @@ export default function Cart({
                     }
                   }}
                   className={cn(
-                    "h-8 text-right text-xs bg-background font-mono tabular-nums",
+                    "h-9 text-right text-xs bg-background font-mono tabular-nums",
                     !canDiscount && "cursor-not-allowed"
                   )}
                   placeholder={canDiscount ? "0.00" : "Bloqueado"}
                 />
               </div>
             </div>
+
+            {fiscalEnabled && (
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">
+                  ITBIS incluido ({itbisRate % 1 === 0 ? itbisRate : itbisRate.toFixed(2)}%)
+                </span>
+                <span className="text-muted-foreground font-mono tabular-nums">
+                  {formatCurrency(itbisIncluded)}
+                </span>
+              </div>
+            )}
           </div>
 
-          {fiscalEnabled && (
-            <div className="flex justify-between items-center text-sm mb-2">
-              <span className="text-muted-foreground">
-                ITBIS incluido ({itbisRate % 1 === 0 ? itbisRate : itbisRate.toFixed(2)}%)
-              </span>
-              <span className="text-muted-foreground font-mono tabular-nums">
-                {formatCurrency(itbisIncluded)}
-              </span>
-            </div>
-          )}
-
-          <div className="w-full h-px bg-border" />
+          <div className="w-full h-px bg-border" role="separator" />
 
           {/* Total */}
-          <div className="flex justify-between items-center mt-1">
+          <div className="flex justify-between items-baseline gap-3">
             <span className="text-sm font-medium text-muted-foreground">Total a pagar</span>
-            <span className="text-2xl font-semibold tracking-tight tabular-nums text-foreground">
+            <span
+              className="text-2xl font-semibold tracking-tight tabular-nums text-foreground truncate"
+              title={formatCurrency(total)}
+              aria-live="polite"
+              aria-atomic="true"
+            >
               {formatCurrency(total)}
             </span>
           </div>
@@ -242,8 +268,9 @@ export default function Cart({
             className="w-full h-11 text-base font-semibold gap-2"
             disabled={cart.length === 0}
             onClick={() => onPaymentDialogOpenChange(true)}
+            title={cart.length === 0 ? "Agrega productos para cobrar" : undefined}
           >
-            <CreditCard className="h-5 w-5" />
+            <CreditCard className="h-5 w-5" strokeWidth={1.75} />
             Proceder al Pago
             <kbd className="ml-1 rounded-md border border-primary-foreground/30 px-1.5 py-0.5 text-[10px] font-mono font-medium leading-none opacity-80">
               F2

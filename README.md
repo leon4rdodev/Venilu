@@ -17,6 +17,7 @@ TODO: agregar capturas de pantalla
 - **Ventas en espera**: aparca una venta a medio cobrar y atiende al siguiente cliente sin perder el carrito.
 - **Crédito / fiao**: límite de crédito por cliente, abonos parciales y manejo correcto de la deuda al anular.
 - **Facturación fiscal DGII**: comprobantes NCF **B01** (Crédito Fiscal), **B02** (Consumo) y **B04** (Nota de Crédito al anular), desglose de ITBIS incluido en el precio, productos exentos, y export del **reporte 607** para el contador.
+- **Suplidores y compras**: ficha de proveedores con días de crédito, compras que entran al inventario (kardex y costo actualizado), cuentas por pagar con vencimientos y pagos que salen del arqueo de caja.
 - **Inventario con kardex**: productos con foto, costo/precio, stock mínimo, ajustes de stock con motivo, historial de movimientos (kardex) y etiquetas.
 - **Reportes**: ventas por rango de fechas, productos más/menos vendidos, mejores clientes, desglose por método de pago, export a **PDF y CSV**.
 - **Arqueo de caja**: apertura de turno con fondo inicial, gastos del turno, y cierre contando por denominaciones con cálculo de la diferencia.

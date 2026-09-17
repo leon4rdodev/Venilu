@@ -1,4 +1,5 @@
 import { useMemo, createElement, memo } from "react";
+import type { KeyboardEvent } from "react";
 import { Card } from "@components/ui/card";
 import {
   Smartphone,
@@ -7,6 +8,7 @@ import {
   Shield,
   Cpu,
   Package,
+  TriangleAlert,
 } from "lucide-react";
 import { formatCurrency } from "@lib/currency";
 import { productImageSrc } from "@lib/image";
@@ -43,16 +45,35 @@ export const ProductCard = memo(function ProductCard({ product, onAddToCart }: P
   const isOutOfStock = product.stock === 0;
   const isLowStock = product.stock > 0 && product.stock <= (product.min_stock || 5);
   const imageSrc = productImageSrc(product.image);
+  const priceLabel = formatCurrency(product.sale_price);
+
+  const handleAdd = () => {
+    if (!isOutOfStock) onAddToCart(product);
+  };
+
+  // The card is a div-based control: Enter/Space activate it like a native button.
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleAdd();
+    }
+  };
 
   return (
     <Card
+      role="button"
+      tabIndex={isOutOfStock ? -1 : 0}
+      aria-disabled={isOutOfStock || undefined}
+      aria-label={`${product.name}, ${priceLabel}${isOutOfStock ? ", agotado" : ""}`}
       className={cn(
-        "group relative cursor-pointer border rounded-lg overflow-hidden transition-all duration-200 h-full flex flex-col bg-card p-0 gap-0",
+        "group relative cursor-pointer border rounded-lg overflow-hidden transition-all duration-200 h-full flex flex-col bg-card p-0 gap-0 shadow-none",
+        "outline-none focus-visible:border-ring focus-visible:ring-[1px] focus-visible:ring-ring",
         isOutOfStock
           ? "opacity-60 cursor-not-allowed bg-muted/20"
-          : "hover:shadow-md hover:border-primary/40 hover:-translate-y-1 active:translate-y-0"
+          : "hover:shadow-md hover:border-primary/40 hover:-translate-y-1 active:translate-y-0 motion-reduce:hover:translate-y-0 motion-reduce:transition-none"
       )}
-      onClick={() => !isOutOfStock && onAddToCart(product)}
+      onClick={handleAdd}
+      onKeyDown={handleKeyDown}
     >
       {/* Photo — full-width hero on top */}
       <div className="relative w-full aspect-square bg-muted/30 overflow-hidden shrink-0">
@@ -61,7 +82,7 @@ export const ProductCard = memo(function ProductCard({ product, onAddToCart }: P
             src={imageSrc}
             alt={product.name}
             loading="lazy"
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -74,36 +95,52 @@ export const ProductCard = memo(function ProductCard({ product, onAddToCart }: P
         {/* Stock badge overlaid on the photo */}
         <span
           className={cn(
-            "absolute top-2 right-2 text-[10px] font-bold px-2 py-1 rounded-full border shadow-sm whitespace-nowrap backdrop-blur-sm",
+            "absolute top-2 right-2 inline-flex items-center gap-1 h-6 text-[11px] leading-none font-semibold px-2 rounded-full border shadow-sm whitespace-nowrap backdrop-blur-sm tabular-nums",
             isOutOfStock
               ? "bg-destructive/90 text-white border-destructive/20"
               : isLowStock
                 ? "bg-amber-500/90 text-white border-amber-200/40"
                 : "bg-background/85 text-foreground border-border/60"
           )}
+          title={isLowStock ? "Stock bajo" : undefined}
         >
+          {isLowStock && <TriangleAlert className="h-3 w-3" strokeWidth={2} />}
           {isOutOfStock ? "Agotado" : `${product.stock} disp.`}
         </span>
       </div>
 
       {/* Info below the photo */}
-      <div className="p-3.5 flex-1 flex flex-col gap-1.5">
+      <div className="p-3 flex-1 flex flex-col gap-1.5">
         <h3
-          className="font-medium text-sm leading-snug text-foreground/90 group-hover:text-primary transition-colors duration-200 line-clamp-2"
+          className="font-medium text-sm leading-snug text-foreground line-clamp-2"
           title={product.name}
         >
           {product.name}
         </h3>
 
-        {product.category?.name && (
-          <p className="text-[11px] text-muted-foreground truncate">{product.category.name}</p>
+        {(product.variant_name || product.category?.name) && (
+          <div className="flex items-center gap-1.5 min-w-0">
+            {product.variant_name && (
+              <span
+                className="rounded-full bg-muted text-[11px] leading-none font-medium px-2 py-1 text-foreground whitespace-nowrap shrink-0 max-w-[60%] truncate"
+                title={product.variant_name}
+              >
+                {product.variant_name}
+              </span>
+            )}
+            {product.category?.name && (
+              <p className="text-[11px] text-muted-foreground truncate" title={product.category.name}>
+                {product.category.name}
+              </p>
+            )}
+          </div>
         )}
 
         <div className="pt-2 border-t border-border/50 mt-auto flex items-end justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Precio</p>
-            <p className="text-lg font-bold text-primary tracking-tight truncate" title={formatCurrency(product.sale_price)}>
-              {formatCurrency(product.sale_price)}
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Precio</p>
+            <p className="text-lg font-semibold text-foreground tracking-tight tabular-nums truncate" title={priceLabel}>
+              {priceLabel}
             </p>
           </div>
         </div>

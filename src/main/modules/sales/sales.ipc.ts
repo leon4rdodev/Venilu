@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron';
 import { SalesService } from '@main/modules/sales/services/sales.service';
 import { requirePermission, hasPermission } from '@main/shared/session';
+import { auditService } from '@main/modules/audit/services/audit.service';
 import { licenseService } from '@main/shared/services/license.service';
 
 const salesService = new SalesService();
@@ -75,6 +76,9 @@ export function registerSalesHandlers() {
       }
 
       const result = await salesService.payDebt(customerId, amount, shiftId, method, session.id);
+      auditService.log('customers:pay_debt', String(customerId),
+        `${result.payment.amount.toFixed(2)} (${method === 'cash' ? 'efectivo' : 'transferencia'}) · deuda restante ${result.newBalance.toFixed(2)}`,
+        { amount: result.payment.amount, method, newBalance: result.newBalance });
       return { success: true, data: result };
     } catch (err: any) {
       console.error('[sales.ipc] pay-customer-debt:', err);
@@ -96,6 +100,7 @@ export function registerSalesHandlers() {
     try {
       requirePermission('sales:void');
       const result = await salesService.voidSale(saleId);
+      auditService.log('sales:void', String(saleId), `Venta #${saleId}`);
       return result;
     } catch (err: any) {
       return { success: false, message: err.message };
@@ -108,8 +113,13 @@ export function registerSalesHandlers() {
    */
   ipcMain.handle('sales:return', async (_event, { saleId, items, note } = {}) => {
     try {
-      const session = requirePermission('sales:void');
+      const session = requirePermission('sales:return');
       const result = await salesService.processReturn(String(saleId ?? ''), items, session.id, note);
+      auditService.log('sales:return', String(saleId), `Venta #${saleId} · reembolso ${result.totalRefunded.toFixed(2)}`, {
+        returnId: result.returnId,
+        totalRefunded: result.totalRefunded,
+        creditNoteNcf: result.creditNoteNcf,
+      });
       return result;
     } catch (err: any) {
       return { success: false, message: err.message };

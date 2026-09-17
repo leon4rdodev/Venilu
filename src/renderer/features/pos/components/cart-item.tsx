@@ -32,19 +32,26 @@ export function CartItem({ item, onUpdateQuantity, onRemoveFromCart }: CartItemP
   const categoryIcon = getCategoryIcon(item.category?.name || "Otros");
   const colorClasses = getCategoryColor(item.category?.name || "Otros");
   const imageSrc = productImageSrc(item.image);
+  const lineTotal = formatCurrency(item.sale_price * item.quantity);
+  const unitPrice = formatCurrency(item.sale_price);
+  // Lowering to 0 removes the line — say so instead of "disminuir".
+  const decreaseLabel = item.quantity <= 1 ? `Quitar ${item.name}` : `Disminuir cantidad de ${item.name}`;
 
   return (
     <div className="group relative flex gap-3 p-3 rounded-lg border border-border bg-card">
-      {/* Photo (category icon as fallback) */}
+      {/* Photo (category icon as fallback) — decorative: the name sits right beside it */}
       {imageSrc ? (
         <img
           src={imageSrc}
-          alt={item.name}
+          alt=""
           loading="lazy"
           className="h-12 w-12 shrink-0 rounded-md object-cover border border-border"
         />
       ) : (
-        <div className={cn("h-12 w-12 shrink-0 rounded-md flex items-center justify-center", colorClasses)}>
+        <div
+          className={cn("h-12 w-12 shrink-0 rounded-md flex items-center justify-center", colorClasses)}
+          aria-hidden="true"
+        >
           {createElement(categoryIcon, { className: "h-5 w-5", strokeWidth: 1.75 })}
         </div>
       )}
@@ -53,7 +60,7 @@ export function CartItem({ item, onUpdateQuantity, onRemoveFromCart }: CartItemP
         {/* Top Row: Name and Remove */}
         <div className="flex items-start justify-between gap-2 mb-2">
           <h4
-            className="font-medium text-sm leading-tight text-foreground line-clamp-2"
+            className="font-medium text-sm leading-tight text-foreground line-clamp-2 pt-0.5"
             title={item.name}
           >
             {item.name}
@@ -61,8 +68,10 @@ export function CartItem({ item, onUpdateQuantity, onRemoveFromCart }: CartItemP
           <Button
             size="icon"
             variant="ghost"
-            className="h-6 w-6 -mr-1 -mt-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+            className="h-9 w-9 -mr-2 -mt-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
             onClick={() => onRemoveFromCart(item.id)}
+            aria-label={`Quitar ${item.name}`}
+            title="Quitar del carrito"
           >
             <X className="h-4 w-4" strokeWidth={1.75} />
           </Button>
@@ -71,38 +80,49 @@ export function CartItem({ item, onUpdateQuantity, onRemoveFromCart }: CartItemP
         {/* Bottom Row: Controls and Price */}
         <div className="flex items-end justify-between gap-2">
           {/* Quantity Controls */}
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1 shrink-0" role="group" aria-label={`Cantidad de ${item.name}`}>
             <Button
               size="icon"
               variant="outline"
-              className="h-7 w-7"
+              className="h-9 w-9"
               onClick={() => onUpdateQuantity(item.id, -1)}
+              aria-label={decreaseLabel}
+              title={item.quantity <= 1 ? "Quitar" : "Disminuir cantidad"}
             >
-              <Minus className="h-3 w-3" strokeWidth={1.75} />
+              <Minus className="h-4 w-4" strokeWidth={1.75} />
             </Button>
-            <span className="w-8 text-center text-sm font-medium tabular-nums">
+            <span
+              className="w-8 text-center text-sm font-medium tabular-nums"
+              aria-live="polite"
+              aria-atomic="true"
+            >
               {item.quantity}
             </span>
             <Button
               size="icon"
               variant="outline"
-              className="h-7 w-7"
+              className="h-9 w-9"
               onClick={() => onUpdateQuantity(item.id, 1)}
+              aria-label={`Aumentar cantidad de ${item.name}`}
+              title="Aumentar cantidad"
             >
-              <Plus className="h-3 w-3" strokeWidth={1.75} />
+              <Plus className="h-4 w-4" strokeWidth={1.75} />
             </Button>
           </div>
 
           {/* Price details */}
           <div className="text-right min-w-0">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-0.5">
-              {formatCurrency(item.sale_price)} <span className="lowercase">unid.</span>
+            <p
+              className="text-[11px] text-muted-foreground font-mono tabular-nums truncate mb-0.5"
+              title={`${unitPrice} por unidad`}
+            >
+              {unitPrice} unid.
             </p>
             <p
               className="text-sm font-semibold text-foreground font-mono tabular-nums truncate"
-              title={formatCurrency(item.sale_price * item.quantity)}
+              title={lineTotal}
             >
-              {formatCurrency(item.sale_price * item.quantity)}
+              {lineTotal}
             </p>
           </div>
         </div>

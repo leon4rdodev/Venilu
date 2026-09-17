@@ -240,13 +240,13 @@ describe('ProductsService', () => {
   // ─── getLowStock / getInventoryStats ────────────────────────────────────────
 
   describe('getLowStock', () => {
-    it('solo productos con 0 < stock <= min_stock, ordenados por stock ASC', async () => {
+    it('productos con stock <= min_stock (agotados incluidos), ordenados por stock ASC', async () => {
       const p1 = await createTestProduct({ stock: 1, min_stock: 5 });
       const p2 = await createTestProduct({ stock: 4, min_stock: 5 });
-      await createTestProduct({ stock: 0, min_stock: 5 }); // agotado no cuenta
+      const p0 = await createTestProduct({ stock: 0, min_stock: 5 }); // agotado: primero en la lista
       await createTestProduct({ stock: 10, min_stock: 5 });
       const rows = await service.getLowStock();
-      expect(rows.map(p => p.id)).toEqual([p1.id, p2.id]);
+      expect(rows.map(p => p.id)).toEqual([p0.id, p1.id, p2.id]);
     });
   });
 

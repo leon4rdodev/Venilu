@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { History, Search, X } from "lucide-react";
+import { AlertTriangle, History, Search, X } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -34,7 +34,33 @@ const ACTION_LABELS: Record<string, string> = {
   "users:delete": "Eliminó usuario",
   "roles:delete": "Eliminó rol",
   "inventory:delete": "Eliminó producto",
+  "inventory:create": "Creó producto",
+  "inventory:update": "Editó producto",
+  "inventory:update_price": "Cambió precio",
+  "inventory:adjust_stock": "Ajustó stock",
+  "sales:void": "Anuló venta",
+  "sales:return": "Devolución de artículos",
+  "customers:pay_debt": "Registró abono",
+  "customers:delete": "Eliminó cliente",
+  "users:create": "Creó usuario",
+  "users:update": "Editó usuario",
+  "roles:create": "Creó rol",
+  "roles:update": "Editó rol",
+  "shifts:open": "Abrió turno",
+  "shifts:close": "Cerró turno",
+  "shifts:expense": "Salida de caja",
   "shifts:force_close": "Cierre forzado de turno",
+  "settings:update": "Cambió ajustes",
+  "suppliers:create": "Creó suplidor",
+  "suppliers:update": "Editó suplidor",
+  "suppliers:delete": "Eliminó suplidor",
+  "suppliers:deactivate": "Desactivó suplidor",
+  "suppliers:pay": "Pagó a suplidor",
+  "purchases:create": "Registró compra",
+  "purchases:cancel": "Anuló compra",
+  "fiscal:save-sequence": "Guardó secuencia NCF",
+  "fiscal:delete-sequence": "Eliminó secuencia NCF",
+  "license:activate": "Activó licencia",
 };
 
 function actionLabel(action: string): string {
@@ -127,7 +153,7 @@ export function ActivitySettings() {
   const hasFilters = search !== "" || actionFilter !== undefined;
 
   return (
-    <div className="bg-card border border-border rounded-lg p-5 space-y-3">
+    <div className="bg-card border border-border rounded-lg p-6 space-y-4">
       <WidgetHeader
         icon={History}
         title="Registro de Actividad"
@@ -135,25 +161,34 @@ export function ActivitySettings() {
       />
 
       {/* Toolbar: search + action filter */}
-      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-        <div className="relative w-56 shrink-0">
+      <div
+        role="search"
+        aria-label="Filtrar registro de actividad"
+        className="flex flex-wrap items-center gap-2 border-t border-border pt-4"
+      >
+        <div className="relative w-64 shrink-0">
           <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+            className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none"
             strokeWidth={1.75}
+            aria-hidden="true"
           />
           <Input
-            placeholder="Buscar usuario o detalle..."
+            type="search"
+            aria-label="Buscar por usuario o detalle"
+            placeholder="Buscar usuario o detalle…"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="h-9 pl-9 pr-8 bg-background"
+            className="h-9 pl-9 pr-8 bg-background [&::-webkit-search-cancel-button]:hidden"
           />
           {searchInput && (
             <button
+              type="button"
               onClick={() => setSearchInput("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-full hover:bg-muted transition-colors"
+              aria-label="Limpiar búsqueda"
               title="Limpiar búsqueda"
+              className="absolute right-2 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           )}
         </div>
@@ -167,7 +202,7 @@ export function ActivitySettings() {
             setPage(1);
           }}
         >
-          <SelectTrigger className="h-9 w-[180px] bg-background">
+          <SelectTrigger className="h-9 w-[200px] bg-background" aria-label="Filtrar por acción">
             <SelectValue placeholder="Todas las acciones" />
           </SelectTrigger>
           <SelectContent>
@@ -181,7 +216,10 @@ export function ActivitySettings() {
         </Select>
       </div>
 
-      <div className="rounded-lg border border-border overflow-hidden">
+      <div
+        className="rounded-lg border border-border overflow-hidden"
+        aria-busy={listQuery.isFetching || undefined}
+      >
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent border-b border-border">
@@ -194,12 +232,28 @@ export function ActivitySettings() {
           <TableBody>
             {showSkeleton ? (
               <TableSkeletonRows rows={6} cols={4} />
+            ) : listQuery.isError ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={4}>
+                  <div role="alert" className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mb-3">
+                      <AlertTriangle className="h-6 w-6 text-destructive" strokeWidth={1.5} aria-hidden="true" />
+                    </div>
+                    <p className="text-sm font-medium text-foreground">No se pudo cargar el registro</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {listQuery.error instanceof Error
+                        ? listQuery.error.message
+                        : "Intenta de nuevo en unos segundos"}
+                    </p>
+                  </div>
+                </TableCell>
+              </TableRow>
             ) : items.length === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={4}>
                   <div className="flex flex-col items-center justify-center py-12 text-center">
                     <div className="w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-3">
-                      <History className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} />
+                      <History className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} aria-hidden="true" />
                     </div>
                     <p className="text-sm font-medium text-muted-foreground">
                       {hasFilters ? "Sin resultados" : "Sin actividad registrada"}
@@ -220,7 +274,10 @@ export function ActivitySettings() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-foreground text-xs font-semibold shrink-0 select-none">
+                      <div
+                        aria-hidden="true"
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-foreground text-xs font-semibold shrink-0 select-none"
+                      >
                         {(entry.username || "?").charAt(0).toUpperCase()}
                       </div>
                       <span className="text-sm font-medium truncate" title={entry.username}>
@@ -229,7 +286,10 @@ export function ActivitySettings() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium whitespace-nowrap">
+                    <span
+                      className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium whitespace-nowrap"
+                      title={entry.action}
+                    >
                       {actionLabel(entry.action)}
                     </span>
                   </TableCell>
@@ -238,7 +298,7 @@ export function ActivitySettings() {
                       className="block text-sm text-muted-foreground truncate"
                       title={entry.target_label ?? undefined}
                     >
-                      {entry.target_label || <span className="text-muted-foreground/50">—</span>}
+                      {entry.target_label || <span className="text-muted-foreground/50" aria-label="Sin detalle">—</span>}
                     </span>
                   </TableCell>
                 </TableRow>

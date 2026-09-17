@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Product, PaymentMethod, Customer } from "@shared/types/models";
 import { CartItemType } from "../components/cart-item";
 import { toast } from "sonner";
@@ -43,7 +43,9 @@ export function useCart() {
   // (empty deps) — this lets memoized product cards skip re-renders while the
   // stock checks still read fresh state.
   const cartRef = useRef(cart);
-  cartRef.current = cart;
+  useEffect(() => {
+    cartRef.current = cart;
+  }, [cart]);
 
   const addToCart = useCallback((product: Product) => {
     // Stock check uses the product's own snapshot — with server-side pagination

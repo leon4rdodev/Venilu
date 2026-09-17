@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react"
-import { Dialog, DialogContent } from "@components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@components/ui/dialog"
 import { Button } from "@components/ui/button"
 import { Input } from "@components/ui/input"
 import { Skeleton } from "@components/ui/skeleton"
-import { CreditCard, Banknote, ArrowRightLeft, Printer, CheckCircle2, HandCoins, User2, Search, X, AlertCircle, ReceiptText } from "lucide-react"
+import { Label } from "@components/ui/label"
+import { CreditCard, Banknote, ArrowRightLeft, Printer, CheckCircle2, HandCoins, User2, Search, X, AlertCircle, ReceiptText, Loader2 } from "lucide-react"
 import { formatCurrency, getCurrencySymbol } from "@lib/currency"
 import { cn } from "@lib/utils"
 import { toast } from "sonner"
@@ -11,6 +12,9 @@ import { PaymentMethod, Customer } from "@shared/types/models"
 import { ipc } from "@lib/ipc"
 import { formatPhone } from "@lib/formatters"
 import { useSettings } from "@renderer/features/settings"
+import { CustomerDialog } from "@renderer/features/customers/components/customer-dialog"
+import { usePermission } from "@renderer/features/auth/hooks/use-permission"
+import { PERMISSIONS } from "@shared/permissions"
 import type { FiscalData } from "../hooks/use-cart"
 
 type NcfChoice = "none" | "B02" | "B01"
@@ -36,6 +40,47 @@ function InlineCustomerSelector({ selectedCustomer, onSelectCustomer }: { select
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  // Crear un cliente sin salir de la venta (mismo formulario que en Clientes)
+  const canCreate = usePermission(PERMISSIONS.CUST_CREATE)
+  const [createOpen, setCreateOpen] = useState(false)
+
+  const handleCreateCustomer = async (data: Partial<Customer>): Promise<boolean> => {
+    try {
+      const result = (await ipc.invoke("create-customer", data)) as { success: boolean; data?: Customer; message?: string }
+      if (!result.success || !result.data) {
+        toast.error("Error al crear cliente", { description: result.message })
+        return false
+      }
+      toast.success("Cliente creado", { description: `${result.data.name} asignado a esta venta.` })
+      // Refresca listas/estadísticas de Clientes y deja al nuevo cliente en el pedido
+      window.dispatchEvent(new Event("customers-updated"))
+      onSelectCustomer(result.data)
+      setShowSearch(false)
+      setSearch("")
+      return true
+    } catch (error) {
+      toast.error("Error al crear cliente", { description: error instanceof Error ? error.message : "Error inesperado" })
+      return false
+    }
+  }
+
+  const createButton = canCreate ? (
+    <button
+      type="button"
+      onClick={() => setCreateOpen(true)}
+      title="Crear cliente nuevo"
+      aria-label="Crear cliente nuevo"
+      className="h-9 shrink-0 flex items-center gap-0.5 px-2.5 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+    >
+      <User2 className="h-4 w-4" strokeWidth={1.75} />
+      <span className="text-sm font-semibold leading-none">+</span>
+    </button>
+  ) : null
+
+  const createDialog = canCreate ? (
+    <CustomerDialog open={createOpen} onOpenChange={setCreateOpen} customer={null} onSave={handleCreateCustomer} />
+  ) : null
 
   const fetchCustomers = useCallback(async (query: string = "") => {
     setLoading(true)
@@ -72,7 +117,7 @@ function InlineCustomerSelector({ selectedCustomer, onSelectCustomer }: { select
           <User2 className="h-4 w-4 text-foreground" strokeWidth={1.75} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{selectedCustomer.name}</p>
+          <p className="text-sm font-medium truncate" title={selectedCustomer.name}>{selectedCustomer.name}</p>
           {Number(selectedCustomer.balance) > 0 && (
             <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />
@@ -84,8 +129,11 @@ function InlineCustomerSelector({ selectedCustomer, onSelectCustomer }: { select
           )}
         </div>
         <button
+          type="button"
           onClick={() => { onSelectCustomer(null); setShowSearch(false); setSearch("") }}
-          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+          aria-label="Quitar cliente de la venta"
+          title="Quitar cliente"
+          className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[1px] focus-visible:ring-ring"
         >
           <X className="h-4 w-4" strokeWidth={1.75} />
         </button>
@@ -96,17 +144,19 @@ function InlineCustomerSelector({ selectedCustomer, onSelectCustomer }: { select
   if (showSearch) {
     return (
       <div className="rounded-lg border border-border overflow-hidden">
-        <div className="p-2.5 border-b border-border bg-card">
-          <div className="relative">
+        <div className="p-2.5 border-b border-border bg-card flex items-center gap-2">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               ref={inputRef}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nombre o teléfono..."
+              aria-label="Buscar cliente por nombre o teléfono"
               className="h-9 pl-9 text-sm bg-background"
             />
           </div>
+          {createButton}
         </div>
         <div className="max-h-36 overflow-y-auto">
           {loading ? (
@@ -129,18 +179,22 @@ function InlineCustomerSelector({ selectedCustomer, onSelectCustomer }: { select
             customers.map((c) => (
               <button
                 key={c.id}
+                type="button"
                 onClick={() => { onSelectCustomer(c); setShowSearch(false); setSearch("") }}
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left hover:bg-muted/50 transition-colors border-b last:border-b-0 border-border"
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none transition-colors border-b last:border-b-0 border-border"
               >
                 <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
                   <User2 className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{c.name}</p>
+                  <p className="text-sm font-medium truncate" title={c.name}>{c.name}</p>
                   {c.phone && <p className="text-xs text-muted-foreground">{formatPhone(c.phone)}</p>}
                 </div>
                 {Number(c.balance) > 0 && (
-                  <span className="text-xs font-medium text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                  <span
+                    className="text-xs font-medium text-amber-600 dark:text-amber-400 whitespace-nowrap"
+                    title={`Deuda pendiente: ${formatCurrency(Number(c.balance))}`}
+                  >
                     {formatCurrency(Number(c.balance))}
                   </span>
                 )}
@@ -149,27 +203,37 @@ function InlineCustomerSelector({ selectedCustomer, onSelectCustomer }: { select
           )}
         </div>
         <div className="p-2 border-t border-border">
-          <button onClick={() => { setShowSearch(false); setSearch("") }} className="w-full text-xs text-muted-foreground hover:text-foreground text-center py-1">
+          <button
+            type="button"
+            onClick={() => { setShowSearch(false); setSearch("") }}
+            className="w-full h-8 rounded-full text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-[1px] focus-visible:ring-ring"
+          >
             Cancelar búsqueda
           </button>
         </div>
+        {createDialog}
       </div>
     )
   }
 
   return (
-    <button
-      onClick={() => setShowSearch(true)}
-      className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-dashed border-border hover:bg-muted/50 transition-colors text-left"
-    >
-      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-        <User2 className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
-      </div>
-      <div className="flex-1">
-        <p className="text-sm font-medium text-muted-foreground">Sin cliente asignado</p>
-        <p className="text-xs text-muted-foreground/70">Toca para buscar y asignar un cliente</p>
-      </div>
-    </button>
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => setShowSearch(true)}
+        className="flex-1 min-w-0 flex items-center gap-3 px-4 py-3 rounded-lg border border-dashed border-border hover:bg-muted/50 transition-colors text-left focus-visible:outline-none focus-visible:ring-[1px] focus-visible:ring-ring focus-visible:border-ring"
+      >
+        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+          <User2 className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-muted-foreground">Sin cliente asignado</p>
+          <p className="text-xs text-muted-foreground">Toca para buscar y asignar un cliente</p>
+        </div>
+      </button>
+      {createButton}
+      {createDialog}
+    </div>
   )
 }
 
@@ -356,12 +420,12 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
         {!showSuccess ? (
           <>
             {/* Header */}
-            <div className="p-6 pb-4 space-y-1 border-b border-border shrink-0">
-              <h2 className="text-lg font-semibold tracking-tight">Procesar Pago</h2>
-              <p className="text-sm text-muted-foreground">
+            <DialogHeader className="p-6 pb-4 gap-1 text-left border-b border-border shrink-0">
+              <DialogTitle className="tracking-tight">Procesar Pago</DialogTitle>
+              <DialogDescription>
                 Selecciona el cliente, método de pago y confirma
-              </p>
-            </div>
+              </DialogDescription>
+            </DialogHeader>
 
             {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto">
@@ -384,7 +448,7 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                     <ReceiptText className="h-3.5 w-3.5" strokeWidth={1.75} />
                     Comprobante Fiscal
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Tipo de comprobante fiscal">
                     {([
                       { id: "none", label: "Sin comprobante" },
                       { id: "B02", label: "Consumo (B02)" },
@@ -393,11 +457,14 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                       <button
                         key={option.id}
                         type="button"
+                        role="radio"
+                        aria-checked={ncfChoice === option.id}
                         onClick={() => setNcfChoice(option.id)}
                         disabled={isLoading}
                         className={cn(
                           "px-3.5 h-9 rounded-full border text-xs font-medium transition-colors whitespace-nowrap",
                           "disabled:opacity-50 disabled:cursor-not-allowed",
+                          "focus-visible:outline-none focus-visible:ring-[1px] focus-visible:ring-ring focus-visible:border-ring",
                           ncfChoice === option.id
                             ? "bg-primary text-primary-foreground border-primary"
                             : "bg-card text-muted-foreground border-border hover:text-foreground hover:bg-muted"
@@ -408,9 +475,13 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                     ))}
                   </div>
                   {ncfChoice === "B01" && (
-                    <div className="space-y-2 pt-0.5">
-                      <div className="space-y-1">
+                    <div className="space-y-3 pt-0.5">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="fiscal-rnc" className="text-xs text-muted-foreground">
+                          RNC/Cédula del cliente
+                        </Label>
                         <Input
+                          id="fiscal-rnc"
                           type="text"
                           inputMode="numeric"
                           placeholder="RNC/Cédula del cliente"
@@ -420,22 +491,30 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                             if (/^\d{0,11}$/.test(value)) setFiscalRnc(value)
                           }}
                           disabled={isLoading}
+                          aria-invalid={fiscalRnc.length > 0 && !rncValid ? true : undefined}
+                          aria-describedby={fiscalRnc.length > 0 && !rncValid ? "fiscal-rnc-error" : undefined}
                           className="h-9 text-sm font-mono tabular-nums bg-background"
                         />
                         {fiscalRnc.length > 0 && !rncValid && (
-                          <p className="text-xs text-destructive px-1">
+                          <p id="fiscal-rnc-error" role="alert" className="text-xs text-destructive px-1">
                             Debe tener 9 dígitos (RNC) u 11 dígitos (cédula)
                           </p>
                         )}
                       </div>
-                      <Input
-                        type="text"
-                        placeholder="Razón Social (opcional)"
-                        value={fiscalName}
-                        onChange={(e) => setFiscalName(e.target.value)}
-                        disabled={isLoading}
-                        className="h-9 text-sm bg-background"
-                      />
+                      <div className="space-y-1.5">
+                        <Label htmlFor="fiscal-name" className="text-xs text-muted-foreground">
+                          Razón Social (opcional)
+                        </Label>
+                        <Input
+                          id="fiscal-name"
+                          type="text"
+                          placeholder="Razón Social (opcional)"
+                          value={fiscalName}
+                          onChange={(e) => setFiscalName(e.target.value)}
+                          disabled={isLoading}
+                          className="h-9 text-sm bg-background"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -464,7 +543,7 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                   )}
                   <div className="flex items-baseline justify-between px-4 py-3 bg-muted/50">
                     <span className="text-sm text-muted-foreground font-medium">Total a cobrar</span>
-                    <span className="text-2xl font-semibold tracking-tight tabular-nums text-foreground">{formatCurrency(total)}</span>
+                    <span className="text-2xl font-semibold tracking-tight tabular-nums text-foreground truncate" title={formatCurrency(total)}>{formatCurrency(total)}</span>
                   </div>
                 </div>
               </div>
@@ -475,12 +554,12 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                   <CreditCard className="h-3.5 w-3.5" />
                   Método de Pago
                 </div>
-                <div className="grid grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-4 gap-2.5" role="radiogroup" aria-label="Método de pago">
                   {([
                     { id: "cash", label: "Efectivo", icon: Banknote },
                     { id: "card", label: "Tarjeta", icon: CreditCard },
                     { id: "transfer", label: "Transfer.", icon: ArrowRightLeft },
-                    { id: "credit", label: "Credito", icon: HandCoins, requiresCustomer: true },
+                    { id: "credit", label: "Crédito", icon: HandCoins, requiresCustomer: true },
                   ] as const).map((method) => {
                     const isSelected = paymentMethod === method.id
                     const isDisabled = isLoading || ('requiresCustomer' in method && method.requiresCustomer && !selectedCustomer)
@@ -488,12 +567,15 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                       <button
                         key={method.id}
                         type="button"
+                        role="radio"
+                        aria-checked={isSelected}
                         onClick={() => setPaymentMethod(method.id)}
                         disabled={isDisabled}
                         title={'requiresCustomer' in method && method.requiresCustomer && !selectedCustomer ? "Selecciona un cliente primero" : undefined}
                         className={cn(
                           "flex flex-col items-center gap-2 p-3 rounded-lg border transition-colors",
                           "disabled:opacity-35 disabled:cursor-not-allowed",
+                          "focus-visible:outline-none focus-visible:ring-[1px] focus-visible:ring-ring focus-visible:border-ring",
                           isSelected
                             ? "border-foreground bg-muted/50"
                             : "border-border hover:bg-muted/50"
@@ -518,36 +600,47 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
               {/* Cash Input */}
               {paymentMethod === "cash" && (
                 <div className="px-6 pb-4 space-y-2.5">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <Label
+                    htmlFor="payment-amount"
+                    className="gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider"
+                  >
                     <Banknote className="h-3.5 w-3.5" />
                     Monto Recibido
-                  </div>
+                  </Label>
                   <div className="relative">
-                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-xl font-semibold text-muted-foreground pointer-events-none">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-xl font-semibold text-muted-foreground pointer-events-none" aria-hidden="true">
                       {getCurrencySymbol()}
                     </div>
                     <Input
                       ref={amountInputRef}
-                      id="amount"
+                      id="payment-amount"
                       type="text"
                       inputMode="decimal"
                       placeholder="0.00"
                       value={amountReceived}
                       onChange={handleAmountChange}
+                      aria-describedby={amountReceived ? "payment-amount-feedback" : undefined}
                       className="h-14 text-xl! text-right font-semibold tabular-nums pl-20 pr-5 rounded-lg bg-background"
                       style={{ fontSize: '1.35rem' }}
                       disabled={isLoading}
                     />
                   </div>
 
-                  {amountReceived && amountPaid >= total && (
-                    <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                      <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Cambio</span>
-                      <span className="text-lg font-semibold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums">
-                        {formatCurrency(change)}
-                      </span>
-                    </div>
-                  )}
+                  {/* Live feedback: change to give back, or how much is still missing */}
+                  <div id="payment-amount-feedback" aria-live="polite">
+                    {amountReceived && amountPaid >= total - 0.005 ? (
+                      <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                        <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Cambio</span>
+                        <span className="text-lg font-semibold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums">
+                          {formatCurrency(change)}
+                        </span>
+                      </div>
+                    ) : amountReceived && amountPaid > 0 ? (
+                      <p className="text-xs text-muted-foreground px-1 tabular-nums">
+                        Faltan {formatCurrency(Math.round((total - amountPaid) * 100) / 100)} para cubrir el total
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               )}
 
@@ -565,8 +658,9 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
               {/* Error */}
               {error && (
                 <div className="px-6 pb-4">
-                  <div className="px-4 py-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                    <p className="text-sm text-destructive text-center">{error}</p>
+                  <div role="alert" className="flex items-start gap-2.5 px-4 py-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-destructive" strokeWidth={1.75} />
+                    <p className="text-sm text-destructive">{error}</p>
                   </div>
                 </div>
               )}
@@ -585,17 +679,18 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
               <Button
                 onClick={handleConfirm}
                 disabled={isLoading || !isValidPayment}
+                aria-busy={isLoading}
                 className={cn(
                   "flex-1 h-11 font-medium",
                   isCredit && "bg-amber-600 hover:bg-amber-700 text-white"
                 )}
               >
                 {isLoading ? (
-                  <>Procesando...</>
+                  <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />Procesando...</>
                 ) : isCredit ? (
                   <>
                     <HandCoins className="h-5 w-5" />
-                    Confirmar Credito
+                    Confirmar Crédito
                   </>
                 ) : (
                   <><CheckCircle2 className="h-5 w-5" />Confirmar Pago</>
@@ -606,16 +701,16 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
         ) : (
           <>
             {/* Success Header */}
-            <div className="p-6 pb-4 space-y-1 border-b border-border shrink-0">
-              <h2 className="text-lg font-semibold tracking-tight">
+            <DialogHeader className="p-6 pb-4 gap-1 text-left border-b border-border shrink-0">
+              <DialogTitle className="tracking-tight">
                 {confirmedDetails?.isCredit ? "Venta a Crédito Registrada" : "Venta Completada"}
-              </h2>
-              <p className="text-sm text-muted-foreground">
+              </DialogTitle>
+              <DialogDescription>
                 {confirmedDetails?.isCredit
                   ? "La deuda fue registrada exitosamente"
                   : "La transacción se procesó exitosamente"}
-              </p>
-            </div>
+              </DialogDescription>
+            </DialogHeader>
 
             {/* Success Content */}
             <div className="px-6 py-8">
@@ -633,23 +728,23 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
 
                 <div className="w-full rounded-lg border border-border divide-y divide-border text-sm">
                   {saleId && (
-                    <div className="flex items-center justify-between px-4 py-3">
-                      <span className="text-muted-foreground">Venta #</span>
-                      <span className="font-medium font-mono tabular-nums">{saleId}</span>
+                    <div className="flex items-center justify-between gap-4 px-4 py-3">
+                      <span className="text-muted-foreground shrink-0">Venta #</span>
+                      <span className="font-medium font-mono tabular-nums truncate" title={saleId}>{saleId}</span>
                     </div>
                   )}
                   {issuedNcf && (
-                    <div className="flex items-center justify-between px-4 py-3 bg-muted/50">
-                      <span className="text-muted-foreground font-medium">
+                    <div className="flex items-center justify-between gap-4 px-4 py-3 bg-muted/50">
+                      <span className="text-muted-foreground font-medium shrink-0">
                         {confirmedDetails?.ncfType === "B01" ? "NCF Crédito Fiscal (B01)" : "NCF Consumo (B02)"}
                       </span>
-                      <span className="font-semibold font-mono tabular-nums">{issuedNcf}</span>
+                      <span className="font-semibold font-mono tabular-nums truncate" title={issuedNcf}>{issuedNcf}</span>
                     </div>
                   )}
                   {confirmedDetails?.customerName && (
-                    <div className="flex items-center justify-between px-4 py-3">
-                      <span className="text-muted-foreground">Cliente</span>
-                      <span className="font-medium">{confirmedDetails.customerName}</span>
+                    <div className="flex items-center justify-between gap-4 px-4 py-3">
+                      <span className="text-muted-foreground shrink-0">Cliente</span>
+                      <span className="font-medium truncate" title={confirmedDetails.customerName}>{confirmedDetails.customerName}</span>
                     </div>
                   )}
                   {(confirmedDetails?.discountAmount ?? 0) > 0 && (
@@ -683,7 +778,7 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                       <span className="font-medium">
                         {(confirmedDetails?.paymentMethod || paymentMethod) === "cash" ? "Efectivo" : 
                          (confirmedDetails?.paymentMethod || paymentMethod) === "transfer" ? "Transferencia" :
-                         (confirmedDetails?.paymentMethod || paymentMethod) === "credit" ? "Credito" : "Tarjeta"}
+                         (confirmedDetails?.paymentMethod || paymentMethod) === "credit" ? "Crédito" : "Tarjeta"}
                       </span>
                     </div>
                   </div>
@@ -711,11 +806,12 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                 <Button
                   onClick={handlePrintTicket}
                   disabled={isPrinting || !saleId}
+                  aria-busy={isPrinting}
                   variant="outline"
                   className="flex-1 h-11"
                 >
                   {isPrinting ? (
-                    <>Imprimiendo...</>
+                    <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />Imprimiendo...</>
                   ) : (
                     <>
                       <Printer className="h-5 w-5" />

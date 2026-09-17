@@ -23,6 +23,12 @@ const METRIC_OPTIONS: { value: ChartMetric; label: string; isCurrency: boolean }
   { value: "totalTransactions", label: "Transacciones", isCurrency: false },
 ];
 
+const INTERVAL_LABEL: Record<"day" | "week" | "month", string> = {
+  day: "día",
+  week: "semana",
+  month: "mes",
+};
+
 interface SalesOverTimeChartProps {
   salesOverTime: SalesOverTimeData[];
   loading: boolean;
@@ -31,6 +37,9 @@ interface SalesOverTimeChartProps {
 
 /** Deterministic pseudo-random bar heights so the skeleton doesn't jitter between renders. */
 const SKELETON_HEIGHTS = [42, 68, 35, 76, 52, 61, 30, 80, 47, 58, 38, 71];
+
+/** Quita el ".0" de los compactos ("1.0K" → "1K") para ticks más limpios. */
+const trimZero = (n: string) => n.replace(/\.0$/, "");
 
 export const SalesOverTimeChart = React.memo(
   ({ salesOverTime, loading, interval = "day" }: SalesOverTimeChartProps) => {
@@ -42,9 +51,9 @@ export const SalesOverTimeChart = React.memo(
 
     const compactCurrency = (value: number) => {
       const sym = getCurrencySymbol(currency);
-      if (value >= 1_000_000) return `${sym}${(value / 1_000_000).toFixed(1)}M`;
-      if (value >= 1_000) return `${sym}${(value / 1_000).toFixed(1)}K`;
-      return `${sym}${value}`;
+      if (value >= 1_000_000) return `${sym}${trimZero((value / 1_000_000).toFixed(1))}M`;
+      if (value >= 1_000) return `${sym}${trimZero((value / 1_000).toFixed(1))}K`;
+      return `${sym}${Math.round(value).toLocaleString("es-DO")}`;
     };
 
     const yTickFormatter = (value: number) =>
@@ -78,37 +87,50 @@ export const SalesOverTimeChart = React.memo(
       });
     };
 
+    const chartDescription = `Gráfica de barras de ${activeOption.label.toLowerCase()} por ${INTERVAL_LABEL[interval]}, ${salesOverTime.length} ${
+      salesOverTime.length === 1 ? "período" : "períodos"
+    }.`;
+
     return (
-      <div className="bg-card border border-border rounded-lg p-6">
+      <section className="bg-card border border-border rounded-lg p-6" aria-label="Ventas en el tiempo">
         <WidgetHeader
           icon={BarChart3}
           title="Ventas en el Tiempo"
-          subtitle={`Resumen agrupado por ${
-            interval === "week" ? "semana" : interval === "month" ? "mes" : "día"
-          }.`}
+          subtitle={`Resumen agrupado por ${INTERVAL_LABEL[interval]}.`}
           action={
-            <div className="flex items-center gap-1 bg-muted rounded-full p-1 shrink-0">
-              {METRIC_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => setMetric(option.value)}
-                  className={cn(
-                    "px-3 h-7 rounded-full text-xs font-medium transition-colors whitespace-nowrap",
-                    metric === option.value
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {option.label}
-                </button>
-              ))}
+            // Control segmentado: actúa como leyenda de la serie visible
+            <div
+              role="group"
+              aria-label="Métrica de la gráfica"
+              className="flex items-center gap-1 bg-muted rounded-full p-1 shrink-0"
+            >
+              {METRIC_OPTIONS.map((option) => {
+                const isActive = metric === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={isActive}
+                    onClick={() => setMetric(option.value)}
+                    className={cn(
+                      "px-3 h-7 rounded-full text-xs font-medium transition-colors whitespace-nowrap",
+                      "outline-none focus-visible:ring-[1px] focus-visible:ring-ring",
+                      isActive
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
             </div>
           }
         />
 
-        <div className="h-[300px] w-full mt-6">
+        <div className="h-[300px] w-full mt-6" aria-busy={loading}>
           {loading ? (
-            <div className="w-full h-full flex items-end gap-2 p-4">
+            <div className="w-full h-full flex items-end gap-2 p-4" aria-hidden="true">
               {SKELETON_HEIGHTS.map((height, i) => (
                 <div
                   key={i}
@@ -118,94 +140,96 @@ export const SalesOverTimeChart = React.memo(
               ))}
             </div>
           ) : salesOverTime.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={salesOverTime}
-                margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  className="stroke-border"
-                />
-                <XAxis
-                  dataKey="period"
-                  stroke="var(--muted-foreground)"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={10}
-                  tickFormatter={formatPeriodLabel}
-                />
-                <YAxis
-                  stroke="var(--muted-foreground)"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={yTickFormatter}
-                  tickMargin={8}
-                  width={60}
-                />
-                <Tooltip
-                  cursor={{ fill: "var(--muted)", opacity: 0.5 }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const p = payload[0].payload as SalesOverTimeData;
-                      return (
-                        <div className="rounded-lg border border-border bg-popover p-3 shadow-md">
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5">
-                            {formatPeriodLabel(p.period)}
-                          </p>
-                          <div className="space-y-0.5">
-                            <div className="flex items-center justify-between gap-6">
-                              <span className="text-xs text-muted-foreground">Ingresos</span>
-                              <span className={cn("text-xs font-mono tabular-nums", metric === "totalSales" ? "font-semibold" : "font-medium")}>
-                                {formatCurrency(p.totalSales)}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between gap-6">
-                              <span className="text-xs text-muted-foreground">Ganancia</span>
-                              <span className={cn("text-xs font-mono tabular-nums", metric === "totalProfit" ? "font-semibold" : "font-medium")}>
-                                {formatCurrency(p.totalProfit ?? 0)}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between gap-6">
-                              <span className="text-xs text-muted-foreground">Transacciones</span>
-                              <span className={cn("text-xs font-mono tabular-nums", metric === "totalTransactions" ? "font-semibold" : "font-medium")}>
-                                {p.totalTransactions}
-                              </span>
-                            </div>
+            <div role="img" aria-label={chartDescription} className="h-full w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={salesOverTime}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                >
+                  {/* Tokens vía CSS vars: la rejilla y los ejes siguen el tema claro/oscuro */}
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="var(--border)"
+                  />
+                  <XAxis
+                    dataKey="period"
+                    stroke="var(--muted-foreground)"
+                    tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={10}
+                    tickFormatter={formatPeriodLabel}
+                    minTickGap={16}
+                  />
+                  <YAxis
+                    stroke="var(--muted-foreground)"
+                    tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={yTickFormatter}
+                    tickMargin={8}
+                    width={64}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "var(--muted)", opacity: 0.5 }}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const p = payload[0].payload as SalesOverTimeData;
+                        const rows: { key: ChartMetric; label: string; value: string }[] = [
+                          { key: "totalSales", label: "Ingresos", value: formatCurrency(p.totalSales) },
+                          { key: "totalProfit", label: "Ganancia", value: formatCurrency(p.totalProfit ?? 0) },
+                          { key: "totalTransactions", label: "Transacciones", value: p.totalTransactions.toLocaleString("es-DO") },
+                        ];
+                        return (
+                          <div className="rounded-lg border border-border bg-popover text-popover-foreground p-3 shadow-md">
+                            <p className="text-xs font-semibold text-foreground mb-2">
+                              {formatPeriodLabel(p.period)}
+                            </p>
+                            <dl className="space-y-1">
+                              {rows.map((row) => (
+                                <div key={row.key} className="flex items-center justify-between gap-6">
+                                  <dt className={cn("text-xs", metric === row.key ? "text-foreground" : "text-muted-foreground")}>
+                                    {row.label}
+                                  </dt>
+                                  <dd className={cn("text-xs font-mono tabular-nums", metric === row.key ? "font-semibold text-foreground" : "font-medium text-muted-foreground")}>
+                                    {row.value}
+                                  </dd>
+                                </div>
+                              ))}
+                            </dl>
                           </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Bar
-                  dataKey={metric}
-                  fill="var(--primary)"
-                  radius={[4, 4, 0, 0]}
-                  maxBarSize={36}
-                  isAnimationActive={false}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Bar
+                    dataKey={metric}
+                    name={activeOption.label}
+                    fill="var(--chart-1)"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={36}
+                    isAnimationActive={false}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-3">
+            <div className="flex flex-col items-center justify-center h-full text-center" role="status">
+              <div className="w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-3" aria-hidden="true">
                 <BarChart3 className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} />
               </div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
+              <p className="text-sm font-medium text-foreground mb-1">
                 No hay datos de ventas
               </p>
               <p className="text-xs text-muted-foreground">
-                Selecciona un período con ventas registradas
+                Selecciona un período con ventas registradas.
               </p>
             </div>
           )}
         </div>
-      </div>
+      </section>
     );
   },
 );

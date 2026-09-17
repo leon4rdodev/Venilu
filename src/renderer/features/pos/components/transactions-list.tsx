@@ -15,6 +15,7 @@ import {
 import type { DateRange } from "react-day-picker";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
+import { Skeleton } from "@components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -32,6 +33,10 @@ import { useShift } from "../hooks/use-shift";
 import { TransactionDetailsDialog } from "./transaction-details-dialog";
 
 const PAGE_SIZE = 25;
+
+/** Sticky column header: hairline via inset shadow so it survives scrolling. */
+const TH_CLASS =
+  "sticky top-0 z-10 bg-background pb-2 pr-3 font-medium whitespace-nowrap shadow-[inset_0_-1px_0_0_var(--border)]";
 
 type MethodFilter = PaymentMethod | "all";
 type StatusFilter = SaleStatus | "all";
@@ -225,24 +230,27 @@ export function TransactionsList({ refreshKey = 0 }: TransactionsListProps) {
     <div className="flex h-full min-h-0 flex-col gap-3">
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 shrink-0">
-        <div className="relative flex-1 min-w-[220px] max-w-sm">
+        <div role="search" className="relative flex-1 min-w-[220px] max-w-sm">
           <Search
             className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none"
             strokeWidth={1.75}
+            aria-hidden="true"
           />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por ID o cliente..."
+            aria-label="Buscar transacciones por ID o cliente"
             className="h-9 bg-background pl-8 pr-8"
           />
           {search && (
             <button
               onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              type="button"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors outline-none focus-visible:ring-1 focus-visible:ring-ring"
               aria-label="Limpiar búsqueda"
             >
-              <X className="h-3.5 w-3.5" strokeWidth={1.75} />
+              <X className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
             </button>
           )}
         </div>
@@ -251,7 +259,7 @@ export function TransactionsList({ refreshKey = 0 }: TransactionsListProps) {
           value={method}
           onValueChange={(v) => setMethod(v as MethodFilter)}
         >
-          <SelectTrigger className="h-9 w-[160px] bg-background">
+          <SelectTrigger className="h-9 w-[160px] bg-background" aria-label="Filtrar por método de pago">
             <SelectValue placeholder="Método" />
           </SelectTrigger>
           <SelectContent>
@@ -267,7 +275,7 @@ export function TransactionsList({ refreshKey = 0 }: TransactionsListProps) {
           value={status}
           onValueChange={(v) => setStatus(v as StatusFilter)}
         >
-          <SelectTrigger className="h-9 w-[160px] bg-background">
+          <SelectTrigger className="h-9 w-[160px] bg-background" aria-label="Filtrar por estado">
             <SelectValue placeholder="Estado" />
           </SelectTrigger>
           <SelectContent>
@@ -301,23 +309,26 @@ export function TransactionsList({ refreshKey = 0 }: TransactionsListProps) {
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto pr-1">
         {isLoading ? (
-          <div className="space-y-3 pt-1">
+          <div
+            role="status"
+            aria-live="polite"
+            aria-label="Cargando transacciones"
+            className="divide-y divide-border pt-1"
+          >
             {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between animate-pulse py-2"
-              >
-                <div className="h-4 w-32 bg-muted rounded" />
-                <div className="h-4 w-16 bg-muted rounded" />
-                <div className="h-4 w-24 bg-muted rounded" />
-                <div className="h-4 w-24 bg-muted rounded" />
-                <div className="h-5 w-20 bg-muted rounded-full" />
-                <div className="h-4 w-24 bg-muted rounded" />
+              <div key={i} className="flex items-center gap-3 py-3">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-14" />
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-5 w-20 rounded-full" />
+                <Skeleton className="h-4 w-24 ml-auto" />
               </div>
             ))}
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center gap-4 py-16">
+          <div role="alert" className="flex flex-col items-center justify-center gap-4 py-16">
             <div className="text-center space-y-1">
               <p className="text-sm font-medium">
                 Error al cargar las transacciones
@@ -334,11 +345,12 @@ export function TransactionsList({ refreshKey = 0 }: TransactionsListProps) {
             </Button>
           </div>
         ) : items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div role="status" className="flex flex-col items-center justify-center py-16 text-center">
             <div className="w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-3">
               <Receipt
                 className="h-6 w-6 text-muted-foreground/50"
                 strokeWidth={1.5}
+                aria-hidden="true"
               />
             </div>
             <p className="text-sm font-medium">
@@ -351,21 +363,35 @@ export function TransactionsList({ refreshKey = 0 }: TransactionsListProps) {
                 ? "Prueba ajustando o limpiando los filtros"
                 : "Las ventas aparecerán aquí al registrarlas"}
             </p>
+            {hasActiveFilters && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={clearFilters}
+              >
+                <FilterX className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                Limpiar filtros
+              </Button>
+            )}
           </div>
         ) : (
-          <table className="w-full text-left">
+          <table className="w-full text-left border-separate border-spacing-0">
+            <caption className="sr-only">
+              Transacciones registradas, {total} en total. Pulsa una fila para ver el detalle.
+            </caption>
             <thead>
-              <tr className="text-xs text-muted-foreground border-b border-border">
-                <th className="pb-2 pr-3 font-medium">Fecha / Hora</th>
-                <th className="pb-2 pr-3 font-medium">ID</th>
-                <th className="pb-2 pr-3 font-medium">Cliente</th>
-                <th className="pb-2 pr-3 font-medium">Cajero</th>
-                <th className="pb-2 pr-3 font-medium">Método</th>
-                <th className="pb-2 pr-3 font-medium">Estado</th>
-                <th className="pb-2 font-medium text-right">Total</th>
+              <tr className="text-xs text-muted-foreground">
+                <th scope="col" className={TH_CLASS}>Fecha / Hora</th>
+                <th scope="col" className={TH_CLASS}>ID</th>
+                <th scope="col" className={TH_CLASS}>Cliente</th>
+                <th scope="col" className={TH_CLASS}>Cajero</th>
+                <th scope="col" className={TH_CLASS}>Método</th>
+                <th scope="col" className={TH_CLASS}>Estado</th>
+                <th scope="col" className={cn(TH_CLASS, "pr-0 text-right")}>Total</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="[&>tr>td]:border-b [&>tr>td]:border-border">
               {items.map((sale) => {
                 const mMeta = methodMeta[sale.payment_method] ?? {
                   label: sale.payment_method,
@@ -384,13 +410,21 @@ export function TransactionsList({ refreshKey = 0 }: TransactionsListProps) {
                 return (
                   <tr
                     key={sale.id}
+                    tabIndex={0}
                     onClick={() => openDetails(sale)}
-                    className="hover:bg-muted/40 cursor-pointer transition-colors"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        openDetails(sale);
+                      }
+                    }}
+                    aria-label={`Ver detalle de la venta #${sale.id}`}
+                    className="hover:bg-muted/40 cursor-pointer transition-colors outline-none focus-visible:bg-muted/60 focus-visible:outline-1 focus-visible:outline-ring focus-visible:-outline-offset-1"
                   >
-                    <td className="py-2.5 pr-3 text-sm text-muted-foreground whitespace-nowrap">
+                    <td className="py-2.5 pr-3 text-sm text-muted-foreground whitespace-nowrap tabular-nums">
                       {formatDateTime(sale.sale_date || sale.created_at)}
                     </td>
-                    <td className="py-2.5 pr-3 text-sm font-medium whitespace-nowrap">
+                    <td className="py-2.5 pr-3 text-sm font-medium whitespace-nowrap tabular-nums">
                       #{sale.id}
                     </td>
                     <td className="py-2.5 pr-3 text-sm max-w-[180px]">
@@ -399,11 +433,11 @@ export function TransactionsList({ refreshKey = 0 }: TransactionsListProps) {
                           {customerName}
                         </span>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground" aria-label="Sin cliente">—</span>
                       )}
                     </td>
                     <td className="py-2.5 pr-3 text-sm text-muted-foreground max-w-[140px]">
-                      <span className="block truncate" title={sale.user?.name}>
+                      <span className="block truncate" title={sale.user?.name ?? "Sin cajero"}>
                         {sale.user?.name ?? "—"}
                       </span>
                     </td>
@@ -412,6 +446,7 @@ export function TransactionsList({ refreshKey = 0 }: TransactionsListProps) {
                         <MethodIcon
                           className={cn("h-4 w-4 shrink-0", mMeta.color)}
                           strokeWidth={1.75}
+                          aria-hidden="true"
                         />
                         {mMeta.label}
                       </div>
@@ -444,8 +479,11 @@ export function TransactionsList({ refreshKey = 0 }: TransactionsListProps) {
 
       {/* Pagination */}
       {!isLoading && !error && total > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-border shrink-0">
-          <p className="text-xs text-muted-foreground tabular-nums">
+        <nav
+          aria-label="Paginación de transacciones"
+          className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-border shrink-0"
+        >
+          <p className="text-xs text-muted-foreground tabular-nums" aria-live="polite">
             Mostrando {rangeFrom}–{rangeTo} de {total}
           </p>
           <div className="flex items-center gap-2">
@@ -454,12 +492,13 @@ export function TransactionsList({ refreshKey = 0 }: TransactionsListProps) {
               size="sm"
               className="h-8"
               disabled={page <= 1}
+              aria-label="Página anterior"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
-              <ChevronLeft className="h-4 w-4" strokeWidth={1.75} />
+              <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               Anterior
             </Button>
-            <span className="text-xs text-muted-foreground tabular-nums">
+            <span className="text-xs text-muted-foreground tabular-nums" aria-current="page">
               Página {page} de {Math.max(totalPages, 1)}
             </span>
             <Button
@@ -467,13 +506,14 @@ export function TransactionsList({ refreshKey = 0 }: TransactionsListProps) {
               size="sm"
               className="h-8"
               disabled={page >= totalPages}
+              aria-label="Página siguiente"
               onClick={() => setPage((p) => p + 1)}
             >
               Siguiente
-              <ChevronRight className="h-4 w-4" strokeWidth={1.75} />
+              <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             </Button>
           </div>
-        </div>
+        </nav>
       )}
 
       <TransactionDetailsDialog

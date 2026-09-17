@@ -37,15 +37,24 @@ export const SalesMetricsGrid = React.memo(({ salesMetrics, loading }: SalesMetr
   };
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+    <div
+      className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4"
+      aria-busy={loading}
+      aria-label="Métricas del período"
+    >
       {loading ? (
+        // Skeleton con las mismas dimensiones que la tarjeta real para evitar saltos de layout
         Array.from({ length: 7 }).map((_, i) => (
-          <div key={i} className="bg-card border border-border rounded-lg p-4 flex flex-col justify-between gap-3 h-full animate-pulse">
+          <div
+            key={i}
+            aria-hidden="true"
+            className="bg-card border border-border rounded-lg p-4 flex flex-col justify-between gap-4 h-full animate-pulse"
+          >
             <div className="flex justify-between items-start">
               <div className="w-8 h-8 rounded-full bg-muted" />
-              <div className="h-5 w-14 rounded-full bg-muted" />
+              <div className="h-6 w-14 rounded-full bg-muted" />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <div className="h-6 w-20 bg-muted rounded" />
               <div className="h-3 w-24 bg-muted rounded" />
             </div>

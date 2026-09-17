@@ -621,6 +621,7 @@ export class SalesService {
 
             // Mark as voided
             sale.status = 'voided';
+            sale.voided_at = new Date();
             await transactionalEntityManager.save(SaleEntity, sale);
 
             return { success: true, message: "Venta anulada correctamente" };

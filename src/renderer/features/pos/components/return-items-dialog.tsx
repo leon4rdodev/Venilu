@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Dialog, DialogContent } from '@components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@components/ui/dialog';
 import { Button } from '@components/ui/button';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
@@ -135,8 +135,12 @@ export function ReturnItemsDialog({
               <Undo2 className="h-4 w-4 text-foreground" strokeWidth={1.75} />
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="text-base font-semibold tracking-tight">Devolver Artículos</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">Venta #{transaction.id}</p>
+              <DialogTitle className="text-base font-semibold tracking-tight leading-normal">
+                Devolver Artículos
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground mt-0.5 tabular-nums">
+                Venta #{transaction.id}
+              </DialogDescription>
             </div>
           </div>
         </div>
@@ -165,7 +169,7 @@ export function ReturnItemsDialog({
                       >
                         {item.product_name}
                       </p>
-                      <p className="text-xs text-muted-foreground truncate">
+                      <p className="text-xs text-muted-foreground truncate tabular-nums">
                         {formatCurrency(item.unit_price)} · Vendidos: {item.quantity} · Ya devueltos: {returned}
                       </p>
                     </div>
@@ -174,7 +178,11 @@ export function ReturnItemsDialog({
                         Devuelto
                       </span>
                     ) : (
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div
+                        className="flex items-center gap-1 shrink-0"
+                        role="group"
+                        aria-label={`Unidades a devolver de ${item.product_name}`}
+                      >
                         <Button
                           size="icon"
                           variant="outline"
@@ -185,7 +193,11 @@ export function ReturnItemsDialog({
                         >
                           <Minus className="h-3 w-3" strokeWidth={1.75} />
                         </Button>
-                        <span className="w-8 text-center text-sm font-medium tabular-nums">
+                        <span
+                          className="w-8 text-center text-sm font-medium tabular-nums"
+                          aria-live="polite"
+                          aria-label={`${selected} de ${remaining} disponibles`}
+                        >
                           {selected}
                         </span>
                         <Button
@@ -230,7 +242,7 @@ export function ReturnItemsDialog({
         <div className="p-5 pt-4 border-t border-border space-y-3 shrink-0">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Total a reembolsar</span>
-            <span className="font-semibold font-mono tabular-nums">
+            <span className="text-base font-semibold font-mono tabular-nums text-right" aria-live="polite">
               {formatCurrency(totalToRefund)}
             </span>
           </div>
@@ -241,6 +253,7 @@ export function ReturnItemsDialog({
           <Button
             onClick={handleSubmit}
             disabled={isSubmitting || totalUnits <= 0}
+            aria-busy={isSubmitting}
             className="w-full h-10 gap-2"
           >
             {isSubmitting ? (
