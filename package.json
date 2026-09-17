@@ -39,13 +39,20 @@
       "!node_modules/*.d.ts",
       "!node_modules/.bin"
     ],
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
+    },
     "directories": {
       "buildResources": "public/assets",
       "output": "release"
     },
     "linux": {
       "target": "deb",
-      "icon": "public/assets/venilu.ico",
+      "icon": "public/assets/venilu.png",
       "category": "Utility"
     },
     "win": {

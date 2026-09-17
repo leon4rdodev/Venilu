@@ -1,4 +1,6 @@
-import { KeyRound, ShoppingCart } from 'lucide-react';
+import { useState } from 'react';
+import { CalendarClock, KeyRound, ShoppingCart } from 'lucide-react';
+import { Button } from '@components/ui/button';
 import { LicenseKeyForm } from './license-key-form';
 import { useLicense } from './use-license';
 
@@ -16,14 +18,20 @@ function formatDateEs(iso?: string): string | null {
  * continues on its own.
  */
 export function ActivationScreen() {
-  const { status } = useLicense();
+  const { status, refetch } = useLicense();
 
   const state = status?.state;
   const license = status?.license;
   const expiredDate = formatDateEs(license?.expires);
 
-  const title =
-    state === 'expired' ? 'Tu licencia anual venció' : 'Tu período de prueba terminó';
+  // The system date was set back: a key doesn't fix it, the clock does.
+  const clockRollback = state === 'clock_rollback';
+  // Support path: a freshly issued key re-syncs the guard (clock once set forward)
+  const [showKeyForm, setShowKeyForm] = useState(false);
+
+  const title = clockRollback
+    ? 'La fecha del equipo está atrasada'
+    : state === 'expired' ? 'Tu licencia anual venció' : 'Tu período de prueba terminó';
 
   const subtitle =
     state === 'expired' && license
@@ -88,21 +96,38 @@ export function ActivationScreen() {
               aria-hidden
               className="w-14 h-14 rounded-full bg-muted flex items-center justify-center"
             >
-              <KeyRound className="w-6 h-6 text-foreground" strokeWidth={1.75} />
+              {clockRollback
+                ? <CalendarClock className="w-6 h-6 text-foreground" strokeWidth={1.75} />
+                : <KeyRound className="w-6 h-6 text-foreground" strokeWidth={1.75} />}
             </div>
             <div className="space-y-2">
               <h1 className="text-xl font-semibold tracking-tight text-balance">{title}</h1>
               {subtitle && <p className="text-sm text-muted-foreground text-balance">{subtitle}</p>}
               <p className="text-sm text-muted-foreground text-balance">
-                Activa tu licencia para seguir usando Venilu. Tus datos están intactos y seguros.
+                {clockRollback
+                  ? 'Corrige la fecha y hora del equipo y vuelve a intentar. Tus datos están intactos y seguros.'
+                  : 'Activa tu licencia para seguir usando Venilu. Tus datos están intactos y seguros.'}
               </p>
             </div>
           </div>
 
-          <LicenseKeyForm />
+          {clockRollback && !showKeyForm ? (
+            <div className="space-y-2">
+              <Button className="w-full" onClick={() => void refetch()}>
+                Ya corregí la fecha, reintentar
+              </Button>
+              <Button variant="ghost" className="w-full" onClick={() => setShowKeyForm(true)}>
+                Tengo una clave nueva
+              </Button>
+            </div>
+          ) : (
+            <LicenseKeyForm />
+          )}
 
           <p className="text-xs text-muted-foreground text-center border-t border-border pt-4">
-            ¿Aún no tienes licencia? Escríbenos para adquirirla.
+            {clockRollback
+              ? '¿La fecha es correcta y sigues viendo este aviso? Escríbenos.'
+              : '¿Aún no tienes licencia? Escríbenos para adquirirla.'}
           </p>
         </div>
       </main>

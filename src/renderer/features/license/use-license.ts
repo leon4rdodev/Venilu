@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ipc } from '@lib/ipc';
 
 // Mirror of the main-process LicenseStatus contract (license:status / license:activate).
-export type LicenseState = 'trial' | 'active' | 'expired' | 'trial_expired';
+export type LicenseState = 'trial' | 'active' | 'expired' | 'trial_expired' | 'clock_rollback';
 
 export interface LicenseInfo {
   id: string;

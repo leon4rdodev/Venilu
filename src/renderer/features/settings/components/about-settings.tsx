@@ -78,6 +78,15 @@ function summarizeLicense(status: LicenseStatus): LicenseSummary {
       detail: "Sin fecha de vencimiento.",
     };
   }
+  if (state === "clock_rollback") {
+    return {
+      pill: "Fecha atrasada",
+      pillClassName: "bg-destructive/10 text-destructive",
+      dotClassName: "bg-destructive",
+      headline: "La fecha del equipo está atrasada",
+      detail: "Corrige la fecha y hora del equipo para seguir cobrando.",
+    };
+  }
   if (state === "trial_expired") {
     return {
       pill: "Prueba vencida",

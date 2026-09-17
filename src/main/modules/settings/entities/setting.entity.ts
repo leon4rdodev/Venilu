@@ -62,5 +62,12 @@ export class Setting {
      */
     @Column({ nullable: true })
     trial_started_at?: string;
+
+    /**
+     * Licensing clock high-water mark (ISO): the latest moment the app has
+     * witnessed, to detect a system clock set back. NOT client-editable.
+     */
+    @Column({ nullable: true })
+    license_last_seen_at?: string;
 }
 

@@ -20,6 +20,30 @@ nunca secuestra los datos: todo sigue visible y exportable.
 - La clave activada se guarda en `userData/license.json`; el inicio de la
   prueba se ancla en la base de datos (borrar archivos no reinicia la prueba).
 
+## Protecciones anti-trampa
+
+Son disuasivos para el usuario común, no DRM (nada que corra en la máquina del
+cliente es inviolable):
+
+- **Reloj atrasado:** la app guarda la última fecha que ha visto. Si la fecha
+  del equipo retrocede más de 24 h, bloquea el cobro con el aviso "La fecha del
+  equipo está atrasada" hasta que se corrija. Mientras la app está abierta el
+  tiempo de licencia corre igual, aunque el reloj siga atrasado. Las licencias
+  **perpetuas están exentas** (no ganan nada con el reloj).
+- **Ancla redundante:** el inicio de la prueba y la última fecha vista se
+  guardan en la base de datos **y** en un archivo firmado fuera de `userData`
+  (`%LOCALAPPDATA%\.vnl-state\anchor.dat` en Windows,
+  `~/.local/share/.vnl-state/anchor.dat` en Linux). Borrar los datos de la app
+  o reinstalar no reinicia la prueba; gana siempre el valor más restrictivo.
+- **Integridad del paquete:** los *fuses* de Electron (`electronFuses` en
+  `package.json`) validan el `app.asar` en Windows, impiden cargar código fuera
+  de él y desactivan `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` y `--inspect`.
+
+**Soporte — cliente bloqueado con la fecha correcta:** pasa si alguna vez abrió
+la app con el reloj adelantado (p. ej. año 2028). Emítele una clave nueva: una
+clave **nunca activada en ese equipo y emitida hace menos de 30 días**
+re-sincroniza la guarda. En la pantalla de aviso: "Tengo una clave nueva".
+
 ## Tu clave privada (CRÍTICO)
 
 Vive en `~/.venilu-licencias/private.pem` en TU máquina.

@@ -60,6 +60,8 @@ async function createWindow() {
         show: false,
         backgroundColor: '#ffffff',
         autoHideMenuBar: true,
+        // Window/taskbar icon on Linux and in dev (Windows uses the exe icon)
+        icon: path.join(__dirname, isDev ? '../../public/assets/venilu.png' : '../../dist/assets/venilu.png'),
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -92,6 +94,10 @@ async function initialize() {
 
         // Licensing: anchor the free trial on first boot (no-op afterwards)
         await licenseService.ensureTrialStarted();
+        // Keep the clock high-water mark moving while the POS is open
+        setInterval(() => {
+            licenseService.touchClock().catch((err) => console.error('[License] touchClock failed:', err));
+        }, 5 * 60_000).unref();
 
         // Performance: WAL journaling avoids writer-blocks-reader stalls and
         // makes commits much cheaper; NORMAL sync is safe with WAL.
