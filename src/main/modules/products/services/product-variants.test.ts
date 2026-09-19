@@ -57,14 +57,20 @@ describe('Presentaciones de producto (variantes)', () => {
     ).rejects.toThrow(/tiene presentaciones/);
   });
 
-  it('no se elimina un padre con presentaciones; la presentación sí', async () => {
+  it('no se archiva un padre con presentaciones activas; la presentación sí', async () => {
     const parent = await createTestProduct({});
     const child = await service.create({ name: 'Hija', sale_price: 10, parent_product_id: parent.id });
 
-    await expect(service.delete(parent.id)).rejects.toThrow(/tiene presentaciones/);
-    await service.delete(child.id);
-    await service.delete(parent.id); // ya sin hijas
-    expect(await service.getVariants(parent.id)).toHaveLength(0);
+    await expect(service.archive(parent.id)).rejects.toThrow(/presentaciones activas/);
+    await service.archive(child.id);
+    expect(await service.getVariants(parent.id)).toHaveLength(0); // archivada: ya no se lista
+    await service.archive(parent.id); // ya sin hijas activas
+
+    // La hija no vuelve mientras su principal siga archivado
+    await expect(service.restore(child.id)).rejects.toThrow(/producto principal.*archivado/);
+    await service.restore(parent.id);
+    await service.restore(child.id);
+    expect(await service.getVariants(parent.id)).toHaveLength(1);
   });
 
   it('desvincular: parent_product_id vacío la vuelve producto principal', async () => {

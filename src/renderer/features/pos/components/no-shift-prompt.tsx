@@ -9,7 +9,8 @@ interface NoShiftPromptProps {
 export function NoShiftPrompt({ onOpenShift, onViewHistory }: NoShiftPromptProps) {
   return (
     <div className="flex-1 flex items-center justify-center">
-      <div className="max-w-md w-full px-6 text-center space-y-6">
+      {/* gap (not space-y): the cards <ul> resets its margins with m-0, which would cancel space-y's bottom margin */}
+      <div className="max-w-md w-full px-6 text-center flex flex-col gap-6">
         {/* Icon */}
         <div className="flex justify-center">
           <div className="w-16 h-16 rounded-full bg-muted text-foreground flex items-center justify-center" aria-hidden="true">

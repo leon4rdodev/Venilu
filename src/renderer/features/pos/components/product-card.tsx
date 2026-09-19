@@ -43,7 +43,7 @@ export const ProductCard = memo(function ProductCard({ product, onAddToCart }: P
   const categoryIcon = useMemo(() => getCategoryIcon(product.category?.name || ""), [product.category]);
   const colorClasses = useMemo(() => getCategoryColor(product.category?.name || ""), [product.category]);
   const isOutOfStock = product.stock === 0;
-  const isLowStock = product.stock > 0 && product.stock <= (product.min_stock || 5);
+  const isLowStock = product.stock > 0 && product.stock <= (product.min_stock ?? 5);
   const imageSrc = productImageSrc(product.image);
   const priceLabel = formatCurrency(product.sale_price);
 

@@ -180,15 +180,15 @@ export function useProducts() {
     try {
       const result = await ipc.invoke("delete-product", productId) as { success: boolean; message?: string };
       if (!result?.success) {
-        toast.error("Error al eliminar producto", { description: result?.message });
+        toast.error("Error al archivar producto", { description: result?.message });
         return false;
       }
-      toast.success("Producto eliminado");
+      toast.success("Producto archivado", { description: "Puedes restaurarlo desde Archivados." });
       window.dispatchEvent(new CustomEvent("inventory-updated"));
       void loadCategories();
       return true;
     } catch {
-      toast.error("Error al eliminar producto");
+      toast.error("Error al archivar producto");
       return false;
     } finally {
       setIsSaving(false);

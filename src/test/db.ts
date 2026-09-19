@@ -51,6 +51,7 @@ export async function resetTestDb() {
     'stock_movements',
     'shift_expenses',
     'shifts',
+    'product_barcodes',
     'products',
     'suppliers',
     'customers',

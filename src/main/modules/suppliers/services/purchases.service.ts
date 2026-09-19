@@ -142,6 +142,7 @@ export class PurchasesService {
             for (const [productId, line] of merged) {
                 const product = await manager.findOneBy(Product, { id: productId });
                 if (!product) throw new Error("Producto no encontrado");
+                if (product.archived_at) throw new Error(`El producto "${product.name}" está archivado: restáuralo para registrarle compras`);
                 const previousCost = Number(product.cost_price) || 0;
 
                 product.stock = Number(product.stock) + line.quantity;

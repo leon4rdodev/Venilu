@@ -15,6 +15,7 @@ import { ipc } from "@lib/ipc"
 import { toast } from "sonner"
 import { PackagePlus, Save, Plus, ImagePlus, X, Layers, Package, Pencil } from "lucide-react"
 import { CategoryManagerDialog } from "./category-manager-dialog"
+import { BarcodeListInput } from "./barcode-list-input"
 
 import { Product, Category } from "@shared/types/models";
 
@@ -32,6 +33,13 @@ type ProductDialogProps = {
   onAddVariant?: (parent: Product) => void
 }
 
+/** Todos los códigos de barras del producto: el principal primero, luego los adicionales. */
+function productBarcodes(product: Product | null): string[] {
+  if (!product) return [];
+  const codes = [product.barcode, ...(product.barcodes ?? []).map((b) => b.code)];
+  return [...new Set(codes.filter((c): c is string => !!c))];
+}
+
 /** Estado inicial del formulario según el modo (editar / crear / crear presentación). */
 function buildFormState(product: Product | null, variantParent: Product | null | undefined, categories: Category[]) {
   if (product) {
@@ -42,7 +50,7 @@ function buildFormState(product: Product | null, variantParent: Product | null |
       sale_price: (product.sale_price || 0).toString(),
       stock: (product.stock || 0).toString(),
       sku: product.sku || "",
-      min_stock: (product.min_stock || 5).toString(),
+      min_stock: (product.min_stock ?? 5).toString(), // 0 es válido: sin alerta de stock bajo
       itbis_exempt: product.itbis_exempt ?? false,
       variant_name: product.variant_name || "",
     }
@@ -79,6 +87,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
   const queryClient = useQueryClient();
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const [formData, setFormData] = useState(() => buildFormState(product, variantParent, categories))
+  const [barcodes, setBarcodes] = useState<string[]>(() => productBarcodes(product))
 
   // Modos de presentación (variante)
   const isEditingVariant = !!product?.parent_product_id;
@@ -137,6 +146,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
     setImageData(undefined);
     setImagePreview(product?.image ? productImageSrc(product.image) : undefined);
     setFormData(buildFormState(product, variantParent, categories));
+    setBarcodes(productBarcodes(product));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, product, variantParent]);
 
@@ -187,6 +197,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
   };
 
   const handleSave = () => {
+    const minStock = Number.parseInt(formData.min_stock);
     const data: Partial<Product> = {
       name: formData.name,
       category_id: formData.category_id || undefined,
@@ -195,7 +206,10 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
       sale_price: Number.parseFloat(formData.sale_price) || 0,
       stock: Number.parseInt(formData.stock) || 0,
       sku: formData.sku,
-      min_stock: Number.parseInt(formData.min_stock) || 5,
+      // Primer código = principal; el resto son adicionales (set completo)
+      barcode: barcodes[0] ?? "",
+      extra_barcodes: barcodes.slice(1),
+      min_stock: Number.isNaN(minStock) ? 5 : minStock,
       itbis_exempt: formData.itbis_exempt,
     };
 
@@ -341,7 +355,17 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <Label htmlFor="sku">SKU / Código</Label>
+                <Label htmlFor="barcode-input">Códigos de Barras</Label>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {barcodes.length > 0 ? `${barcodes.length} código${barcodes.length !== 1 ? "s" : ""}` : "Opcional"}
+                </span>
+              </div>
+              <BarcodeListInput value={barcodes} onChange={setBarcodes} disabled={isSaving} />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="sku">SKU / Código interno</Label>
                 <span className="text-xs text-muted-foreground">Opcional</span>
               </div>
               <Input

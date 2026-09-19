@@ -38,6 +38,8 @@ const ACTION_LABELS: Record<string, string> = {
   "inventory:update": "Editó producto",
   "inventory:update_price": "Cambió precio",
   "inventory:adjust_stock": "Ajustó stock",
+  "inventory:archive": "Archivó producto",
+  "inventory:restore": "Restauró producto",
   "sales:void": "Anuló venta",
   "sales:return": "Devolución de artículos",
   "customers:pay_debt": "Registró abono",

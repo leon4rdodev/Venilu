@@ -26,6 +26,8 @@ import { ProductVariants1756650000000 } from "@main/migrations/1756650000000-Pro
 import { SaleVoidedAt1756750000000 } from "@main/migrations/1756750000000-SaleVoidedAt";
 import { Suppliers1756850000000 } from "@main/migrations/1756850000000-Suppliers";
 import { LicenseClockGuard1756950000000 } from "@main/migrations/1756950000000-LicenseClockGuard";
+import { ProductBarcodesAndArchive1757050000000 } from "@main/migrations/1757050000000-ProductBarcodesAndArchive";
+import { ProductBarcode } from "@main/modules/products/entities/product-barcode.entity";
 import { Supplier } from "@main/modules/suppliers/entities/supplier.entity";
 import { Purchase, PurchaseItem } from "@main/modules/suppliers/entities/purchase.entity";
 import { SupplierPayment } from "@main/modules/suppliers/entities/supplier-payment.entity";
@@ -45,6 +47,7 @@ export const AppDataSource = new DataSource({
         User,
         Role,
         Product,
+        ProductBarcode,
         Category,
         Sale,
         SaleItem,
@@ -63,7 +66,7 @@ export const AppDataSource = new DataSource({
         PurchaseItem,
         SupplierPayment,
     ],
-    migrations: [InitialSchema1756150000000, DebtPaymentRefunds1756250000000, LicenseTrial1756350000000, FiscalNcf1756450000000, SaleReturns1756550000000, ProductVariants1756650000000, SaleVoidedAt1756750000000, Suppliers1756850000000, LicenseClockGuard1756950000000],
+    migrations: [InitialSchema1756150000000, DebtPaymentRefunds1756250000000, LicenseTrial1756350000000, FiscalNcf1756450000000, SaleReturns1756550000000, ProductVariants1756650000000, SaleVoidedAt1756750000000, Suppliers1756850000000, LicenseClockGuard1756950000000, ProductBarcodesAndArchive1757050000000],
     migrationsTableName: "migrations",
     subscribers: [],
 });

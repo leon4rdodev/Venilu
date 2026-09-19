@@ -1,11 +1,12 @@
 import { createElement, useMemo, memo } from "react";
 import { Card } from "@components/ui/card";
 import { Button } from "@components/ui/button";
-import { Pencil, Trash2, Boxes, History, Barcode, AlertTriangle, XCircle } from "lucide-react";
+import { Pencil, Archive, Boxes, History, Barcode, AlertTriangle, XCircle } from "lucide-react";
 import { formatCurrency } from "@lib/currency";
 import { productImageSrc } from "@lib/image";
 import { cn } from "@lib/utils";
 import { getCategoryIcon, getCategoryColor } from "@renderer/features/pos/components/product-card";
+import { productCodeSummary } from "./product-codes";
 import { Product } from "@shared/types/models";
 
 interface InventoryProductCardProps {
@@ -29,7 +30,8 @@ interface InventoryProductCardProps {
 export const InventoryProductCard = memo(function InventoryProductCard({ product, onEdit, onDelete, onAdjustStock, onViewMovements, onPrintLabels, isLoading = false }: InventoryProductCardProps) {
   const categoryIcon = useMemo(() => getCategoryIcon(product.category?.name || ""), [product.category]);
   const colorClasses = useMemo(() => getCategoryColor(product.category?.name || ""), [product.category]);
-  const minStock = product.min_stock || 5;
+  const minStock = product.min_stock ?? 5; // 0 = sin alerta, igual que el servidor
+  const codes = productCodeSummary(product);
   const isOutOfStock = product.stock === 0;
   const isLowStock = product.stock > 0 && product.stock <= minStock;
   const stockTitle = isOutOfStock
@@ -88,13 +90,14 @@ export const InventoryProductCard = memo(function InventoryProductCard({ product
           )}
         </span>
 
-        {/* SKU chip */}
-        {product.sku && (
+        {/* Código chip: código de barras principal (o SKU) + cuántos más tiene */}
+        {codes.primary && (
           <span
             className="absolute bottom-2 left-2 text-[11px] font-mono px-2 py-0.5 rounded-md bg-background/85 border border-border/60 text-muted-foreground backdrop-blur-sm max-w-[80%] truncate"
-            title={`SKU ${product.sku}`}
+            title={codes.title}
           >
-            {product.sku}
+            {codes.primary}
+            {codes.extraCount > 0 && <span className="font-sans"> +{codes.extraCount}</span>}
           </span>
         )}
       </div>
@@ -188,16 +191,12 @@ export const InventoryProductCard = memo(function InventoryProductCard({ product
             variant="outline"
             size="sm"
             className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:border-destructive/40"
-            onClick={() => !product.has_sales && onDelete(product.id)}
-            disabled={isLoading || !!product.has_sales}
-            title={product.has_sales ? "No se puede eliminar: tiene ventas registradas" : "Eliminar"}
-            aria-label={
-              product.has_sales
-                ? `No se puede eliminar ${product.name}: tiene ventas registradas`
-                : `Eliminar ${product.name}`
-            }
+            onClick={() => onDelete(product.id)}
+            disabled={isLoading}
+            title="Archivar"
+            aria-label={`Archivar ${product.name}`}
           >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            <Archive className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
         </div>
       </div>

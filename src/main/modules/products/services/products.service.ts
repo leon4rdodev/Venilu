@@ -1,9 +1,11 @@
 import { AppDataSource } from "@main/config/data-source";
 import { stockMovementsService } from "./stock-movements.service";
 import { Product as ProductEntity } from "@main/modules/products/entities/product.entity";
+import { ProductBarcode as ProductBarcodeEntity } from "@main/modules/products/entities/product-barcode.entity";
 import { SaleItem as SaleItemEntity } from "@main/modules/sales/entities/sale-item.entity";
+import { PurchaseItem as PurchaseItemEntity } from "@main/modules/suppliers/entities/purchase.entity";
 import { imagesService } from "@main/shared/services/images.service";
-import { Repository } from "typeorm";
+import { In, IsNull, Not, Repository } from "typeorm";
 
 interface ProductQueryOptions {
     page?: number;
@@ -14,15 +16,23 @@ interface ProductQueryOptions {
     sortOrder?: 'ASC' | 'DESC';
     /** 'low' = stock <= min_stock (and > 0), 'out' = stock 0 */
     stockFilter?: 'all' | 'low' | 'out';
+    /** true = carpeta de archivados; por defecto solo productos activos. */
+    archived?: boolean;
 }
+
+const MAX_CODE_LENGTH = 64;
 
 export class ProductsService {
     private productRepository: Repository<ProductEntity>;
     private saleItemRepository: Repository<SaleItemEntity>;
+    private barcodeRepository: Repository<ProductBarcodeEntity>;
+    private purchaseItemRepository: Repository<PurchaseItemEntity>;
 
     constructor() {
         this.productRepository = AppDataSource.getRepository(ProductEntity);
         this.saleItemRepository = AppDataSource.getRepository(SaleItemEntity);
+        this.barcodeRepository = AppDataSource.getRepository(ProductBarcodeEntity);
+        this.purchaseItemRepository = AppDataSource.getRepository(PurchaseItemEntity);
     }
 
     async findAll(options: ProductQueryOptions = {}) {
@@ -39,11 +49,15 @@ export class ProductsService {
         const skip = (Math.max(1, page) - 1) * take;
 
         const queryBuilder = this.productRepository.createQueryBuilder("product")
-            .leftJoinAndSelect("product.category", "category");
+            .leftJoinAndSelect("product.category", "category")
+            .leftJoinAndSelect("product.barcodes", "barcodes");
+
+        queryBuilder.andWhere(options.archived ? "product.archived_at IS NOT NULL" : "product.archived_at IS NULL");
 
         if (search) {
             queryBuilder.andWhere(
-                "(product.name LIKE :search OR product.sku LIKE :search OR product.barcode LIKE :search)",
+                "(product.name LIKE :search OR product.sku LIKE :search OR product.barcode LIKE :search"
+                + " OR EXISTS (SELECT 1 FROM product_barcodes pb WHERE pb.product_id = product.id AND pb.code LIKE :search))",
                 { search: `%${search}%` }
             );
         }
@@ -59,7 +73,7 @@ export class ProductsService {
         }
 
         // Validate Sort By to prevent SQL injection or errors (allowlist)
-        const allowedSort = ['name', 'sale_price', 'stock', 'created_at', 'updated_at'];
+        const allowedSort = ['name', 'sale_price', 'stock', 'created_at', 'updated_at', 'archived_at'];
         const sortField = allowedSort.includes(sortBy) ? `product.${sortBy}` : 'product.name';
         
         // Handle special case if sorting by category name (joined column)
@@ -75,11 +89,12 @@ export class ProductsService {
             .skip(skip)
             .getManyAndCount();
 
-        // Map has_sales manually if needed, or check on delete.
-        // The original code did a subquery for `has_sales` for the listing.
-        // We can replicate that if needed for UI disabling, but skipping for now unless explicit requirement.
-        // Actually, the UI might toggle delete button based on this. Let's add it properly if we can,
-        // or just let the delete fail with an error message (which is handled in `delete` method).
+        // Archivados: la UI necesita saber cuáles se pueden borrar definitivamente
+        // (solo los que nunca tuvieron ventas ni compras). Una consulta por página.
+        if (options.archived && products.length > 0) {
+            const used = await this.getIdsWithHistory(products.map(p => p.id));
+            for (const p of products) (p as any).has_sales = used.has(p.id);
+        }
 
         return {
             products,
@@ -177,32 +192,99 @@ export class ProductsService {
 
     async getById(id: string): Promise<ProductEntity | null> {
         if (!id) return null;
-        return this.productRepository.findOneBy({ id });
+        return this.productRepository.findOne({ where: { id }, relations: ['barcodes'] });
+    }
+
+    /** Ids (de los dados) que aparecen en ventas o compras — no se pueden borrar definitivamente. */
+    private async getIdsWithHistory(ids: string[]): Promise<Set<string>> {
+        if (ids.length === 0) return new Set();
+        const [sold, bought] = await Promise.all([
+            this.saleItemRepository.createQueryBuilder('si')
+                .select('DISTINCT si.product_id', 'product_id')
+                .where({ product_id: In(ids) }).getRawMany(),
+            this.purchaseItemRepository.createQueryBuilder('pi')
+                .select('DISTINCT pi.product_id', 'product_id')
+                .where({ product_id: In(ids) }).getRawMany(),
+        ]);
+        return new Set([...sold, ...bought].map((r: { product_id: string }) => r.product_id));
     }
 
     /**
-     * SKU y código de barras deben ser únicos entre TODOS los productos (y
-     * entre ambos campos): el escáner del POS busca por cualquiera de los dos
-     * y un código repetido devolvería dos productos distintos.
+     * Normaliza los códigos adicionales de un payload no confiable: recorta,
+     * descarta vacíos y repetidos (también contra barcode/sku del mismo producto).
+     * undefined = el payload no los trae → no se tocan.
      */
-    private async assertCodesUnique(data: { sku?: unknown; barcode?: unknown }, selfId: string | null): Promise<void> {
-        const codes: Array<{ field: 'sku' | 'barcode'; value: string }> = [];
+    private normalizeExtraBarcodes(raw: unknown, own: Array<string | null | undefined>): string[] | undefined {
+        if (raw === undefined) return undefined;
+        if (!Array.isArray(raw)) throw new Error("Códigos de barras adicionales inválidos");
+        const seen = new Set(own.filter((c): c is string => !!c));
+        const result: string[] = [];
+        for (const item of raw) {
+            if (typeof item !== 'string' && typeof item !== 'number') throw new Error("Códigos de barras adicionales inválidos");
+            const code = String(item).trim();
+            if (!code || seen.has(code)) continue;
+            if (code.length > MAX_CODE_LENGTH) throw new Error(`El código "${code.slice(0, 20)}…" es demasiado largo`);
+            seen.add(code);
+            result.push(code);
+        }
+        return result;
+    }
+
+    /** Producto ACTIVO (distinto de selfId) que ya usa el código en barcode, sku o códigos adicionales. */
+    private async findCodeOwner(code: string, selfId: string | null): Promise<ProductEntity | null> {
+        const qb = this.productRepository.createQueryBuilder('p')
+            .where('p.archived_at IS NULL')
+            .andWhere(
+                '(p.sku = :code OR p.barcode = :code'
+                + ' OR EXISTS (SELECT 1 FROM product_barcodes pb WHERE pb.product_id = p.id AND pb.code = :code))',
+                { code }
+            );
+        if (selfId) qb.andWhere('p.id != :selfId', { selfId });
+        return qb.getOne();
+    }
+
+    /**
+     * SKU, código de barras y códigos adicionales deben ser únicos entre TODOS
+     * los productos activos (y entre sí): el escáner del POS busca por
+     * cualquiera de ellos y un código repetido devolvería dos productos
+     * distintos. Los archivados no cuentan — su choque se valida al restaurar.
+     */
+    private async assertCodesUnique(
+        data: { sku?: unknown; barcode?: unknown },
+        selfId: string | null,
+        extraBarcodes: string[] = []
+    ): Promise<void> {
+        const codes: Array<{ label: string; value: string }> = [];
         for (const field of ['sku', 'barcode'] as const) {
             const raw = data[field];
             if (typeof raw !== 'string') continue;
             const value = raw.trim();
             (data as any)[field] = value || null;
-            if (value) codes.push({ field, value });
+            if (value) codes.push({ label: field === 'sku' ? 'SKU / código' : 'código de barras', value });
         }
-        for (const { field, value } of codes) {
-            const qb = this.productRepository.createQueryBuilder('p')
-                .where('(p.sku = :value OR p.barcode = :value)', { value });
-            if (selfId) qb.andWhere('p.id != :selfId', { selfId });
-            const clash = await qb.getOne();
+        if (codes.length === 2 && codes[0].value === codes[1].value) {
+            throw new Error("El SKU y el código de barras no pueden ser iguales");
+        }
+        for (const value of extraBarcodes) codes.push({ label: 'código de barras', value });
+
+        for (const { label, value } of codes) {
+            const clash = await this.findCodeOwner(value, selfId);
             if (clash) {
-                const label = field === 'sku' ? 'SKU / código' : 'código de barras';
                 throw new Error(`El ${label} "${value}" ya está en uso por "${clash.name}"`);
             }
+        }
+    }
+
+    /** Reemplaza el set completo de códigos adicionales de un producto. */
+    private async replaceExtraBarcodes(productId: string, codes: string[]): Promise<void> {
+        const current = await this.barcodeRepository.find({ where: { product_id: productId } });
+        const wanted = new Set(codes);
+        const stale = current.filter(b => !wanted.has(b.code));
+        if (stale.length > 0) await this.barcodeRepository.delete({ id: In(stale.map(b => b.id)) });
+        const existing = new Set(current.map(b => b.code));
+        const fresh = codes.filter(code => !existing.has(code));
+        if (fresh.length > 0) {
+            await this.barcodeRepository.save(fresh.map(code => this.barcodeRepository.create({ product_id: productId, code })));
         }
     }
 
@@ -214,7 +296,10 @@ export class ProductsService {
         }
         data.name = data.name.trim();
         this.validateNumericFields(data);
-        await this.assertCodesUnique(data, null);
+        // assertCodesUnique normaliza barcode/sku; los adicionales se depuran contra ellos después
+        let extraBarcodes = this.normalizeExtraBarcodes((productData as any).extra_barcodes, []) ?? [];
+        await this.assertCodesUnique(data, null, extraBarcodes);
+        extraBarcodes = extraBarcodes.filter(code => code !== data.barcode && code !== data.sku);
 
         if (data.image !== undefined) {
             data.image = this.processIncomingImage(data.image, null);
@@ -224,6 +309,7 @@ export class ProductsService {
 
         const product = this.productRepository.create(data as Partial<ProductEntity>);
         const saved = await this.productRepository.save(product);
+        if (extraBarcodes.length > 0) await this.replaceExtraBarcodes(saved.id, extraBarcodes);
 
         // Kardex: opening stock
         if (Number(saved.stock) > 0) {
@@ -249,6 +335,7 @@ export class ProductsService {
 
         const current = await this.productRepository.findOneBy({ id });
         if (!current) throw new Error("Producto no encontrado");
+        if (current.archived_at) throw new Error("El producto está archivado: restáuralo antes de editarlo");
 
         const dataToUpdate = this.pickEditableFields(productData);
 
@@ -259,7 +346,8 @@ export class ProductsService {
             dataToUpdate.name = dataToUpdate.name.trim();
         }
         this.validateNumericFields(dataToUpdate);
-        await this.assertCodesUnique(dataToUpdate, id);
+        const incomingExtras = this.normalizeExtraBarcodes((productData as any).extra_barcodes, []);
+        await this.assertCodesUnique(dataToUpdate, id, incomingExtras ?? []);
 
         if (dataToUpdate.image !== undefined) {
             dataToUpdate.image = this.processIncomingImage(dataToUpdate.image, current.image ?? null);
@@ -286,14 +374,28 @@ export class ProductsService {
             delete dataToUpdate.stock;
         }
 
-        if (Object.keys(dataToUpdate).length === 0) return current;
+        if (Object.keys(dataToUpdate).length === 0 && incomingExtras === undefined) return current;
 
         if (dataToUpdate.parent_product_id !== undefined) {
             await this.validateVariantLink(dataToUpdate, id);
         }
 
-        await this.productRepository.update({ id }, dataToUpdate);
-        const updated = await this.productRepository.findOneBy({ id });
+        if (Object.keys(dataToUpdate).length > 0) {
+            await this.productRepository.update({ id }, dataToUpdate);
+        }
+
+        // Códigos adicionales: nunca duplican el barcode/sku vigente del propio
+        // producto (p. ej. al promover un código adicional a principal).
+        const codesTouched = incomingExtras !== undefined || dataToUpdate.barcode !== undefined || dataToUpdate.sku !== undefined;
+        if (codesTouched) {
+            const barcode = dataToUpdate.barcode !== undefined ? dataToUpdate.barcode : current.barcode;
+            const sku = dataToUpdate.sku !== undefined ? dataToUpdate.sku : current.sku;
+            const base = incomingExtras
+                ?? (await this.barcodeRepository.find({ where: { product_id: id } })).map(b => b.code);
+            await this.replaceExtraBarcodes(id, base.filter(code => code !== barcode && code !== sku));
+        }
+
+        const updated = await this.productRepository.findOne({ where: { id }, relations: ['barcodes'] });
         if (!updated) throw new Error("Producto no encontrado después de la actualización");
 
         // Kardex: manual stock adjustment (only when the value really changed)
@@ -342,43 +444,117 @@ export class ProductsService {
     /** Presentaciones de un producto (ordenadas por nombre de presentación). */
     async getVariants(productId: string): Promise<ProductEntity[]> {
         return this.productRepository.find({
-            where: { parent_product_id: productId },
+            where: { parent_product_id: productId, archived_at: IsNull() },
+            relations: ['barcodes'],
             order: { variant_name: 'ASC', name: 'ASC' },
         });
     }
 
-    async delete(id: string): Promise<void> {
-        if (id === undefined || id === null) throw new Error("ID requerido para eliminar");
+    /**
+     * Borrado lógico: el producto sale de inventario, POS y escáner pero se
+     * conserva (con su historial de ventas y kardex) en la carpeta de
+     * archivados, desde donde se puede restaurar o borrar definitivamente.
+     */
+    async archive(id: string): Promise<ProductEntity> {
+        if (id === undefined || id === null) throw new Error("ID requerido para archivar");
 
-        // Un padre con presentaciones no se elimina — primero sus presentaciones
+        const product = await this.productRepository.findOneBy({ id });
+        if (!product) throw new Error("Producto no encontrado");
+        if (product.archived_at) return product;
+
+        // Un padre con presentaciones activas no se archiva — primero sus presentaciones
+        const variantCount = await this.productRepository.count({
+            where: { parent_product_id: id, archived_at: IsNull() },
+        });
+        if (variantCount > 0) {
+            throw new Error("No se puede archivar: el producto tiene presentaciones activas. Archívalas primero.");
+        }
+
+        product.archived_at = new Date();
+        await this.productRepository.update({ id }, { archived_at: product.archived_at });
+        return product;
+    }
+
+    /** Devuelve un producto archivado al inventario activo. */
+    async restore(id: string): Promise<ProductEntity> {
+        if (!id) throw new Error("ID requerido para restaurar");
+
+        const product = await this.productRepository.findOne({ where: { id }, relations: ['barcodes'] });
+        if (!product) throw new Error("Producto no encontrado");
+        if (!product.archived_at) return product;
+
+        // Mientras estuvo archivado, otro producto pudo tomar alguno de sus códigos
+        const codes = [product.barcode, product.sku, ...(product.barcodes ?? []).map(b => b.code)]
+            .filter((c): c is string => !!c);
+        for (const code of codes) {
+            const clash = await this.findCodeOwner(code, id);
+            if (clash) {
+                throw new Error(`No se puede restaurar: el código "${code}" ahora lo usa "${clash.name}". Cámbialo en ese producto primero.`);
+            }
+        }
+
+        if (product.parent_product_id) {
+            const parent = await this.productRepository.findOneBy({ id: product.parent_product_id });
+            if (parent?.archived_at) {
+                throw new Error(`No se puede restaurar: su producto principal "${parent.name}" está archivado. Restáuralo primero.`);
+            }
+        }
+
+        await this.productRepository.update({ id }, { archived_at: null });
+        product.archived_at = null;
+        return product;
+    }
+
+    /**
+     * Borrado DEFINITIVO — solo desde la carpeta de archivados y solo si el
+     * producto nunca se vendió ni se compró (su historial debe sobrevivir).
+     */
+    async deletePermanently(id: string): Promise<ProductEntity> {
+        if (!id) throw new Error("ID requerido para eliminar");
+
+        const product = await this.productRepository.findOneBy({ id });
+        if (!product) throw new Error("Producto no encontrado");
+        if (!product.archived_at) {
+            throw new Error("Solo se pueden eliminar definitivamente productos archivados");
+        }
+
         const variantCount = await this.productRepository.count({ where: { parent_product_id: id } });
         if (variantCount > 0) {
             throw new Error("No se puede eliminar: el producto tiene presentaciones. Elimínalas primero.");
         }
 
-        // Check for sales dependencies
         const salesCount = await this.saleItemRepository.count({ where: { product_id: id } });
         if (salesCount > 0) {
-            throw new Error("No se puede eliminar: el producto tiene ventas asociadas");
+            throw new Error("No se puede eliminar definitivamente: el producto tiene ventas asociadas");
+        }
+        const purchaseCount = await this.purchaseItemRepository.count({ where: { product_id: id } });
+        if (purchaseCount > 0) {
+            throw new Error("No se puede eliminar definitivamente: el producto tiene compras a proveedores asociadas");
         }
 
-        const product = await this.productRepository.findOneBy({ id });
-        const result = await this.productRepository.delete({ id: id });
-        if (result.affected === 0) {
-            throw new Error("Producto no encontrado");
-        }
+        await this.productRepository.delete({ id });
 
         // Clean up the image file on disk (no-op for legacy/absent images)
-        if (product?.image) imagesService.deleteImage(product.image);
+        if (product.image) imagesService.deleteImage(product.image);
+        return product;
     }
 
-    /** Exact barcode/SKU lookup for the POS scanner. */
+    async countArchived(): Promise<number> {
+        return this.productRepository.count({ where: { archived_at: Not(IsNull()) } });
+    }
+
+    /** Exact barcode/SKU lookup for the POS scanner (incluye códigos adicionales; ignora archivados). */
     async findByCode(code: string): Promise<ProductEntity | null> {
         const trimmed = String(code ?? '').trim();
         if (!trimmed) return null;
         return this.productRepository.createQueryBuilder('product')
             .leftJoinAndSelect('product.category', 'category')
-            .where('product.barcode = :code OR product.sku = :code', { code: trimmed })
+            .where('product.archived_at IS NULL')
+            .andWhere(
+                '(product.barcode = :code OR product.sku = :code'
+                + ' OR EXISTS (SELECT 1 FROM product_barcodes pb WHERE pb.product_id = product.id AND pb.code = :code))',
+                { code: trimmed }
+            )
             .getOne();
     }
 
@@ -386,6 +562,7 @@ export class ProductsService {
         return this.productRepository.createQueryBuilder("product")
             // Agotados también son "atención a reposición" (cuadra con la tarjeta de alertas)
             .where("product.stock <= product.min_stock")
+            .andWhere("product.archived_at IS NULL")
             .orderBy("product.stock", "ASC")
             .take(limit)
             .getMany();
@@ -399,6 +576,7 @@ export class ProductsService {
             .addSelect("SUM(p.sale_price * p.stock)", "totalRetailValue")
             .addSelect("COUNT(CASE WHEN p.stock = 0 THEN 1 END)", "outOfStockProducts")
             .addSelect("COUNT(CASE WHEN p.stock <= p.min_stock AND p.stock > 0 THEN 1 END)", "lowStockProducts")
+            .where("p.archived_at IS NULL")
             .getRawOne();
 
         return {

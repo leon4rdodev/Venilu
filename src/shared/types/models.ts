@@ -67,7 +67,12 @@ export interface Product {
   stock: number;
   category_id?: string;
   category?: Category | null;
+  /** Código de barras principal. */
   barcode?: string;
+  /** Códigos de barras adicionales (ilimitados) — cargados en las respuestas del inventario. */
+  barcodes?: { id: string; code: string }[];
+  /** Solo escritura: set completo de códigos adicionales al crear/actualizar. */
+  extra_barcodes?: string[];
   sku?: string;
   min_stock?: number;
   /** true = exento de ITBIS (default: gravado). */
@@ -85,6 +90,9 @@ export interface Product {
   image?: string | null;
   created_at: string | Date;
   updated_at: string | Date;
+  /** Borrado lógico: con fecha = archivado. */
+  archived_at?: string | Date | null;
+  /** Solo en la carpeta de archivados: tiene ventas/compras → no se puede borrar definitivamente. */
   has_sales?: boolean;
 }
 

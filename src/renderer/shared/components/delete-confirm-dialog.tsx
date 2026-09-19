@@ -19,6 +19,8 @@ interface DeleteConfirmDialogProps {
   onConfirm: () => void;
   isLoading?: boolean;
   confirmLabel?: string;
+  /** Texto mientras isLoading (por defecto "Eliminando…"). */
+  loadingLabel?: string;
 }
 
 /**
@@ -34,6 +36,7 @@ export function DeleteConfirmDialog({
   onConfirm,
   isLoading = false,
   confirmLabel = "Eliminar",
+  loadingLabel = "Eliminando…",
 }: DeleteConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={(o) => !isLoading && onOpenChange(o)}>
@@ -74,7 +77,7 @@ export function DeleteConfirmDialog({
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden />
-                Eliminando…
+                {loadingLabel}
               </>
             ) : (
               confirmLabel

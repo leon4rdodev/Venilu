@@ -141,3 +141,38 @@ describe("ProductDialog — presentaciones", () => {
     expect(screen.getByLabelText("Nombre de presentación")).toHaveValue("Pequeño 250ml");
   });
 });
+
+describe("ProductDialog — códigos de barras", () => {
+  it("carga todos los códigos del producto y guarda principal + adicionales (min_stock 0 se respeta)", async () => {
+    mockIpc();
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    renderDialog({
+      product: {
+        ...parent,
+        min_stock: 0,
+        barcode: "7460548000161",
+        barcodes: [{ id: "b1", code: "7460548000154" }],
+      } as Product,
+      onSave,
+    });
+
+    expect(screen.getByText("7460548000161")).toBeInTheDocument();
+    expect(screen.getByText("7460548000154")).toBeInTheDocument();
+    expect(screen.getByLabelText("Alerta de Stock Bajo")).toHaveValue(0);
+
+    // Un escaneo = dígitos + Enter; los repetidos se ignoran
+    const input = screen.getByLabelText("Códigos de Barras");
+    await user.type(input, "7460548000130{Enter}");
+    await user.type(input, "7460548000154{Enter}");
+    await user.click(screen.getByRole("button", { name: "Quitar código 7460548000161" }));
+
+    await user.click(screen.getByRole("button", { name: /Guardar Cambios/ }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({
+      barcode: "7460548000154",
+      extra_barcodes: ["7460548000130"],
+      min_stock: 0,
+    });
+  });
+});

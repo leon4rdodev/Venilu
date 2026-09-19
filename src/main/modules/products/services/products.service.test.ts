@@ -290,23 +290,142 @@ describe('ProductsService', () => {
 
   // ─── delete ─────────────────────────────────────────────────────────────────
 
-  describe('delete', () => {
-    it('bloqueado cuando el producto tiene ventas asociadas', async () => {
+  // ─── códigos de barras adicionales ──────────────────────────────────────────
+
+  describe('códigos de barras adicionales', () => {
+    it('crea con N códigos, depura repetidos/vacíos y el escáner encuentra cualquiera', async () => {
+      const product = await service.create({
+        name: 'Gatorade 600ml',
+        sale_price: 100,
+        barcode: '7460548000161',
+        extra_barcodes: ['7460548000154', ' 7460548000130 ', '', '7460548000154', '7460548000161', '7460548000185'],
+      } as never);
+
+      const stored = await service.getById(product.id);
+      expect(stored?.barcodes?.map((b) => b.code).sort()).toEqual(['7460548000130', '7460548000154', '7460548000185']);
+
+      for (const code of ['7460548000161', '7460548000154', '7460548000130', '7460548000185']) {
+        expect((await service.findByCode(code))?.id).toBe(product.id);
+      }
+      expect(await service.findByCode('0000')).toBeNull();
+    });
+
+    it('la búsqueda del inventario también encuentra por código adicional y devuelve los códigos', async () => {
+      const product = await service.create({ name: 'Cereser', sale_price: 50, extra_barcodes: ['7896072902723'] } as never);
+      await createTestProduct({ name: 'Otro' });
+
+      const result = await service.findAll({ search: '78960729027' });
+      expect(result.pagination.totalItems).toBe(1);
+      expect(result.products[0].id).toBe(product.id);
+      expect(result.products[0].barcodes?.map((b) => b.code)).toEqual(['7896072902723']);
+    });
+
+    it('un código no puede repetirse entre productos (barcode, sku o adicional)', async () => {
+      await service.create({ name: 'A', sale_price: 1, barcode: 'B-1', sku: 'S-1', extra_barcodes: ['X-1'] } as never);
+
+      await expect(service.create({ name: 'B', sale_price: 1, barcode: 'X-1' })).rejects.toThrow(/"X-1" ya está en uso por "A"/);
+      await expect(service.create({ name: 'B', sale_price: 1, sku: 'X-1' })).rejects.toThrow(/ya está en uso/);
+      await expect(service.create({ name: 'B', sale_price: 1, extra_barcodes: ['X-1'] } as never)).rejects.toThrow(/ya está en uso/);
+      await expect(service.create({ name: 'B', sale_price: 1, extra_barcodes: ['B-1'] } as never)).rejects.toThrow(/ya está en uso/);
+      await expect(service.create({ name: 'B', sale_price: 1, extra_barcodes: ['S-1'] } as never)).rejects.toThrow(/ya está en uso/);
+      await expect(service.create({ name: 'B', sale_price: 1, extra_barcodes: 'X-2' } as never)).rejects.toThrow(/inválidos/);
+    });
+
+    it('update reemplaza el set completo; sin extra_barcodes no los toca; promover a principal no duplica', async () => {
+      const product = await service.create({ name: 'A', sale_price: 1, barcode: 'P', extra_barcodes: ['E1', 'E2'] } as never);
+      const codes = async () => (await service.getById(product.id))?.barcodes?.map((b) => b.code).sort();
+
+      await service.update(product.id, { name: 'A2' });
+      expect(await codes()).toEqual(['E1', 'E2']);
+
+      await service.update(product.id, { extra_barcodes: ['E2', 'E3'] } as never);
+      expect(await codes()).toEqual(['E2', 'E3']);
+      expect(await service.findByCode('E1')).toBeNull();
+
+      // E3 pasa a ser el principal: deja de ser adicional
+      const updated = await service.update(product.id, { barcode: 'E3' });
+      expect(updated.barcode).toBe('E3');
+      expect(await codes()).toEqual(['E2']);
+
+      await service.update(product.id, { extra_barcodes: [] } as never);
+      expect(await codes()).toEqual([]);
+    });
+  });
+
+  // ─── archivar / restaurar / borrar definitivamente ──────────────────────────
+
+  describe('archivado (borrado lógico)', () => {
+    it('archivar oculta de listado, escáner, stock bajo y estadísticas — incluso con ventas', async () => {
       const user = await createTestUser();
-      const product = await createTestProduct();
+      const product = await createTestProduct({ barcode: 'ARC-1', stock: 1, min_stock: 5 });
       await createTestSale({
         user_id: user.id,
         total_amount: 100,
         items: [{ product_id: product.id, quantity: 1, unit_price: 100 }],
       });
-      await expect(service.delete(product.id)).rejects.toThrow(/ventas asociadas/);
+
+      await service.archive(product.id);
+
+      expect((await service.findAll({})).pagination.totalItems).toBe(0);
+      expect(await service.findByCode('ARC-1')).toBeNull();
+      expect(await service.getLowStock()).toHaveLength(0);
+      expect((await service.getInventoryStats()).totalProducts).toBe(0);
+      expect(await service.countArchived()).toBe(1);
+
+      const archived = await service.findAll({ archived: true });
+      expect(archived.pagination.totalItems).toBe(1);
+      expect((archived.products[0] as { has_sales?: boolean }).has_sales).toBe(true);
+
+      await expect(service.update(product.id, { name: 'X' })).rejects.toThrow(/archivado/);
+      await expect(service.archive('ghost')).rejects.toThrow(/no encontrado/);
     });
 
-    it('elimina un producto sin ventas; inexistente lanza', async () => {
-      const product = await createTestProduct();
-      await service.delete(product.id);
-      expect((await service.findAll({})).pagination.totalItems).toBe(0);
-      await expect(service.delete('ghost')).rejects.toThrow(/no encontrado/);
+    it('restaurar lo devuelve al inventario con sus códigos', async () => {
+      const product = await service.create({ name: 'A', sale_price: 1, barcode: 'R-1', extra_barcodes: ['R-2'] } as never);
+      await service.archive(product.id);
+      await service.restore(product.id);
+
+      expect((await service.findAll({})).pagination.totalItems).toBe(1);
+      expect((await service.findByCode('R-2'))?.id).toBe(product.id);
+      expect(await service.countArchived()).toBe(0);
+    });
+
+    it('un archivado libera sus códigos; restaurar falla si otro producto ya los tomó', async () => {
+      const old = await service.create({ name: 'Viejo', sale_price: 1, barcode: 'DUP', extra_barcodes: ['DUP-2'] } as never);
+      await service.archive(old.id);
+
+      const fresh = await service.create({ name: 'Nuevo', sale_price: 1, extra_barcodes: ['DUP-2'] } as never);
+      expect((await service.findByCode('DUP-2'))?.id).toBe(fresh.id);
+
+      await expect(service.restore(old.id)).rejects.toThrow(/"DUP-2" ahora lo usa "Nuevo"/);
+      await service.update(fresh.id, { extra_barcodes: [] } as never);
+      await service.restore(old.id);
+      expect((await service.findByCode('DUP-2'))?.id).toBe(old.id);
+    });
+
+    it('borrado definitivo: solo archivados y solo si nunca se vendieron', async () => {
+      const user = await createTestUser();
+      const sold = await createTestProduct();
+      const unsold = await service.create({ name: 'Sin ventas', sale_price: 1, extra_barcodes: ['GONE'] } as never);
+      await createTestSale({
+        user_id: user.id,
+        total_amount: 100,
+        items: [{ product_id: sold.id, quantity: 1, unit_price: 100 }],
+      });
+
+      await expect(service.deletePermanently(unsold.id)).rejects.toThrow(/Solo se pueden eliminar definitivamente productos archivados/);
+
+      await service.archive(sold.id);
+      await service.archive(unsold.id);
+      await expect(service.deletePermanently(sold.id)).rejects.toThrow(/ventas asociadas/);
+
+      await service.deletePermanently(unsold.id);
+      expect(await service.getById(unsold.id)).toBeNull();
+      expect(await service.countArchived()).toBe(1);
+      await expect(service.deletePermanently('ghost')).rejects.toThrow(/no encontrado/);
+
+      // El código del producto borrado queda libre
+      await service.create({ name: 'Reusa', sale_price: 1, barcode: 'GONE' });
     });
   });
 });

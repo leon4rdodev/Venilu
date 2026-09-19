@@ -7,7 +7,7 @@ import { Skeleton } from "@components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@components/ui/table";
 import {
   Plus, Search, Tag, Package, X, LayoutGrid, List,
-  ArrowUpNarrowWide, ArrowDownWideNarrow, Pencil, Trash2, Boxes, Download, History, Barcode,
+  ArrowUpNarrowWide, ArrowDownWideNarrow, Pencil, Archive, Boxes, Download, History, Barcode,
   AlertTriangle, XCircle, AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import { CategoryManagerDialog } from "./category-manager-dialog";
 import { AdjustStockDialog } from "./adjust-stock-dialog";
 import { StockMovementsDialog } from "./stock-movements-dialog";
 import { PrintLabelsDialog } from "./print-labels-dialog";
+import { ArchivedProductsDialog } from "./archived-products-dialog";
 import { DeleteConfirmDialog } from "@renderer/shared/components/delete-confirm-dialog";
 import { WidgetHeader } from "@renderer/shared/components/widget-header";
 import { TablePagination } from "@renderer/shared/components/table-pagination";
@@ -27,6 +28,7 @@ import { productImageSrc } from "@lib/image";
 import { cn } from "@lib/utils";
 import { useProducts, StockFilter } from "../hooks/use-products";
 import { Product } from "@shared/types/models";
+import { productCodeSummary } from "./product-codes";
 import { useBarcodeScanner } from "@renderer/features/pos/hooks/use-barcode-scanner";
 
 const STOCK_FILTERS: { value: StockFilter; label: string }[] = [
@@ -77,6 +79,7 @@ export function InventoryTable() {
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [archivedOpen, setArchivedOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExportCsv = useCallback(async () => {
@@ -104,8 +107,11 @@ export function InventoryTable() {
   const [labelsOpen, setLabelsOpen] = useState(false);
 
   const handleBarcodeScan = useCallback((barcode: string) => {
+    // Con un dialog abierto el escaneo es para ese dialog (p. ej. agregar un
+    // código al producto), no para buscar en la lista de fondo.
+    if (dialogOpen || archivedOpen) return;
     setSearchQuery(barcode);
-  }, [setSearchQuery]);
+  }, [setSearchQuery, dialogOpen, archivedOpen]);
 
   useBarcodeScanner({ onScan: handleBarcodeScan });
 
@@ -209,6 +215,16 @@ export function InventoryTable() {
                 disabled={isLoading || isExporting}
               >
                 <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9"
+                onClick={() => setArchivedOpen(true)}
+                disabled={isLoading}
+              >
+                <Archive className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                Archivados
               </Button>
               <Button
                 variant="outline"
@@ -465,7 +481,7 @@ export function InventoryTable() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="text-xs font-medium text-muted-foreground">Producto</TableHead>
-                  <TableHead className="text-xs font-medium text-muted-foreground">SKU</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground">Código</TableHead>
                   <TableHead className="text-xs font-medium text-muted-foreground">Categoría</TableHead>
                   {showCostColumn && (
                     <TableHead className="text-xs font-medium text-muted-foreground text-right">Compra</TableHead>
@@ -480,7 +496,8 @@ export function InventoryTable() {
               <TableBody className="divide-y divide-border">
                 {products.map((product) => {
                   const imageSrc = productImageSrc(product.image);
-                  const minStock = product.min_stock || 5;
+                  const codes = productCodeSummary(product);
+                  const minStock = product.min_stock ?? 5; // 0 = sin alerta, igual que el servidor
                   const isOut = product.stock === 0;
                   const isLow = product.stock > 0 && product.stock <= minStock;
                   const stockTitle = isOut
@@ -513,8 +530,19 @@ export function InventoryTable() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground truncate max-w-[110px]" title={product.sku || undefined}>
-                        {product.sku || <span aria-label="Sin SKU">—</span>}
+                      <TableCell className="font-mono text-xs text-muted-foreground max-w-[150px]" title={codes.title}>
+                        {codes.primary ? (
+                          <span className="flex items-center gap-1.5 min-w-0">
+                            <span className="truncate">{codes.primary}</span>
+                            {codes.extraCount > 0 && (
+                              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-sans tabular-nums shrink-0" aria-label={`y ${codes.extraCount} código${codes.extraCount !== 1 ? "s" : ""} más`}>
+                                +{codes.extraCount}
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <span aria-label="Sin código">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground truncate max-w-[130px]" title={product.category?.name}>
                         {product.category?.name || <span aria-label="Sin categoría">—</span>}
@@ -603,16 +631,11 @@ export function InventoryTable() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => !product.has_sales && handleDeleteClick(product.id)}
-                            disabled={!!product.has_sales}
-                            title={product.has_sales ? "No se puede eliminar: tiene ventas registradas" : "Eliminar"}
-                            aria-label={
-                              product.has_sales
-                                ? `No se puede eliminar ${product.name}: tiene ventas registradas`
-                                : `Eliminar ${product.name}`
-                            }
+                            onClick={() => handleDeleteClick(product.id)}
+                            title="Archivar"
+                            aria-label={`Archivar ${product.name}`}
                           >
-                            <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                            <Archive className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                           </Button>
                         </div>
                       </TableCell>
@@ -668,10 +691,15 @@ export function InventoryTable() {
       <DeleteConfirmDialog
         open={isAlertOpen}
         onOpenChange={setIsAlertOpen}
-        description="Esta acción no se puede deshacer. Esto eliminará permanentemente el producto."
+        title="¿Archivar producto?"
+        description="Dejará de aparecer en el inventario y en el punto de venta. Su historial se conserva y puedes restaurarlo cuando quieras desde Archivados."
+        confirmLabel="Archivar"
+        loadingLabel="Archivando…"
         onConfirm={handleDeleteConfirm}
         isLoading={isSaving}
       />
+
+      <ArchivedProductsDialog open={archivedOpen} onOpenChange={setArchivedOpen} />
 
       <CategoryManagerDialog
         open={categoryDialogOpen}

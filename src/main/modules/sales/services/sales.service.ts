@@ -150,6 +150,9 @@ export class SalesService {
                 if (!product) {
                     throw new Error(`Product not found: ${item.product_id}`);
                 }
+                if (product.archived_at) {
+                    throw new Error(`El producto "${product.name}" está archivado y no se puede vender`);
+                }
 
                 if (product.stock < quantity) {
                     throw new Error(`Insufficient stock for product: ${product.name}`);

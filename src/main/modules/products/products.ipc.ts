@@ -4,6 +4,7 @@ import { requirePermission, hasPermission } from '@main/shared/session';
 import { auditService } from '@main/modules/audit/services/audit.service';
 import { AppDataSource } from '@main/config/data-source';
 import { Product as ProductEntity } from '@main/modules/products/entities/product.entity';
+import { IsNull } from 'typeorm';
 import { csvRow, saveCsv } from '@main/shared/services/csv.util';
 import { stockMovementsService } from '@main/modules/products/services/stock-movements.service';
 
@@ -116,11 +117,38 @@ export function registerProductsHandlers() {
     }
   });
 
+  /**
+   * "Eliminar" desde el inventario = ARCHIVAR (borrado lógico). El producto
+   * queda en la carpeta de archivados; el borrado real es delete-product-permanently.
+   */
   ipcMain.handle('delete-product', async (_event, productId) => {
     try {
       requirePermission('inventory:delete');
-      await productsService.delete(productId);
-      auditService.log('inventory:delete', productId);
+      const product = await productsService.archive(productId);
+      auditService.log('inventory:archive', product.id, product.name);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  ipcMain.handle('restore-product', async (_event, productId) => {
+    try {
+      requirePermission('inventory:delete');
+      const product = await productsService.restore(productId);
+      auditService.log('inventory:restore', product.id, product.name);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  /** Borrado definitivo — solo archivados que nunca se vendieron ni compraron. */
+  ipcMain.handle('delete-product-permanently', async (_event, productId) => {
+    try {
+      requirePermission('inventory:delete');
+      const product = await productsService.deletePermanently(productId);
+      auditService.log('inventory:delete', product.id, product.name);
       return { success: true };
     } catch (err: any) {
       return { success: false, message: err.message };
@@ -140,7 +168,10 @@ export function registerProductsHandlers() {
   ipcMain.handle('get-inventory-stats', async () => {
     try {
       requirePermission('inventory:view');
-      const stats = await productsService.getInventoryStats();
+      const stats = {
+        ...(await productsService.getInventoryStats()),
+        archivedProducts: await productsService.countArchived(),
+      };
       // Cost figures are confidential — same rule as get-products.
       if (!hasPermission('inventory:view_costs')) {
         (stats as any).totalStockValue = null;
@@ -187,14 +218,15 @@ export function registerProductsHandlers() {
       const showCosts = hasPermission('inventory:view_costs');
 
       const products = await AppDataSource.getRepository(ProductEntity).find({
-        relations: ['category'],
+        where: { archived_at: IsNull() },
+        relations: ['category', 'barcodes'],
         order: { name: 'ASC' },
       });
 
       const num = (n: unknown) => (Math.round((Number(n) || 0) * 100) / 100).toFixed(2);
       const lines: string[] = [];
       lines.push(csvRow(
-        'Nombre', 'Categoría', 'Código de barras', 'SKU', 'Precio',
+        'Nombre', 'Categoría', 'Código de barras', 'Códigos adicionales', 'SKU', 'Precio',
         ...(showCosts ? ['Costo'] : []),
         'Stock', 'Stock mínimo', 'Valor en stock',
       ));
@@ -203,6 +235,7 @@ export function registerProductsHandlers() {
           p.name,
           p.category?.name ?? '',
           p.barcode ?? '',
+          (p.barcodes ?? []).map(b => b.code).join(' '),
           p.sku ?? '',
           num(p.sale_price),
           ...(showCosts ? [num(p.cost_price)] : []),

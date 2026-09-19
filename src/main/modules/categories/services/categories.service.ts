@@ -1,7 +1,7 @@
 import { AppDataSource } from "@main/config/data-source";
 import { Category as CategoryEntity } from "@main/modules/categories/entities/category.entity";
 import { Product as ProductEntity } from "@main/modules/products/entities/product.entity";
-import { Repository } from "typeorm";
+import { Repository, IsNull } from "typeorm";
 
 export class CategoriesService {
     private categoryRepository: Repository<CategoryEntity>;
@@ -23,7 +23,8 @@ export class CategoriesService {
         // COUNT query. The previous leftJoinAndSelect dragged every product row
         // (legacy images included) across IPC just to count them.
         return this.categoryRepository.createQueryBuilder("category")
-            .loadRelationCountAndMap("category.product_count", "category.products")
+            // Solo productos activos: los archivados no cuentan para la categoría
+            .loadRelationCountAndMap("category.product_count", "category.products", "p", (qb) => qb.where("p.archived_at IS NULL"))
             .orderBy("category.name", "ASC")
             .getMany();
     }
@@ -81,7 +82,8 @@ export class CategoriesService {
     }
 
     async delete(id: string): Promise<void> {
-        const count = await this.productRepository.count({ where: { category_id: id } });
+        // Los archivados no bloquean: la FK los deja sin categoría (ON DELETE SET NULL)
+        const count = await this.productRepository.count({ where: { category_id: id, archived_at: IsNull() } });
         if (count > 0) {
             throw new Error(`Cannot delete category because ${count} product(s) are using it.`);
         }

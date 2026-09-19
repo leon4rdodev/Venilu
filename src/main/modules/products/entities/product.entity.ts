@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn, Index } from "typeorm";
 import { Category } from "@main/modules/categories/entities/category.entity";
+import { ProductBarcode } from "@main/modules/products/entities/product-barcode.entity";
 
 @Entity("products")
 export class Product {
@@ -30,6 +31,10 @@ export class Product {
     @Index()
     @Column({ nullable: true })
     sku?: string;
+
+    /** Códigos de barras adicionales (ilimitados) — el principal es `barcode`. */
+    @OneToMany(() => ProductBarcode, (b) => b.product)
+    barcodes?: ProductBarcode[];
 
     @Index()
     @Column("integer", { default: 5 })
@@ -65,6 +70,14 @@ export class Product {
     @ManyToOne(() => Category, (category) => category.products, { onDelete: 'SET NULL' })
     @JoinColumn({ name: "category_id" })
     category?: Category;
+
+    /**
+     * Borrado lógico: con fecha = archivado (oculto de inventario, POS y
+     * escáner, pero conservado para el historial de ventas). null = activo.
+     */
+    @Index()
+    @Column({ type: "datetime", nullable: true })
+    archived_at?: Date | null;
 
     @CreateDateColumn()
     created_at!: Date;
