@@ -208,53 +208,56 @@
   }
 }
 
-/* === Scrollbar Styles === */
+/* === Scrollbar Styles ===
+   Scrollbars are visible app-wide (thin style, light + dark). */
+
+/* Hide the default arrow buttons on both engines */
 *::-webkit-scrollbar-button {
   display: none;
   height: 0;
   width: 0;
 }
+
+/* Firefox / Chromium (standard properties) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.75 0.01 240) transparent;
+}
+
+/* WebKit / Blink (Chrome, Electron) */
+*::-webkit-scrollbar {
+  display: block;
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: oklch(0.75 0.01 240);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: oklch(0.6 0.02 240);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Dark mode scrollbars */
+.dark * {
+  scrollbar-color: oklch(0.35 0.04 260) transparent;
+}
+.dark *::-webkit-scrollbar-thumb {
+  background-color: oklch(0.35 0.04 260);
+}
+.dark *::-webkit-scrollbar-thumb:hover {
+  background-color: oklch(0.45 0.04 260);
+}
+
 @layer utilities {
-  /* Hide all scrollbars globally */
-  * {
-    scrollbar-width: none;
-  }
-  *::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* Re-enable scrollbars only inside dialogs */
-  [data-slot="dialog-content"] * {
-    scrollbar-width: thin;
-    scrollbar-color: oklch(0.75 0.01 240) transparent;
-  }
-  [data-slot="dialog-content"] *::-webkit-scrollbar {
-    display: block;
-    width: 6px;
-    height: 6px;
-  }
-  [data-slot="dialog-content"] *::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  [data-slot="dialog-content"] *::-webkit-scrollbar-thumb {
-    background-color: oklch(0.75 0.01 240);
-    border-radius: 3px;
-  }
-  [data-slot="dialog-content"] *::-webkit-scrollbar-thumb:hover {
-    background-color: oklch(0.6 0.02 240);
-  }
-
-  /* Dark mode dialog scrollbars */
-  .dark [data-slot="dialog-content"] * {
-    scrollbar-color: oklch(0.35 0.04 260) transparent;
-  }
-  .dark [data-slot="dialog-content"] *::-webkit-scrollbar-thumb {
-    background-color: oklch(0.35 0.04 260);
-  }
-  .dark [data-slot="dialog-content"] *::-webkit-scrollbar-thumb:hover {
-    background-color: oklch(0.45 0.04 260);
-  }
-
   .grid {
     @apply border-border;
   }

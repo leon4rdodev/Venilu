@@ -1,19 +1,20 @@
-# Release multiplataforma: al empujar un tag vX.Y.Z compila los instaladores
-# de Windows (NSIS) y Linux y los publica en leon4rdodev/Venilu-releases —
-# el mismo feed que consume el auto-updater de la app.
+# Release: al empujar un tag vX.Y.Z compila los instaladores de Windows (NSIS)
+# y Linux, y los publica como Release en este repo (leon4rdodev/Venilu) — el
+# mismo feed que consume el auto-updater (electron-updater) de la app.
 #
-# REQUISITO (una sola vez): crear el secret RELEASES_TOKEN en este repo
-# (Settings → Secrets and variables → Actions) con un Personal Access Token
-# que tenga permiso de escritura sobre Venilu-releases — puede ser el mismo
-# GH_TOKEN que usas en el .env local con release.sh.
+# No requiere secrets: se usa el GITHUB_TOKEN de la propia workflow con el
+# permiso `contents: write` declarado abajo.
 #
-# Uso:  git tag v1.2.0 && git push origin v1.2.0
+# Uso:  git tag v0.0.4 && git push origin v0.0.4
 name: Release
 
 on:
   push:
     tags:
       - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -44,4 +45,4 @@ jobs:
         shell: bash
         run: npm run electron:build -- ${{ matrix.target }} --publish always
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -62,8 +62,7 @@
     "publish": {
       "provider": "github",
       "owner": "leon4rdodev",
-      "repo": "Venilu-releases",
-      "private": false
+      "repo": "Venilu"
     }
   },
   "dependencies": {
