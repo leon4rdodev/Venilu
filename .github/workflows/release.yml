@@ -19,6 +19,8 @@ permissions:
 jobs:
   build:
     strategy:
+      # Que un SO falle no cancela el otro: cada uno publica su artefacto.
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
