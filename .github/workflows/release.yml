@@ -2,6 +2,17 @@
 # y Linux, y los publica como Release en este repo (leon4rdodev/Venilu) — el
 # mismo feed que consume el auto-updater (electron-updater) de la app.
 #
+# electron-builder compila con --publish never y solo se suben los archivos
+# que de verdad hacen falta:
+#   Venilu-Setup-X.exe      instalador de Windows
+#   .exe.blockmap           descarga diferencial del auto-updater
+#   latest.yml              manifiesto que lee electron-updater en Windows
+#   venilu_X_amd64.deb      paquete de Linux
+#   .deb.blockmap           descarga diferencial
+#   latest-linux.yml        manifiesto que lee electron-updater en Linux
+# Se omiten builder-debug.yml, builder-effective-config.yaml, SHA256SUMS, etc.
+# (los últimos pasos borran de la release cualquier archivo fuera de esa lista).
+#
 # No requiere secrets: se usa el GITHUB_TOKEN de la propia workflow con el
 # permiso `contents: write` declarado abajo.
 #
@@ -25,8 +36,10 @@ jobs:
         include:
           - os: windows-latest
             target: --win
+            key: win
           - os: ubuntu-latest
             target: --linux
+            key: linux
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -45,8 +58,85 @@ jobs:
         # cambia, y el tag puede coincidir con la de package.json.
         run: npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
 
-      - name: Compilar y publicar
+      # Compila sin publicar: electron-builder solo deja los artefactos en
+      # release/. Quién y qué se sube lo decide el job de abajo.
+      - name: Compilar
         shell: bash
-        run: npm run electron:build -- ${{ matrix.target }} --publish always
+        run: npm run electron:build -- ${{ matrix.target }} --publish never
+
+      - name: Seleccionar artefactos (Windows)
+        if: matrix.key == 'win'
+        shell: bash
+        run: |
+          mkdir -p dist-release
+          cp -v release/Venilu-Setup-*.exe \
+                release/Venilu-Setup-*.exe.blockmap \
+                release/latest.yml \
+                dist-release/
+
+      - name: Seleccionar artefactos (Linux)
+        if: matrix.key == 'linux'
+        shell: bash
+        run: |
+          mkdir -p dist-release
+          cp -v release/*.deb \
+                release/*.deb.blockmap \
+                release/latest-linux.yml \
+                dist-release/
+
+      - name: Subir instaladores
+        uses: actions/upload-artifact@v4
+        with:
+          name: instaladores-${{ matrix.key }}
+          path: dist-release/
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar instaladores
+        uses: actions/download-artifact@v4
+        with:
+          pattern: instaladores-*
+          path: dist-release
+          merge-multiple: true
+
+      - name: Comprobar que no falta nada
+        run: ls -lh dist-release && test -n "$(ls dist-release)"
+
+      - name: Publicar release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          files: dist-release/*
+          fail_on_unmatched_files: true
+
+      # Borra de la release todo lo que no esté en la lista blanca. Cubre los
+      # assets basura que electron-builder subió en releases anteriores
+      # (builder-debug.yml, etc). Los "Source code" de GitHub no son assets,
+      # no aparecen en la API y no se pueden quitar.
+      - name: Quitar archivos fuera de la lista blanca
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          API="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          if ! REL=$(curl -sf -H "Authorization: Bearer ${GH_TOKEN}" \
+                          "${API}/releases/tags/${GITHUB_REF_NAME}"); then
+            echo "Release no encontrada todavía; nada que limpiar."
+            exit 0
+          fi
+
+          echo "${REL}" | jq -r '.assets[] | "\(.id)\t\(.name)"' |
+          while IFS=$'\t' read -r id name; do
+            case "${name}" in
+              Venilu-Setup-*.exe|*.exe.blockmap|latest.yml|*.deb|*.deb.blockmap|latest-linux.yml)
+                echo "Se conserva: ${name}" ;;
+              *)
+                echo "Se elimina:  ${name}"
+                curl -sf -X DELETE \
+                  -H "Authorization: Bearer ${GH_TOKEN}" \
+                  "${API}/releases/assets/${id}" > /dev/null ;;
+            esac
+          done
