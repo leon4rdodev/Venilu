@@ -57,7 +57,8 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "public/assets/venilu.ico"
+      "icon": "public/assets/venilu.ico",
+      "artifactName": "Venilu-Setup-${version}.${ext}"
     },
     "publish": {
       "provider": "github",
