@@ -41,7 +41,9 @@ jobs:
 
       - name: Versionar desde el tag
         shell: bash
-        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}"
+        # --allow-same-version: npm version sale con exit 1 si la versión no
+        # cambia, y el tag puede coincidir con la de package.json.
+        run: npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
 
       - name: Compilar y publicar
         shell: bash
