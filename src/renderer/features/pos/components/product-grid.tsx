@@ -85,7 +85,7 @@ export function ProductGrid({
           The root container is overflow-hidden, so this row keeps a little padding
           to give the focus ring room to render without being clipped. */}
       <div className="flex items-center gap-2 shrink-0 px-0.5 pt-0.5">
-        <div className="relative w-60 shrink-0">
+        <div className="relative w-88 shrink-0">
           <Search
             className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
             strokeWidth={1.75}
@@ -147,7 +147,7 @@ export function ProductGrid({
                     onClick={() => onCategoryChange(category.id)}
                     title={category.name}
                     className={cn(
-                      "shrink-0 px-3 h-9 max-w-40 truncate rounded-full border text-xs font-medium transition-colors whitespace-nowrap",
+                      "shrink-0 px-3 h-9 rounded-full border text-xs font-medium transition-colors whitespace-nowrap",
                       "outline-none focus-visible:ring-[1px] focus-visible:ring-ring focus-visible:border-ring",
                       isActive
                         ? "bg-foreground text-background border-foreground"
@@ -187,7 +187,7 @@ export function ProductGrid({
                         }}
                         title={category.name}
                         className={cn(
-                          "w-full text-left px-2.5 h-9 rounded-md text-sm transition-colors truncate outline-none focus-visible:bg-muted focus-visible:text-foreground",
+                          "w-full text-left px-2.5 min-h-9 py-1.5 rounded-md text-sm leading-snug transition-colors outline-none focus-visible:bg-muted focus-visible:text-foreground",
                           isActive
                             ? "bg-muted font-medium text-foreground"
                             : "text-muted-foreground hover:bg-muted hover:text-foreground"

@@ -168,7 +168,7 @@ export function ActivitySettings() {
         aria-label="Filtrar registro de actividad"
         className="flex flex-wrap items-center gap-2 border-t border-border pt-4"
       >
-        <div className="relative w-64 shrink-0">
+        <div className="relative w-88 shrink-0">
           <Search
             className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none"
             strokeWidth={1.75}

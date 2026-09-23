@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
-import { LogOut, Sun, Moon, ChevronRight, ChevronDown, Lock, KeyRound } from "lucide-react"
+import { LogOut, Sun, Moon, ChevronRight, Lock, KeyRound } from "lucide-react"
 import { useTheme } from "@hooks/use-theme"
 import { CloseShiftDialog, useShift } from "@renderer/features/pos"
 import { useUser } from "@renderer/features/auth"
@@ -8,15 +8,6 @@ import { useLock } from "@renderer/features/lock"
 import { useLicense } from "@renderer/features/license"
 import { formatCurrency } from "@lib/currency"
 import { computeShiftCash } from "@shared/cash-reconciliation"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
-  DropdownMenuTrigger,
-} from "@components/ui/dropdown-menu"
 
 interface HeaderProps {
   userName: string | null;
@@ -31,14 +22,10 @@ const ICON_BUTTON =
 const CHIP =
   "flex h-9 items-center rounded-full border border-border transition-colors hover:bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
-// Dropdown items: the shared primitive ships without a highlight style, so the
-// hover/keyboard state is made explicit here.
-const MENU_ITEM = "h-9 rounded-md px-2.5 focus:bg-muted focus:text-foreground";
-
 /**
  * Vercel-style top navigation: brand + breadcrumb-like shift chip on the left,
- * round icon buttons + user menu on the right. Full-width, hairline border,
- * no shadows.
+ * round icon buttons (lock, theme, logout) + user identity chip on the right.
+ * Full-width, hairline border, no shadows.
  */
 export function Header({ userName, userRole }: HeaderProps) {
   const navigate = useNavigate()
@@ -128,7 +115,7 @@ export function Header({ userName, userRole }: HeaderProps) {
           )}
         </div>
 
-        {/* Right: license chip + icon buttons + user menu */}
+        {/* Right: license chip + icon buttons + user identity */}
         <div className="flex items-center gap-2.5 shrink-0">
           {licenseChip && (
             <button
@@ -192,67 +179,34 @@ export function Header({ userName, userRole }: HeaderProps) {
             )}
           </button>
 
-          {/* User menu: identity + session actions grouped in one place */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label={`Menú de ${displayName}`}
-                className={`${CHIP} gap-2 pl-1.5 pr-2.5 data-[state=open]:bg-muted`}
-              >
-                <span
-                  aria-hidden
-                  className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-[11px] font-bold select-none"
-                >
-                  {initial}
-                </span>
-                <span className="hidden sm:flex items-baseline gap-1.5 text-sm min-w-0 max-w-[14rem]">
-                  <span className="font-medium truncate">{displayName}</span>
-                  {userRole && (
-                    <span className="text-xs text-muted-foreground capitalize truncate">{userRole}</span>
-                  )}
-                </span>
-                <ChevronDown
-                  className="h-3.5 w-3.5 text-muted-foreground shrink-0"
-                  strokeWidth={1.75}
-                  aria-hidden
-                />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" sideOffset={8} className="w-60 rounded-xl p-1.5">
-              <DropdownMenuLabel className="px-2.5 py-2">
-                <span className="block text-sm font-medium truncate">{displayName}</span>
-                {userRole && (
-                  <span className="block text-xs font-normal text-muted-foreground capitalize truncate">
-                    {userRole}
-                  </span>
-                )}
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => lock()} className={MENU_ITEM}>
-                <Lock strokeWidth={1.75} aria-hidden />
-                Bloquear caja
-                <DropdownMenuShortcut className="tracking-normal">Ctrl+L</DropdownMenuShortcut>
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={toggleTheme} className={MENU_ITEM}>
-                {isDark ? (
-                  <Sun strokeWidth={1.75} aria-hidden />
-                ) : (
-                  <Moon strokeWidth={1.75} aria-hidden />
-                )}
-                {themeLabel}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                variant="destructive"
-                onSelect={() => void logout()}
-                className={`${MENU_ITEM} text-destructive focus:bg-destructive/10 focus:text-destructive [&_svg]:text-destructive`}
-              >
-                <LogOut strokeWidth={1.75} aria-hidden />
-                Cerrar sesión
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <button
+            type="button"
+            onClick={() => void logout()}
+            title="Cerrar sesión"
+            aria-label="Cerrar sesión"
+            className={`${ICON_BUTTON} hover:text-destructive hover:border-destructive/40`}
+          >
+            <LogOut className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          </button>
+
+          {/* User identity: avatar + name + role (display only) */}
+          <div
+            className={`${CHIP} gap-2 pl-1.5 pr-3`}
+            title={userRole ? `${displayName} · ${userRole}` : displayName}
+          >
+            <span
+              aria-hidden
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-[11px] font-bold select-none"
+            >
+              {initial}
+            </span>
+            <span className="hidden sm:flex items-baseline gap-1.5 text-sm min-w-0 max-w-[14rem]">
+              <span className="font-medium truncate">{displayName}</span>
+              {userRole && (
+                <span className="text-xs text-muted-foreground capitalize truncate">{userRole}</span>
+              )}
+            </span>
+          </div>
         </div>
       </header>
 

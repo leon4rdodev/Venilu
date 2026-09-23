@@ -226,7 +226,7 @@ export function OpenShiftDialog({ isOpen, onClose }: OpenShiftDialogProps) {
                     type="button"
                     aria-pressed={isSelected}
                     className={cn(
-                      'h-8 rounded-full text-xs font-medium tabular-nums border transition-colors truncate px-2',
+                      'min-h-8 rounded-full text-xs font-medium tabular-nums border transition-colors px-2.5 py-1 leading-tight',
                       'focus-visible:outline-none focus-visible:ring-[1px] focus-visible:ring-ring focus-visible:border-ring',
                       'disabled:opacity-50 disabled:cursor-not-allowed',
                       isSelected

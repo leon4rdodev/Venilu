@@ -183,7 +183,7 @@ export function CustomersTable() {
 
         {/* Single toolbar row: search · filter chips · sort */}
         <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-          <div className="relative w-64 shrink-0">
+          <div className="relative w-88 shrink-0">
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none"
               strokeWidth={1.75}
@@ -238,7 +238,7 @@ export function CustomersTable() {
           <div className="flex-1 min-w-2" />
 
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as CustomerSortBy)}>
-            <SelectTrigger className="h-9 w-[160px] bg-background" aria-label="Ordenar por">
+            <SelectTrigger className="h-9 w-[180px] bg-background" aria-label="Ordenar por">
               <SelectValue placeholder="Ordenar por" />
             </SelectTrigger>
             <SelectContent>

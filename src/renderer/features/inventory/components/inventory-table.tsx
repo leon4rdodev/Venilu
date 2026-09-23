@@ -251,7 +251,7 @@ export function InventoryTable() {
 
         {/* Single toolbar row: search · filter chips · category · sort · view */}
         <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-          <div className="relative w-56 shrink-0">
+          <div className="relative w-88 shrink-0">
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none"
               strokeWidth={1.75}
@@ -303,7 +303,7 @@ export function InventoryTable() {
           <div className="flex-1 min-w-2" />
 
           <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={isLoading}>
-            <SelectTrigger className="h-9 w-[160px] bg-background" aria-label="Filtrar por categoría">
+            <SelectTrigger className="h-9 w-[210px] bg-background" aria-label="Filtrar por categoría">
               <SelectValue placeholder="Categoría" />
             </SelectTrigger>
             <SelectContent>
@@ -316,7 +316,7 @@ export function InventoryTable() {
           </Select>
 
           <Select value={sortBy} onValueChange={setSortBy} disabled={isLoading}>
-            <SelectTrigger className="h-9 w-[150px] bg-background" aria-label="Ordenar por">
+            <SelectTrigger className="h-9 w-[170px] bg-background" aria-label="Ordenar por">
               <SelectValue placeholder="Ordenar por" />
             </SelectTrigger>
             <SelectContent>

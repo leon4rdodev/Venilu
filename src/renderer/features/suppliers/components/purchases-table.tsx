@@ -84,7 +84,7 @@ export function PurchasesTable({ supplier = null, compact = false }: PurchasesTa
       />
 
       <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-        <div className="relative w-56 shrink-0">
+        <div className="relative w-88 shrink-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
           <Input type="search" aria-label="Buscar compra" placeholder={supplier ? "Buscar por # o factura..." : "Buscar por #, suplidor o factura..."} value={search} onChange={(e) => setSearch(e.target.value)} className="h-9 pl-9 pr-8 bg-background" />
           {search && (

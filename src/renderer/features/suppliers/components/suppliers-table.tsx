@@ -117,7 +117,7 @@ export function SuppliersTable() {
         />
 
         <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-          <div className="relative w-56 shrink-0">
+          <div className="relative w-88 shrink-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
             <Input type="search" aria-label="Buscar suplidor" placeholder="Buscar suplidor, contacto, RNC..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-9 pl-9 pr-8 bg-background" />
             {searchQuery && (
@@ -135,7 +135,7 @@ export function SuppliersTable() {
           </div>
           <div className="flex-1 min-w-2" />
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as SupplierSortBy)}>
-            <SelectTrigger className="h-9 w-[170px] bg-background" aria-label="Ordenar por"><SelectValue placeholder="Ordenar por" /></SelectTrigger>
+            <SelectTrigger className="h-9 w-[190px] bg-background" aria-label="Ordenar por"><SelectValue placeholder="Ordenar por" /></SelectTrigger>
             <SelectContent>{SORT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
           </Select>
           <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground" title={sortOrder === "ASC" ? "Orden ascendente" : "Orden descendente"} aria-label={sortOrder === "ASC" ? "Orden ascendente, cambiar a descendente" : "Orden descendente, cambiar a ascendente"} onClick={() => setSortOrder(sortOrder === "ASC" ? "DESC" : "ASC")}>

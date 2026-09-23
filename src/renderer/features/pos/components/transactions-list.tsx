@@ -230,7 +230,7 @@ export function TransactionsList({ refreshKey = 0 }: TransactionsListProps) {
     <div className="flex h-full min-h-0 flex-col gap-3">
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 shrink-0">
-        <div role="search" className="relative flex-1 min-w-[220px] max-w-sm">
+        <div role="search" className="relative flex-1 min-w-[280px] max-w-md">
           <Search
             className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none"
             strokeWidth={1.75}
