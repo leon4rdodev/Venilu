@@ -1,6 +1,8 @@
-import { Check } from "lucide-react";
+import { Check, Minus, Plus, RotateCcw } from "lucide-react";
 import { useTheme } from "@hooks/use-theme";
 import { cn } from "@lib/utils";
+import { Button } from "@components/ui/button";
+import { useUiScale, UI_SCALE_MAX, UI_SCALE_MIN } from "@hooks/use-ui-scale";
 
 type ThemeOption = "light" | "dark" | "system";
 
@@ -52,9 +54,12 @@ function ThemePreview({ variant }: { variant: ThemeOption }) {
 
 export function AppearanceSettings() {
   const { theme, setTheme } = useTheme();
+  const { uiScale, setUiScale, resetScale } = useUiScale();
+  const percent = Math.round(uiScale * 100);
 
   return (
-    <div className="bg-card border border-border rounded-lg p-6">
+    <>
+      <div className="bg-card border border-border rounded-lg p-6">
       <div className="space-y-1">
         <h3 id="theme-group-label" className="text-sm font-medium">
           Tema
@@ -103,6 +108,83 @@ export function AppearanceSettings() {
           );
         })}
       </div>
-    </div>
+      </div>
+
+      {/* Escala de interfaz — zoom tipo navegador, persistente entre sesiones. */}
+      <div className="bg-card border border-border rounded-lg p-6">
+        <div className="space-y-1">
+          <h3 id="zoom-group-label" className="text-sm font-medium">
+            Escala de interfaz
+          </h3>
+          <p id="zoom-group-description" className="text-sm text-muted-foreground">
+            Ajusta el tamaño de toda la interfaz, como el zoom del navegador. También puedes
+            usar <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[11px]">Ctrl +</kbd>{" "}
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[11px]">Ctrl −</kbd>{" "}
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[11px]">Ctrl 0</kbd>.
+          </p>
+        </div>
+
+        <div className="mt-4 space-y-4" role="group" aria-labelledby="zoom-group-label">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={() => void setUiScale(uiScale - 0.05)}
+              disabled={uiScale <= UI_SCALE_MIN}
+              title="Reducir escala"
+              aria-label="Reducir escala de interfaz"
+            >
+              <Minus className="h-4 w-4" strokeWidth={1.75} />
+            </Button>
+
+            <input
+              type="range"
+              min={Math.round(UI_SCALE_MIN * 100)}
+              max={Math.round(UI_SCALE_MAX * 100)}
+              step={5}
+              value={percent}
+              onChange={(e) => void setUiScale(Number(e.target.value) / 100)}
+              className="flex-1 accent-foreground cursor-pointer"
+              aria-label="Escala de interfaz"
+              aria-valuetext={`${percent}%`}
+            />
+
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={() => void setUiScale(uiScale + 0.05)}
+              disabled={uiScale >= UI_SCALE_MAX}
+              title="Aumentar escala"
+              aria-label="Aumentar escala de interfaz"
+            >
+              <Plus className="h-4 w-4" strokeWidth={1.75} />
+            </Button>
+
+            <span className="w-12 text-right text-sm font-semibold tabular-nums" aria-live="polite">
+              {percent}%
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              De {Math.round(UI_SCALE_MIN * 100)}% a {Math.round(UI_SCALE_MAX * 100)}%
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void resetScale()}
+              disabled={uiScale === 1}
+              className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
+              title="Volver a la escala predeterminada"
+            >
+              <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Restablecer (100%)
+            </Button>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

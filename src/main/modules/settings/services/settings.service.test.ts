@@ -20,6 +20,7 @@ describe('SettingsService', () => {
     expect(settings.paper_size).toBe('80mm');
     expect(settings.auto_backup).toBe('daily');
     expect(Number(settings.auto_backup_retention)).toBe(7);
+    expect(Number(settings.ui_scale)).toBe(1);
   });
 
   it('persists whitelisted fields including the new ones', async () => {
@@ -48,6 +49,21 @@ describe('SettingsService', () => {
     await expect(service.update({ auto_backup: 'hourly' })).rejects.toThrow();
     await expect(service.update({ auto_backup_retention: 0 } as never)).rejects.toThrow();
     await expect(service.update({ auto_backup_retention: 99 } as never)).rejects.toThrow();
+  });
+
+  it('persists ui_scale and rounds it to 2 decimals', async () => {
+    await service.update({ ui_scale: 1.25 } as never);
+    const settings = await service.get();
+    expect(Number(settings.ui_scale)).toBe(1.25);
+
+    await service.update({ ui_scale: 0.83 } as never);
+    expect(Number((await service.get()).ui_scale)).toBe(0.83);
+  });
+
+  it('rejects ui_scale outside 0.75–1.5 and non-numeric values', async () => {
+    await expect(service.update({ ui_scale: 0.5 } as never)).rejects.toThrow();
+    await expect(service.update({ ui_scale: 2 } as never)).rejects.toThrow();
+    await expect(service.update({ ui_scale: 'grande' } as never)).rejects.toThrow();
   });
 
   it('strips path components from logo_filename', async () => {

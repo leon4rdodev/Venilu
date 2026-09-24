@@ -1,4 +1,4 @@
-import { ipcMain, app } from 'electron';
+import { ipcMain, app, BrowserWindow } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import { SettingsService } from '@main/modules/settings/services/settings.service';
@@ -63,6 +63,23 @@ export function registerSettingsHandlers() {
           arch: process.arch,
         },
       };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  /**
+   * Aplica la escala de interfaz (zoom tipo navegador) a la ventana que envía
+   * el mensaje. El valor viene validado por SettingsService al persistirse;
+   * aquí solo se desconfía de tipos (número positivo).
+   */
+  ipcMain.handle('app:set-ui-scale', (event, scale) => {
+    try {
+      const factor = Number(scale);
+      if (!Number.isFinite(factor) || factor <= 0) throw new Error('Escala inválida');
+      const win = BrowserWindow.fromWebContents(event.sender);
+      win?.webContents.setZoomFactor(factor);
+      return { success: true };
     } catch (err: any) {
       return { success: false, message: err.message };
     }

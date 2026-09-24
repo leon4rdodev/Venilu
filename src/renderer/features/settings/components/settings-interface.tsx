@@ -62,7 +62,7 @@ const SECTIONS: Section[] = [
   {
     id: "appearance",
     label: "Apariencia",
-    description: "Tema claro, oscuro o el del sistema",
+    description: "Tema claro, oscuro o del sistema, y escala de la interfaz",
     icon: SunMoon,
     content: () => <AppearanceSettings />,
   },

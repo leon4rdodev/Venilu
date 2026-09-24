@@ -57,6 +57,14 @@ export class Setting {
     itbis_rate!: number;
 
     /**
+     * Escala de interfaz (zoom tipo navegador): 1 = 100%, 1.25 = 125%…
+     * Se aplica vía webContents.setZoomFactor y se persiste para que la vista
+     * se mantenga entre sesiones. Rango editable: 0.75–1.5.
+     */
+    @Column("real", { default: 1 })
+    ui_scale!: number;
+
+    /**
      * Trial anchor (ISO date) — set once on first boot. Lives in the DB so
      * wiping a file can't reset the trial. NOT client-editable.
      */

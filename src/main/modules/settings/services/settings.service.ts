@@ -87,6 +87,15 @@ export class SettingsService {
             }
             clean.auto_backup_retention = n;
         }
+
+        const uiScale = (settingsData as any).ui_scale;
+        if (uiScale !== undefined) {
+            const scale = Number(uiScale);
+            if (!Number.isFinite(scale) || scale < 0.75 || scale > 1.5) {
+                throw new Error("La escala de interfaz debe estar entre 75% y 150%");
+            }
+            clean.ui_scale = Math.round(scale * 100) / 100;
+        }
         return clean;
     }
 

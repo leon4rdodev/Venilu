@@ -20,6 +20,7 @@ import { registerLicenseHandlers } from '@main/shared/ipc/license.ipc';
 import { registerFiscalHandlers } from '@main/modules/fiscal/fiscal.ipc';
 import { registerSuppliersHandlers } from '@main/modules/suppliers/suppliers.ipc';
 import { licenseService } from '@main/shared/services/license.service';
+import { SettingsService } from '@main/modules/settings/services/settings.service';
 import { BackupsService } from '@main/modules/backups/services/backups.service';
 import { registerSessionHandlers } from '@main/shared/session';
 import { setupAutoUpdater } from '@main/shared/ipc/updater.ipc';
@@ -144,6 +145,19 @@ async function initialize() {
         // (registering it per-window duplicated IPC handlers on macOS 'activate')
         const mainWindow = await createWindow();
         setupAutoUpdater(mainWindow);
+
+        // Escala de interfaz (zoom tipo navegador) guardada en Ajustes: se
+        // aplica al cargar cada página para que el zoom sea consistente entre
+        // sesiones, sin destello del 100% antes de leer el ajuste.
+        try {
+            const storedScale = Number((await new SettingsService().get()).ui_scale);
+            const factor = Number.isFinite(storedScale) && storedScale > 0 ? storedScale : 1;
+            mainWindow.webContents.on('did-finish-load', () => {
+                mainWindow.webContents.setZoomFactor(factor);
+            });
+        } catch (err) {
+            console.error('[App] No se pudo aplicar la escala de interfaz:', err);
+        }
 
         // 6. Scheduled automatic backup — deferred so it never delays first paint
         setTimeout(() => {

@@ -244,6 +244,8 @@ export interface Setting {
   fiscal_enabled?: boolean;
   /** Tasa de ITBIS vigente (%). */
   itbis_rate?: number;
+  /** Escala de interfaz (zoom tipo navegador): 1 = 100%, 1.25 = 125%… */
+  ui_scale?: number;
   /** Trial anchor (ISO) — set once at first boot; not client-editable. */
   trial_started_at?: string | null;
 }

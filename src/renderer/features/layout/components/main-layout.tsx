@@ -3,6 +3,7 @@ import { Sidebar, Header } from "@renderer/features/layout"
 import { useUser } from "@renderer/features/auth"
 import { LockProvider, LockScreen } from "@renderer/features/lock"
 import { Outlet, useLocation } from "react-router-dom"
+import { useUiScaleShortcuts } from "@hooks/use-ui-scale"
 
 /**
  * Vercel-style app shell: full-width 64px top bar, 64px icon rail below it,
@@ -13,6 +14,9 @@ export function MainLayout() {
   const { user } = useUser();
   const { pathname } = useLocation();
   const mainRef = useRef<HTMLElement>(null);
+
+  // Atajos globales de zoom (Ctrl/Cmd + =, −, 0) — todo el árbol autenticado.
+  useUiScaleShortcuts();
 
   // The <main> element persists across navigations, so without this the new
   // page would inherit the previous page's scroll position (visible "jump").
