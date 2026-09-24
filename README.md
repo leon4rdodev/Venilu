@@ -1,6 +1,6 @@
 # Venilu
 
-**Venilu** es un punto de venta (POS) de escritorio, moderno y 100% offline, hecho para colmados y tiendas de República Dominicana. Cubre la operación completa del negocio: ventas de mostrador, fiao con abonos, inventario con kardex, facturación fiscal (NCF, ITBIS, reporte 607), reportes y arqueo de caja. Se vende con licencia perpetua (RD$10,000) o anual, con activación offline firmada criptográficamente.
+**Venilu** es un punto de venta (POS) de escritorio, moderno y 100% offline, hecho para colmados y tiendas de República Dominicana. Cubre la operación completa del negocio: ventas de mostrador, fiao con abonos, inventario con kardex, facturación fiscal (NCF, ITBIS, reporte 607), reportes y arqueo de caja. Se vende con licencia perpetua (RD$10,000) o anual (RD$4,500) — ambas con ITBIS incluido y con actualizaciones mientras el software esté vivo — vía activación offline firmada criptográficamente.
 
 ## Capturas
 

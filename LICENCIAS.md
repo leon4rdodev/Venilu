@@ -5,7 +5,11 @@ Venilu se vende con dos modalidades:
 | Modalidad | Precio sugerido | Comportamiento |
 |---|---|---|
 | **Perpetua** (pago único) | RD$10,000 | Nunca vence |
-| **Anual** | (definir) | Vence en la fecha emitida; avisa 30 días antes |
+| **Anual** | RD$4,500 | Vence en la fecha emitida; avisa 30 días antes |
+
+Los precios son **finales, con ITBIS (18%) incluido**. Todas las licencias
+—perpetua y anual— incluyen **actualizaciones mientras el software esté vivo**;
+no existe cuota de mantenimiento aparte.
 
 Toda instalación nueva incluye **15 días de prueba completa** (ideal para demos:
 instala, deja que el cliente lo use, y vende antes de que venza). Al vencer la
