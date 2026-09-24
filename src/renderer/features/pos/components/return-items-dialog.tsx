@@ -7,7 +7,7 @@ import { formatCurrency } from '@lib/currency';
 import { Undo2, Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Sale } from '@shared/types/models';
-import { formatQty, round3, unitDef } from '@shared/units';
+import { formatQty, formatQtyWithUnit, isValidQuantity, qtyLte, round3, unitDef } from '@shared/units';
 
 interface ReturnableSaleItem {
   id?: string;
@@ -30,6 +30,57 @@ interface ReturnItemsDialogProps {
 function getReturned(source: Map<string, number> | Record<string, number>, id: string): number {
   if (source instanceof Map) return source.get(id) ?? 0;
   return source[id] ?? 0;
+}
+
+/**
+ * Cantidad editable de una línea: se puede escribir a mano además de usar
+ * los botones ±. El texto se resincroniza solo cuando cambia la cantidad
+ * confirmada (patrón "adjusting state when props change" de React).
+ */
+function QtyField({
+  quantity,
+  max,
+  itemName,
+  disabled,
+  onCommit,
+}: {
+  quantity: number;
+  max: number;
+  itemName: string;
+  disabled?: boolean;
+  /** Valida y guarda; devuelve la cantidad aceptada para restaurar el texto. */
+  onCommit: (raw: string) => number;
+}) {
+  const [text, setText] = useState(formatQty(quantity));
+  const [lastQuantity, setLastQuantity] = useState(quantity);
+  if (lastQuantity !== quantity) {
+    setLastQuantity(quantity);
+    setText(formatQty(quantity));
+  }
+
+  const commit = () => setText(formatQty(onCommit(text)));
+
+  return (
+    <Input
+      type="text"
+      inputMode="decimal"
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          commit();
+        }
+        if (e.key === 'Escape') setText(formatQty(quantity));
+      }}
+      disabled={disabled}
+      aria-live="polite"
+      aria-label={`Cantidad a devolver de ${itemName}`}
+      title={`Escribe la cantidad · máximo ${formatQty(max)}`}
+      className="w-20 h-7 px-1.5 text-center text-sm font-medium tabular-nums"
+    />
+  );
 }
 
 export function ReturnItemsDialog({
@@ -83,6 +134,42 @@ export function ReturnItemsDialog({
       const next = round3(Math.min(max, Math.max(0, (prev[itemId] ?? 0) + delta)));
       return { ...prev, [itemId]: next };
     });
+  };
+
+  /**
+   * Escritura manual de la cantidad: valida por unidad (enteros en 'unidad',
+   * hasta 3 decimales en el resto) y limita a lo que queda por devolver.
+   * Devuelve la cantidad aceptada para que el input restaure su texto canónico.
+   */
+  const commitManualQuantity = (itemId: string, raw: string, max: number, unit?: string): number => {
+    const previous = quantities[itemId] ?? 0;
+    const trimmed = raw.trim();
+    if (trimmed === '') return previous;
+
+    const parsed = Number(trimmed.replace(',', '.'));
+    if (!Number.isFinite(parsed) || parsed < 0) return previous;
+    if (parsed === 0) {
+      setQuantities((prev) => ({ ...prev, [itemId]: 0 }));
+      return 0;
+    }
+    if (!isValidQuantity(parsed, unit)) {
+      toast.error('Cantidad inválida', {
+        description: unitDef(unit).integerOnly
+          ? 'Este artículo se vende por unidad: escribe números enteros'
+          : 'Usa hasta 3 decimales',
+      });
+      return previous;
+    }
+    if (!qtyLte(parsed, max)) {
+      toast.error('Cantidad máxima por devolver', {
+        description: `Solo quedan ${formatQtyWithUnit(max, unit)}`,
+      });
+      setQuantities((prev) => ({ ...prev, [itemId]: max }));
+      return max;
+    }
+    const next = round3(parsed);
+    setQuantities((prev) => ({ ...prev, [itemId]: next }));
+    return next;
   };
 
   const handleSubmit = async () => {
@@ -178,7 +265,7 @@ export function ReturnItemsDialog({
                         {item.product_name}
                       </p>
                       <p className="text-xs text-muted-foreground truncate tabular-nums">
-                        {formatCurrency(item.unit_price)}{qtySuffix} · Vendidos: {formatQty(item.quantity)} · Ya devueltos: {formatQty(returned)}
+                        {formatCurrency(item.unit_price)}{qtySuffix} · Vendidos: {formatQty(item.quantity)} · Ya devueltos: {formatQty(returned)} · Quedan: {formatQty(remaining)}
                       </p>
                     </div>
                     {disabled ? (
@@ -201,13 +288,13 @@ export function ReturnItemsDialog({
                         >
                           <Minus className="h-3 w-3" strokeWidth={1.75} />
                         </Button>
-                        <span
-                          className="w-12 shrink-0 text-center text-sm font-medium tabular-nums"
-                          aria-live="polite"
-                          aria-label={`${formatQty(selected)} de ${formatQty(remaining)} disponibles`}
-                        >
-                          {formatQty(selected)}
-                        </span>
+                        <QtyField
+                          quantity={selected}
+                          max={remaining}
+                          itemName={item.product_name}
+                          disabled={isSubmitting}
+                          onCommit={(raw) => commitManualQuantity(itemId!, raw, remaining, item.unit)}
+                        />
                         <Button
                           size="icon"
                           variant="outline"

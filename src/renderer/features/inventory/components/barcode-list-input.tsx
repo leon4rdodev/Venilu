@@ -4,7 +4,7 @@ import { Button } from "@components/ui/button";
 import { Barcode, Plus, X } from "lucide-react";
 
 type BarcodeListInputProps = {
-  /** Lista completa de códigos: el primero es el principal (el que se imprime en etiquetas). */
+  /** Lista completa de códigos: el primero es el principal. */
   value: string[];
   onChange: (codes: string[]) => void;
   disabled?: boolean;
@@ -117,7 +117,7 @@ export function BarcodeListInput({ value, onChange, disabled = false, inputId = 
       <p id={`${inputId}-hint`} className="text-xs text-muted-foreground">
         {value.length === 0
           ? "Sin códigos todavía. Puedes agregar todos los que tenga el producto (sabores, empaques, lotes)."
-          : "El POS reconoce cualquiera de estos códigos. El principal es el que se imprime en las etiquetas."}
+          : "El POS reconoce cualquiera de estos códigos y cualquiera se puede imprimir en las etiquetas."}
       </p>
     </div>
   );

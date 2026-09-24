@@ -59,11 +59,11 @@ describe("PrintLabelsDialog", () => {
     expect(screen.queryByText("Imprimir Etiquetas")).not.toBeInTheDocument();
   });
 
-  it("shows the disabled state when the product has neither barcode nor SKU", () => {
+  it("shows the disabled state when the product has no barcode", () => {
     mockIpc();
     renderDialog({ product: { ...product, barcode: undefined, sku: undefined } as Product });
 
-    expect(screen.getByText("Este producto no tiene código de barras ni SKU")).toBeInTheDocument();
+    expect(screen.getByText("Este producto no tiene código de barras")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Imprimir Etiquetas" })).toBeDisabled();
   });
 
@@ -126,5 +126,30 @@ describe("PrintLabelsDialog", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Imprimir Etiquetas" })).toBeEnabled()
     );
+  });
+
+  it("lists every product code and prints the selected one", async () => {
+    const invoke = mockIpc();
+    const user = userEvent.setup();
+    renderDialog({
+      product: {
+        ...product,
+        barcodes: [{ id: "b1", product_id: "p1", code: "1111111111111" }],
+      } as unknown as Product,
+    });
+
+    const codes = screen.getAllByRole("radio");
+    expect(codes).toHaveLength(2);
+    expect(screen.getByText("7401234567890")).toBeInTheDocument();
+    expect(screen.getByText("1111111111111")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: /1111111111111/ }));
+    await user.click(screen.getByRole("button", { name: "Imprimir Etiquetas" }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("print-labels", expect.anything()));
+    const [, payload] = invoke.mock.calls.find(([channel]) => channel === "print-labels")!;
+    const html = (payload as { html: string }).html;
+    expect(html).toContain("1111111111111");
+    expect(html).not.toContain("7401234567890");
   });
 });

@@ -243,7 +243,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
       cost_price: Number.parseFloat(formData.cost_price) || 0,
       sale_price: Number.parseFloat(formData.sale_price) || 0,
       stock: Number.parseFloat(String(formData.stock).replace(",", ".")) || 0,
-      sku: formData.sku,
+      sku: formData.sku, // sin editor: conserva el valor histórico (búsqueda y respaldo)
       // Primer código = principal; el resto son adicionales (set completo)
       barcode: barcodes[0] ?? "",
       extra_barcodes: barcodes.slice(1),
@@ -293,7 +293,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-xl p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
           {/* Header */}
           <div className="p-6 pb-4 border-b border-border space-y-1 shrink-0">
             <DialogTitle className="text-lg font-semibold tracking-tight">{title}</DialogTitle>
@@ -316,7 +316,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
             {/* ── Información básica + foto ─────────────────────────────── */}
             <section className="space-y-4">
               <SectionHeading icon={Tag} title="Información básica" hint="Opcional salvo el nombre" />
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_152px] gap-4 items-start">
+              <div className="space-y-4">
                 <div className="space-y-4 min-w-0">
                   <div className="space-y-2">
                     <Label htmlFor="name">Nombre del Producto</Label>
@@ -407,38 +407,43 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
                   </p>
                 </div>
 
-                {/* Foto — columna lateral, opcional (auto-convertida a WebP) */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium leading-none">Foto</p>
-                    <span className="text-xs text-muted-foreground">Opcional</span>
-                  </div>
-                  <div className="aspect-square w-full rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden">
+                {/* Foto — fila compacta opcional (auto-convertida a WebP) */}
+                <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-3">
+                  <div className="h-14 w-14 shrink-0 rounded-md border border-border bg-background flex items-center justify-center overflow-hidden">
                     {imagePreview ? (
-                      <img src={imagePreview} alt="Vista previa de la foto del producto" className="h-full w-full object-cover" />
+                      <img src={imagePreview} alt="Foto del producto" className="h-full w-full object-cover" />
                     ) : (
-                      <ImagePlus className="h-6 w-6 text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
+                      <ImagePlus className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
                     )}
                   </div>
-                  <div className="flex flex-col gap-1.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium leading-tight">
+                      Foto <span className="text-xs font-normal text-muted-foreground">· opcional</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1 truncate">
+                      Se convierte a WebP y se comprime sola.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-9 w-full"
+                      className="h-8"
                       disabled={isSaving || isCompressing}
                       aria-busy={isCompressing}
                       onClick={() => fileInputRef.current?.click()}
                     >
-                      {isCompressing ? "Procesando..." : imagePreview ? "Cambiar foto" : "Subir foto"}
+                      {isCompressing ? "Procesando..." : imagePreview ? "Cambiar" : "Subir foto"}
                     </Button>
                     {imagePreview && (
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-9 w-full text-muted-foreground hover:text-destructive"
+                        className="h-8 text-muted-foreground hover:text-destructive"
                         disabled={isSaving || isCompressing}
+                        aria-label="Quitar foto"
                         onClick={handleImageRemove}
                       >
                         <X className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
@@ -446,9 +451,6 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
                       </Button>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Se convierte a WebP y se comprime automáticamente.
-                  </p>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -598,21 +600,6 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
                     </span>
                   </div>
                   <BarcodeListInput value={barcodes} onChange={setBarcodes} disabled={isSaving} />
-                </div>
-                <div className="space-y-2 sm:max-w-64">
-                  <div className="flex items-center justify-between gap-2">
-                    <Label htmlFor="sku">SKU / Código interno</Label>
-                    <span className="text-xs text-muted-foreground">Opcional</span>
-                  </div>
-                  <Input
-                    id="sku"
-                    value={formData.sku}
-                    onChange={handleChange}
-                    placeholder="Ej: COD-12345"
-                    disabled={isSaving}
-                    autoComplete="off"
-                    className="h-9 bg-background font-mono"
-                  />
                 </div>
               </div>
             </section>

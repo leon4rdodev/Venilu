@@ -144,4 +144,77 @@ describe("ReturnItemsDialog", () => {
     expect(screen.getByLabelText(/Motivo/)).toHaveValue("");
     expect(screen.getByRole("button", { name: /Procesar Devolución/ })).toBeDisabled();
   });
+
+  it("accepts a manually typed quantity, clamped to what remains", async () => {
+    const user = userEvent.setup();
+    const invoke = invokeMock({ success: true, returnId: "8", totalRefunded: 135 });
+    const { props } = renderDialog();
+
+    const input = screen.getByLabelText("Cantidad a devolver de Cerveza Presidente");
+    await user.clear(input);
+    await user.type(input, "10");
+    await user.tab(); // blur → valida y acota a los 3 que quedan
+
+    expect(h.toastError).toHaveBeenCalledWith(
+      "Cantidad máxima por devolver",
+      expect.objectContaining({ description: expect.stringContaining("3 unidades") })
+    );
+    expect(input).toHaveValue("3");
+    // 3 × RD$50 × 0.9 = RD$135
+    expect(screen.getByText("RD$ 135.00")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Procesar Devolución/ }));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("sales:return", {
+        saleId: "1042",
+        items: [{ sale_item_id: "i1", quantity: 3 }],
+      })
+    );
+    expect(props.onSuccess).toHaveBeenCalled();
+  });
+
+  it("rejects fractional quantities for items sold by unit", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const input = screen.getByLabelText("Cantidad a devolver de Cerveza Presidente");
+    await user.clear(input);
+    await user.type(input, "0.5");
+    await user.tab();
+
+    expect(h.toastError).toHaveBeenCalledWith(
+      "Cantidad inválida",
+      expect.objectContaining({ description: expect.stringContaining("enteros") })
+    );
+    expect(input).toHaveValue("0");
+    expect(screen.getByRole("button", { name: /Procesar Devolución/ })).toBeDisabled();
+  });
+
+  it("lets you type fractional quantities for weighted items", async () => {
+    const user = userEvent.setup();
+    const invoke = invokeMock({ success: true, returnId: "9", totalRefunded: 126 });
+    renderDialog({
+      saleItems: [
+        { id: "p1", product_name: "Queso de freír", quantity: 2.75, unit: "libra", unit_price: 80 },
+      ],
+      alreadyReturned: {},
+    });
+
+    const input = screen.getByLabelText("Cantidad a devolver de Queso de freír");
+    await user.type(input, "1.75");
+    await user.tab();
+
+    expect(h.toastError).not.toHaveBeenCalled();
+    expect(input).toHaveValue("1.75");
+    // 1.75 lb × RD$80 × 0.9 = RD$126
+    expect(screen.getByText("RD$ 126.00")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Procesar Devolución/ }));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("sales:return", {
+        saleId: "1042",
+        items: [{ sale_item_id: "p1", quantity: 1.75 }],
+      })
+    );
+  });
 });

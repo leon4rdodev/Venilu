@@ -4,9 +4,10 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@componen
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
-import { Barcode } from "lucide-react";
+import { Barcode, Check } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@lib/currency";
+import { cn } from "@lib/utils";
 import { useSettings } from "@renderer/features/settings";
 import { Product } from "@shared/types/models";
 
@@ -103,6 +104,23 @@ function buildLabelsHtml(args: {
 </html>`;
 }
 
+/**
+ * Todos los códigos imprimibles de un producto: principal + adicionales.
+ * El SKU queda solo como respaldo histórico para productos antiguos creados
+ * sin códigos de barras.
+ */
+function printableCodes(product: Product | null): string[] {
+  if (!product) return [];
+  const codes = [product.barcode, ...(product.barcodes ?? []).map((b) => b.code)]
+    .map((c) => (c ?? "").trim())
+    .filter((c, i, all) => !!c && all.indexOf(c) === i);
+  if (codes.length === 0) {
+    const legacy = product.sku?.trim();
+    if (legacy) return [legacy];
+  }
+  return codes;
+}
+
 interface PrintLabelsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -111,16 +129,20 @@ interface PrintLabelsDialogProps {
 
 /**
  * Impresión de etiquetas de producto para la impresora térmica configurada:
- * vista previa (nombre, código de barras CODE128 y precio) y cantidad 1–50.
- * Usa `product.barcode`, con `sku` como respaldo; sin ninguno, bloquea.
+ * lista todos los códigos del producto e imprime cualquiera de ellos.
+ * Vista previa (nombre, código de barras CODE128 y precio) y cantidad 1–50.
+ * Sin códigos, bloquea la impresión.
  */
 export function PrintLabelsDialog({ open, onOpenChange, product }: PrintLabelsDialogProps) {
   const { settings } = useSettings();
   const [quantity, setQuantity] = useState("1");
   const [isPrinting, setIsPrinting] = useState(false);
   const [barcodeError, setBarcodeError] = useState(false);
+  /** Código elegido de la lista; null = el principal. */
+  const [selectedCode, setSelectedCode] = useState<string | null>(null);
 
-  const code = product?.barcode?.trim() || product?.sku?.trim() || null;
+  const codes = printableCodes(product);
+  const code = (selectedCode && codes.includes(selectedCode) ? selectedCode : codes[0]) ?? null;
 
   // Callback ref: el Portal de Radix monta el contenido UN render después de
   // abrir, así que un useEffect([open]) corre antes de que el <svg> exista y
@@ -142,6 +164,7 @@ export function PrintLabelsDialog({ open, onOpenChange, product }: PrintLabelsDi
     if (open) {
       setQuantity("1");
       setBarcodeError(false);
+      setSelectedCode(null);
     }
   }, [open, product?.id]);
 
@@ -205,6 +228,56 @@ export function PrintLabelsDialog({ open, onOpenChange, product }: PrintLabelsDi
         <div className="p-6 space-y-4 flex-1 overflow-y-auto min-h-0">
           {code ? (
             <>
+              {/* Todos los códigos del producto — elige cuál imprimir */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span id="print-codes-label" className="text-sm font-medium leading-none">
+                    Código a imprimir
+                  </span>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {codes.length} {codes.length === 1 ? "código" : "códigos"}
+                  </span>
+                </div>
+                <div role="radiogroup" aria-labelledby="print-codes-label" className="space-y-1.5">
+                  {codes.map((c) => {
+                    const isSelected = c === code;
+                    const isPrincipal = c === (product.barcode ?? "").trim();
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        disabled={isPrinting}
+                        onClick={() => setSelectedCode(c)}
+                        title={isSelected ? "Código seleccionado" : `Imprimir con el código ${c}`}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                          isSelected ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
+                        )}
+                      >
+                        <Barcode className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
+                        <span className="font-mono text-sm min-w-0 flex-1 truncate">{c}</span>
+                        {isPrincipal && (
+                          <span className="rounded-full bg-muted text-xs px-2 py-0.5 text-muted-foreground shrink-0">
+                            Principal
+                          </span>
+                        )}
+                        <span
+                          aria-hidden="true"
+                          className={cn(
+                            "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
+                            isSelected ? "border-primary bg-primary text-primary-foreground" : "border-input"
+                          )}
+                        >
+                          {isSelected && <Check className="h-3 w-3" strokeWidth={2.5} />}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Label preview — mirrors the printed block */}
               {/* Fondo blanco intencional: simula el papel térmico también en modo oscuro */}
               <div
@@ -269,10 +342,10 @@ export function PrintLabelsDialog({ open, onOpenChange, product }: PrintLabelsDi
                 <Barcode className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.5} aria-hidden="true" />
               </div>
               <p className="text-sm font-medium text-foreground">
-                Este producto no tiene código de barras ni SKU
+                Este producto no tiene código de barras
               </p>
               <p className="text-sm text-muted-foreground mt-1 max-w-[260px]">
-                Edita el producto y asígnale un SKU o código para poder imprimir etiquetas.
+                Edita el producto y agrega códigos de barras para poder imprimir etiquetas.
               </p>
             </div>
           )}
