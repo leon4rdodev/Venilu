@@ -18,7 +18,9 @@
 # No requiere secrets: se usa el GITHUB_TOKEN de la propia workflow con el
 # permiso `contents: write` declarado abajo.
 #
-# Uso:  git tag v0.0.4 && git push origin v0.0.4
+# Uso:  git tag v0.0.5 && git push origin v0.0.5
+# Re-uso de tag (corregir una release ya publicada): mover el tag al nuevo
+# commit, forzar el push, y el job de release reemplaza la release anterior.
 name: Release
 
 on:
@@ -106,6 +108,22 @@ jobs:
           pattern: instaladores-*
           path: dist-release
           merge-multiple: true
+
+      # Si el tag ya se usó antes (re-uso de tags para corregir una release),
+      # borra la release previa para que action-gh-release pueda crear una nueva.
+      - name: Eliminar release previa del mismo tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          API="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          if REL=$(curl -sf -H "Authorization: Bearer ${GH_TOKEN}" \
+                          "${API}/releases/tags/${GITHUB_REF_NAME}"); then
+            id=$(echo "${REL}" | jq -r '.id')
+            echo "Release previa ${GITHUB_REF_NAME} (id ${id}) — se reemplaza."
+            curl -sf -X DELETE -H "Authorization: Bearer ${GH_TOKEN}" "${API}/releases/${id}"
+          else
+            echo "No existía release previa; se creará una nueva."
+          fi
 
       - name: Comprobar que no falta nada
         run: ls -lh dist-release && test -n "$(ls dist-release)"
