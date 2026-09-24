@@ -47,7 +47,7 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
   const [showCounter, setShowCounter] = useState(false);
   const [counts, setCounts] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
-  const { activeShift, shiftSales, shiftDebtPayments, shiftExpenses, shiftReturns, closeShift } = useShift();
+  const { activeShift, shiftSales, shiftDebtPayments, shiftExpenses, shiftCapitals, shiftReturns, closeShift } = useShift();
 
   // Focus the cash input when the dialog opens; reset the denomination counter
   useEffect(() => {
@@ -91,12 +91,12 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
 
   const {
     initialCash, cashSalesTotal, expectedCash, totalSales, otherSalesTotal, totalTransactions,
-    cashDebtTotal, cashRefunds, transferDebtTotal, totalDebtPayments, totalExpenses, totalReturns,
+    cashDebtTotal, cashRefunds, transferDebtTotal, totalDebtPayments, totalExpenses, totalCapital, totalReturns,
   } = useMemo(() => {
     if (!activeShift) {
       return {
         initialCash: 0, cashSalesTotal: 0, expectedCash: 0, totalSales: 0, otherSalesTotal: 0, totalTransactions: 0,
-        cashDebtTotal: 0, cashRefunds: 0, transferDebtTotal: 0, totalDebtPayments: 0, totalExpenses: 0, totalReturns: 0,
+        cashDebtTotal: 0, cashRefunds: 0, transferDebtTotal: 0, totalDebtPayments: 0, totalExpenses: 0, totalCapital: 0, totalReturns: 0,
       };
     }
 
@@ -105,12 +105,14 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
     const otherSalesTotal = otherSales.reduce((sum, sale) => sum + Number(sale.total_amount), 0);
 
     // Same formula as the backend arqueo (@shared/cash-reconciliation):
-    // refunds of collected credit sales and partial returns LEAVE the drawer.
+    // refunds of collected credit sales and partial returns LEAVE the drawer,
+    // capital injections (aportes) ADD to it.
     const cash = computeShiftCash({
       initialCash: activeShift.initial_cash,
       sales: shiftSales,
       debtPayments: shiftDebtPayments,
       expenses: shiftExpenses,
+      capital: shiftCapitals,
       returns: shiftReturns,
     });
 
@@ -126,9 +128,10 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
       transferDebtTotal: cash.transferDebtReceived,
       totalDebtPayments: shiftDebtPayments.filter(p => p.type !== 'refund').length,
       totalExpenses: cash.totalExpenses,
+      totalCapital: cash.totalCapital,
       totalReturns: cash.totalReturns,
     };
-  }, [activeShift, shiftSales, shiftDebtPayments, shiftExpenses, shiftReturns]);
+  }, [activeShift, shiftSales, shiftDebtPayments, shiftExpenses, shiftCapitals, shiftReturns]);
 
   const difference = useMemo(() => {
     const final = parseFloat(finalCash);
@@ -318,6 +321,12 @@ export function CloseShiftDialog({ isOpen, onClose }: CloseShiftDialogProps) {
               <div className="flex items-center justify-between gap-2 px-3.5 py-2.5">
                 <span className="text-sm text-muted-foreground shrink-0">+ Abonos en efectivo</span>
                 <span className="text-sm font-medium font-mono tabular-nums truncate text-emerald-600 dark:text-emerald-400">+{formatCurrency(cashDebtTotal)}</span>
+              </div>
+            )}
+            {totalCapital > 0 && (
+              <div className="flex items-center justify-between gap-2 px-3.5 py-2.5">
+                <span className="text-sm text-muted-foreground shrink-0">+ Inyecciones de capital</span>
+                <span className="text-sm font-medium font-mono tabular-nums truncate text-emerald-600 dark:text-emerald-400">+{formatCurrency(totalCapital)}</span>
               </div>
             )}
             {cashRefunds > 0 && (

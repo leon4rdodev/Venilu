@@ -16,6 +16,7 @@ import {
   HandCoins,
   User2,
   MinusCircle,
+  PlusCircle,
 } from "lucide-react";
 import { formatCurrency } from "@lib/currency";
 import { computeShiftCash } from '@shared/cash-reconciliation';
@@ -333,17 +334,22 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
 
             // Expenses
             const expenses = shift.expenses || [];
+            // Inyecciones de capital (aportes que SUMAN a la caja)
+            const capitals = shift.capitals || [];
 
             // Arqueo — same formula as the backend (@shared/cash-reconciliation):
-            // cash abonos add, refunds / expenses / partial returns subtract.
+            // cash abonos and capital injections add, refunds / expenses /
+            // partial returns subtract.
             const cash = computeShiftCash({
               initialCash: shift.initial_cash,
               sales: shift.sales,
               debtPayments: shift.debt_payments || [],
               expenses,
+              capital: capitals,
               returns: shift.returns || [],
             });
             const totalExpenses = cash.totalExpenses;
+            const totalCapital = cash.totalCapital;
             const cashDebtTotal = cash.cashDebtReceived;
             const cashRefunds = cash.cashRefunds;
             const transferDebtTotal = cash.transferDebtReceived;
@@ -686,6 +692,32 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                             </div>
                           )}
 
+                          {/* Inyecciones de capital */}
+                          {capitals.length > 0 && (
+                            <div>
+                              <h3 className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
+                                <PlusCircle className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} aria-hidden="true" />
+                                Inyecciones de Capital
+                              </h3>
+                              <div className="rounded-lg border border-border divide-y divide-border text-sm">
+                                {capitals.map((cap: any, idx: number) => (
+                                  <div key={cap.id ?? idx} className="flex items-center justify-between px-3.5 py-2.5 gap-3">
+                                    <span className="text-sm text-muted-foreground truncate" title={cap.reason}>{cap.reason || 'Aporte a caja'}</span>
+                                    <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 font-mono tabular-nums text-right shrink-0">
+                                      +{formatCurrency(Number(cap.amount))}
+                                    </span>
+                                  </div>
+                                ))}
+                                <div className="flex items-center justify-between px-3.5 py-2 bg-muted/40">
+                                  <span className="text-sm font-semibold">Total Inyecciones</span>
+                                  <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums text-right">
+                                    +{formatCurrency(totalCapital)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           {/* Cash register */}
                           <div>
                             <h3 className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
@@ -716,6 +748,16 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
                                   </span>
                                   <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 font-mono tabular-nums text-right">
                                     +{formatCurrency(cashDebtTotal)}
+                                  </span>
+                                </div>
+                              )}
+                              {totalCapital > 0 && (
+                                <div className="flex items-center justify-between px-3.5 py-2.5">
+                                  <span className="text-sm text-muted-foreground">
+                                    + Inyecciones de capital
+                                  </span>
+                                  <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 font-mono tabular-nums text-right">
+                                    +{formatCurrency(totalCapital)}
                                   </span>
                                 </div>
                               )}

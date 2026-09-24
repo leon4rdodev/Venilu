@@ -94,7 +94,7 @@ const PERMISSION_GROUPS = [
       { id: PERMISSIONS.USR_ROLES, label: 'Gestionar roles y permisos' },
       { id: PERMISSIONS.SHIFTS_VIEW_OTHERS, label: 'Ver turnos de otros cajeros' },
       { id: PERMISSIONS.SHIFTS_FORCE, label: 'Forzar cierre de turnos ajenos' },
-      { id: PERMISSIONS.SHIFTS_EXPENSES, label: 'Registrar gastos/salidas de caja' },
+      { id: PERMISSIONS.SHIFTS_EXPENSES, label: 'Gestión de caja: salidas y capital' },
       { id: PERMISSIONS.AUDIT_VIEW, label: 'Ver bitácora de auditoría' },
       { id: PERMISSIONS.BACKUPS, label: 'Gestionar copias de seguridad' },
       { id: PERMISSIONS.SYS_UPDATE, label: 'Instalar actualizaciones' },

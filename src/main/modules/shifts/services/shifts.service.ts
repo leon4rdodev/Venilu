@@ -1,6 +1,7 @@
 import { AppDataSource } from "@main/config/data-source";
 import { Shift as ShiftEntity } from "@main/modules/shifts/entities/shift.entity";
 import { ShiftExpense } from "@main/modules/shifts/entities/shift-expense.entity";
+import { ShiftCapital } from "@main/modules/shifts/entities/shift-capital.entity";
 import { Sale as SaleEntity } from "@main/modules/sales/entities/sale.entity";
 import { DebtPayment as DebtPaymentEntity } from "@main/modules/sales/entities/debt-payment.entity";
 import { SaleReturn as SaleReturnEntity } from "@main/modules/sales/entities/sale-return.entity";
@@ -123,23 +124,25 @@ export class ShiftsService {
 
     /**
      * Arqueo del turno con la MISMA fórmula que usa el renderer
-     * (@shared/cash-reconciliation): ventas en efectivo + abonos − reembolsos
-     * − gastos − devoluciones parciales.
+     * (@shared/cash-reconciliation): ventas en efectivo + abonos +
+     * inyecciones de capital − reembolsos − gastos − devoluciones parciales.
      */
     async computeExpectedCash(shift: ShiftEntity): Promise<ShiftCashBreakdown> {
-        const [sales, debtPayments, returns, expenses] = await Promise.all([
+        const [sales, debtPayments, returns, expenses, capital] = await Promise.all([
             this.saleRepository.find({ where: { shift_id: shift.id } }),
             this.debtPaymentRepository.find({ where: { shift_id: shift.id } }),
             this.getShiftReturns(shift.id),
             shift.expenses
                 ? Promise.resolve(shift.expenses)
                 : AppDataSource.getRepository(ShiftExpense).find({ where: { shift_id: shift.id } }),
+            AppDataSource.getRepository(ShiftCapital).find({ where: { shift_id: shift.id } }),
         ]);
         return computeShiftCash({
             initialCash: shift.initial_cash,
             sales,
             debtPayments,
             expenses,
+            capital,
             returns,
         });
     }
@@ -207,12 +210,80 @@ export class ShiftsService {
         return expenseRepository.save(expense);
     }
 
+    /**
+     * Inyección de capital: el dueño aporta efectivo al cajón a mitad de
+     * turno. SUMA al efectivo esperado del arqueo. Solo en turnos abiertos
+     * propios y con monto > 0; el motivo es opcional ("Aporte a caja").
+     */
+    async addCapital(shiftId: string, amount: number, reason?: string, expectedUserId?: string): Promise<ShiftCapital> {
+        const shift = await this.shiftRepository.findOneBy({ id: shiftId });
+        if (!shift || shift.status !== 'open') {
+            throw new Error("No hay un turno abierto válido para registrar este aporte");
+        }
+
+        if (expectedUserId && shift.user_id !== expectedUserId) {
+            throw new Error("Solo puedes registrar aportes en tu propio turno");
+        }
+
+        const amt = round2(Number(amount));
+        if (!Number.isFinite(amt) || amt <= 0) {
+            throw new Error("El monto del aporte debe ser un número mayor a 0");
+        }
+
+        const cleanReason = typeof reason === 'string' && reason.trim() ? reason.trim() : 'Aporte a caja';
+        const capitalRepository = AppDataSource.getRepository(ShiftCapital);
+        const capital = capitalRepository.create({
+            shift_id: shiftId,
+            amount: amt,
+            reason: cleanReason
+        });
+
+        return capitalRepository.save(capital);
+    }
+
+    /** Aportes de capital registrados en el turno (del más reciente al más antiguo). */
+    async getShiftCapitals(shiftId: string): Promise<ShiftCapital[]> {
+        return AppDataSource.getRepository(ShiftCapital).find({
+            where: { shift_id: shiftId },
+            order: { created_at: 'DESC' },
+        });
+    }
+
+    /**
+     * Deshace una salida de caja (borrado físico). Solo mientras el turno
+     * esté abierto y sea del propio usuario: un turno cerrado ya tiene su
+     * arqueo y no puede alterarse.
+     */
+    async deleteExpense(expenseId: string, expectedUserId?: string): Promise<ShiftExpense> {
+        const expenseRepository = AppDataSource.getRepository(ShiftExpense);
+        const expense = await expenseRepository.findOne({
+            where: { id: expenseId },
+            relations: ['shift'],
+        });
+        if (!expense) {
+            throw new Error("Salida de caja no encontrada");
+        }
+
+        const shift = expense.shift ?? await this.shiftRepository.findOneBy({ id: expense.shift_id });
+        if (!shift || shift.status !== 'open') {
+            throw new Error("No puedes deshacer salidas de un turno cerrado");
+        }
+
+        if (expectedUserId && shift.user_id !== expectedUserId) {
+            throw new Error("Solo puedes deshacer salidas de tu propio turno");
+        }
+
+        await expenseRepository.delete({ id: expense.id });
+        return expense;
+    }
+
     async getShiftsHistory(userId?: string): Promise<any[]> {
         const query = this.shiftRepository.createQueryBuilder("shift")
             .leftJoinAndSelect("shift.user", "user")
             .leftJoinAndSelect("shift.sales", "sales")
             .leftJoinAndSelect("shift.debt_payments", "debt_payments")
             .leftJoinAndSelect("shift.expenses", "expenses")
+            .leftJoinAndSelect("shift.capitals", "capitals")
             .leftJoinAndSelect("debt_payments.customer", "dp_customer")
             .orderBy("shift.start_time", "DESC")
             .addOrderBy("sales.created_at", "DESC")
@@ -255,6 +326,7 @@ export class ShiftsService {
                 customer_name: dp.customer?.name || 'Cliente',
             })),
             expenses: shift.expenses || [],
+            capitals: shift.capitals || [],
             returns: returnsByShift.get(shift.id) ?? [],
         }));
     }

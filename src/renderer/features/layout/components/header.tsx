@@ -30,7 +30,7 @@ const CHIP =
 export function Header({ userName, userRole }: HeaderProps) {
   const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
-  const { activeShift, shiftSales, shiftDebtPayments, shiftExpenses, shiftReturns } = useShift();
+  const { activeShift, shiftSales, shiftDebtPayments, shiftExpenses, shiftCapitals, shiftReturns } = useShift();
   const { logout } = useUser();
   const { lock } = useLock();
   const { status: licenseStatus } = useLicense();
@@ -54,7 +54,8 @@ export function Header({ userName, userRole }: HeaderProps) {
   }, [licenseStatus]);
 
   // Same formula as the backend arqueo (@shared/cash-reconciliation):
-  // fondo + ventas efectivo + abonos − reembolsos − gastos − devoluciones.
+  // fondo + ventas efectivo + abonos + inyecciones de capital − reembolsos −
+  // gastos − devoluciones.
   const currentCashInDrawer = useMemo(() => {
     if (!activeShift) return 0;
     return computeShiftCash({
@@ -62,9 +63,10 @@ export function Header({ userName, userRole }: HeaderProps) {
       sales: shiftSales,
       debtPayments: shiftDebtPayments || [],
       expenses: shiftExpenses || [],
+      capital: shiftCapitals || [],
       returns: shiftReturns || [],
     }).expectedCash;
-  }, [activeShift, shiftSales, shiftDebtPayments, shiftExpenses, shiftReturns]);
+  }, [activeShift, shiftSales, shiftDebtPayments, shiftExpenses, shiftCapitals, shiftReturns]);
 
   const isDark = theme === "dark";
   const toggleTheme = () => {

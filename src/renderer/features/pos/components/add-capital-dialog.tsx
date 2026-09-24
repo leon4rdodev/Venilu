@@ -3,27 +3,25 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@components/ui/button';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
-import { Textarea } from '@components/ui/textarea';
-import { MinusCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { PlusCircle, Info, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useShift } from '../hooks/use-shift';
 import { formatCurrency, getCurrencySymbol } from '@lib/currency';
 import { computeShiftCash } from '@shared/cash-reconciliation';
 import { round2 } from '@shared/money';
 
-interface AddExpenseDialogProps {
+interface AddCapitalDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
 }
 
-/** Montos frecuentes para retiros rápidos (1 clic) */
+/** Montos frecuentes para aportes rápidos (1 clic) */
 const QUICK_AMOUNTS = [100, 500, 1000, 2000];
-const REASON_SUGGESTIONS = ['Retiro de caja', 'Pago a proveedor', 'Delivery', 'Compra local'];
 
-export function AddExpenseDialog({ isOpen, onClose, onSuccess }: AddExpenseDialogProps) {
+export function AddCapitalDialog({ isOpen, onClose, onSuccess }: AddCapitalDialogProps) {
   const {
-    activeShift, addExpenseToShift,
+    activeShift, addCapitalToShift,
     shiftSales, shiftDebtPayments, shiftExpenses, shiftReturns, shiftCapitals,
   } = useShift();
   const [amount, setAmount] = useState<string>('');
@@ -38,8 +36,7 @@ export function AddExpenseDialog({ isOpen, onClose, onSuccess }: AddExpenseDialo
     }
   }, [isOpen]);
 
-  // Efectivo esperado en caja AHORA (misma fórmula del arqueo) para
-  // previsualizar en qué queda la caja antes de confirmar el retiro.
+  // Misma fórmula del arqueo: previsualiza cuánto queda en caja tras el aporte.
   const cashPreview = useMemo(() => {
     if (!activeShift) return null;
     return computeShiftCash({
@@ -54,8 +51,7 @@ export function AddExpenseDialog({ isOpen, onClose, onSuccess }: AddExpenseDialo
 
   const amountValue = parseFloat(amount);
   const hasAmount = Number.isFinite(amountValue) && amountValue > 0;
-  const cashAfter = cashPreview && hasAmount ? round2(cashPreview.expectedCash - amountValue) : null;
-  const exceedsAvailable = cashPreview !== null && hasAmount && amountValue > cashPreview.expectedCash;
+  const cashAfter = cashPreview && hasAmount ? round2(cashPreview.expectedCash + amountValue) : null;
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -77,40 +73,33 @@ export function AddExpenseDialog({ isOpen, onClose, onSuccess }: AddExpenseDialo
       return;
     }
 
-    if (!reason.trim()) {
-      toast.error('Debes especificar un motivo');
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       if (!window.ipcRenderer) throw new Error("IPC Renderer no disponible");
 
-      const result = await window.ipcRenderer.invoke('shifts:add-expense', {
+      const result = await window.ipcRenderer.invoke('shifts:add-capital', {
         shiftId: activeShift.id,
         amount: amountValue,
         reason: reason.trim()
       }) as { success: boolean; data?: any; message?: string };
 
       if (result.success) {
-        toast.success(`Salida de ${formatCurrency(amountValue)} registrada`);
-        addExpenseToShift(result.data);
+        toast.success(`Inyección de ${formatCurrency(amountValue)} registrada`);
+        addCapitalToShift(result.data);
         setAmount('');
         setReason('');
         onSuccess?.();
         onClose();
       } else {
-        toast.error(result.message || 'Error al registrar gasto');
+        toast.error(result.message || 'Error al registrar la inyección');
       }
     } catch (error) {
-      console.error('Error adding expense:', error);
+      console.error('Error adding capital:', error);
       toast.error('Error de conexión');
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  const isValid = hasAmount && reason.trim().length > 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -118,13 +107,13 @@ export function AddExpenseDialog({ isOpen, onClose, onSuccess }: AddExpenseDialo
         {/* Header */}
         <DialogHeader className="p-5 pb-4 gap-1 text-left border-b border-border">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-destructive/10 text-destructive flex items-center justify-center shrink-0" aria-hidden="true">
-              <MinusCircle className="h-4 w-4" strokeWidth={1.75} />
+            <div className="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0" aria-hidden="true">
+              <PlusCircle className="h-4 w-4" strokeWidth={1.75} />
             </div>
-            <DialogTitle className="tracking-tight">Registrar Salida de Efectivo</DialogTitle>
+            <DialogTitle className="tracking-tight">Inyectar Capital en Caja</DialogTitle>
           </div>
           <DialogDescription className="ml-[42px]">
-            Registra gastos o retiros de efectivo realizados durante el turno
+            Aporta efectivo a la caja durante el turno (fondo extra, cambio para caja…)
           </DialogDescription>
         </DialogHeader>
 
@@ -132,8 +121,8 @@ export function AddExpenseDialog({ isOpen, onClose, onSuccess }: AddExpenseDialo
           <div className="p-5 space-y-4">
             {/* Amount Field */}
             <div className="space-y-1.5">
-              <Label htmlFor="expense-amount" className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Monto del Retiro
+              <Label htmlFor="capital-amount" className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Monto a Inyectar
               </Label>
               <div className="relative">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold text-muted-foreground pointer-events-none" aria-hidden="true">
@@ -141,7 +130,7 @@ export function AddExpenseDialog({ isOpen, onClose, onSuccess }: AddExpenseDialo
                 </div>
                 <Input
                   ref={inputRef}
-                  id="expense-amount"
+                  id="capital-amount"
                   type="text"
                   inputMode="decimal"
                   placeholder="0.00"
@@ -168,69 +157,51 @@ export function AddExpenseDialog({ isOpen, onClose, onSuccess }: AddExpenseDialo
                 ))}
               </div>
 
-              {/* Live preview: cuánto queda en caja tras el retiro */}
+              {/* Live preview: cuánto queda en caja tras el aporte */}
               {cashPreview && (
                 <p className="text-xs text-muted-foreground tabular-nums pt-0.5" aria-live="polite">
                   Esperado en caja:{' '}
                   <span className="font-medium text-foreground">{formatCurrency(cashPreview.expectedCash)}</span>
                   {hasAmount && cashAfter !== null && (
                     <>
-                      {' → '}tras el retiro:{' '}
-                      <span className={`font-medium ${exceedsAvailable ? 'text-destructive' : 'text-foreground'}`}>
+                      {' → '}tras la inyección:{' '}
+                      <span className="font-medium text-emerald-600 dark:text-emerald-400">
                         {formatCurrency(cashAfter)}
                       </span>
                     </>
                   )}
                 </p>
               )}
-              {exceedsAvailable && (
-                <p className="text-xs text-amber-600 dark:text-amber-400">
-                  Este retiro excede el efectivo esperado en caja — revisa el monto.
-                </p>
-              )}
             </div>
 
-            {/* Reason Field */}
+            {/* Note */}
+            <div role="note" className="bg-emerald-500/10 p-3.5 rounded-lg flex gap-3 text-xs text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 leading-relaxed">
+              <Info className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+              <p>Sumará al efectivo esperado en el arqueo de cierre de turno.</p>
+            </div>
+
+            {/* Reason Field (opcional) */}
             <div className="space-y-1.5">
-              <Label htmlFor="expense-reason" className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Motivo o Concepto
+              <Label htmlFor="capital-reason" className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Motivo (opcional)
               </Label>
-              <Textarea
-                id="expense-reason"
-                placeholder="Ej: Pago de delivery, Compra de suministros, Retiro parcial..."
+              <Input
+                id="capital-reason"
+                type="text"
+                placeholder="Ej: Aporte del dueño, fondo extra para caja..."
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="resize-none h-20 bg-background"
+                className="h-10 bg-background"
                 disabled={isSubmitting}
               />
-              {/* Quick reasons */}
-              <div className="flex flex-wrap gap-1.5 pt-0.5" role="group" aria-label="Motivos frecuentes">
-                {REASON_SUGGESTIONS.map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setReason(r)}
-                    disabled={isSubmitting}
-                    className="px-3 h-8 rounded-full border border-border bg-card text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors outline-none focus-visible:ring-[1px] focus-visible:ring-ring"
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Warning info */}
-            <div role="note" className="bg-destructive/10 p-3.5 rounded-lg flex gap-3 text-xs text-destructive border border-destructive/20 leading-relaxed">
-              <AlertCircle className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
-              <p>Se descontará del arqueo final de caja. Conserva el comprobante físico si lo necesitas.</p>
             </div>
           </div>
 
           {/* Actions */}
           <div className="p-5 pt-4 border-t border-border space-y-3">
-            {!isValid && (
+            {!hasAmount && (
               <p className="text-xs text-muted-foreground text-center">
-                Completa el monto y el motivo para poder registrar.
+                Indica un monto para poder registrar.
               </p>
             )}
             <div className="flex gap-3">
@@ -245,15 +216,14 @@ export function AddExpenseDialog({ isOpen, onClose, onSuccess }: AddExpenseDialo
               </Button>
               <Button
                 type="submit"
-                variant="destructive"
-                disabled={isSubmitting || !isValid}
+                disabled={isSubmitting || !hasAmount}
                 aria-busy={isSubmitting}
-                className="flex-1 h-11 gap-2"
+                className="flex-1 h-11 gap-2 bg-emerald-600 hover:bg-emerald-500 text-white dark:bg-emerald-600 dark:hover:bg-emerald-500"
               >
                 {isSubmitting ? (
                   <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />Registrando...</>
                 ) : (
-                  <><MinusCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />Registrar Retiro</>
+                  <><PlusCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />Registrar Inyección</>
                 )}
               </Button>
             </div>

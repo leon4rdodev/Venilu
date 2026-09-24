@@ -49,6 +49,8 @@ export interface ShiftHistoryEntry {
   debt_payments: DebtPaymentSummary[];
   /** Cash expenses recorded during this shift */
   expenses?: any[];
+  /** Cash injections (capital aportado) during this shift */
+  capitals?: any[];
   /** Partial returns refunded in cash from this shift's register */
   returns?: SaleReturnSummary[];
 }

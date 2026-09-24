@@ -10,6 +10,7 @@ import { round2 } from './money';
  *   esperado = fondo inicial
  *            + ventas en efectivo (no anuladas)
  *            + abonos en efectivo
+ *            + inyecciones de capital (aportes a la caja)
  *            − reembolsos en efectivo (anulación de ventas fiadas ya cobradas)
  *            − salidas de caja (gastos)
  *            − devoluciones parciales (se reembolsan en efectivo)
@@ -31,6 +32,10 @@ export interface CashExpenseLike {
   amount: number | string;
 }
 
+export interface CashCapitalLike {
+  amount: number | string;
+}
+
 export interface CashReturnLike {
   total_refunded: number | string;
 }
@@ -40,6 +45,8 @@ export interface ShiftCashInput {
   sales: CashSaleLike[];
   debtPayments: CashDebtPaymentLike[];
   expenses: CashExpenseLike[];
+  /** Inyecciones de capital (aportes de efectivo que SUMAN a la caja). */
+  capital?: CashCapitalLike[];
   /** Devoluciones parciales cargadas a este turno (o su total ya sumado). */
   returns?: CashReturnLike[] | number;
 }
@@ -56,6 +63,8 @@ export interface ShiftCashBreakdown {
   transferDebtReceived: number;
   /** Salidas de caja. */
   totalExpenses: number;
+  /** Inyecciones de capital (aportes a la caja). */
+  totalCapital: number;
   /** Devoluciones parciales reembolsadas en efectivo. */
   totalReturns: number;
   /** Efectivo que debe haber físicamente en la caja. */
@@ -96,6 +105,10 @@ export function computeShiftCash(input: ShiftCashInput): ShiftCashBreakdown {
     (input.expenses || []).reduce((sum, e) => sum + num(e.amount), 0),
   );
 
+  const totalCapital = round2(
+    (input.capital || []).reduce((sum, c) => sum + num(c.amount), 0),
+  );
+
   const totalReturns = round2(
     typeof input.returns === 'number'
       ? num(input.returns)
@@ -103,7 +116,8 @@ export function computeShiftCash(input: ShiftCashInput): ShiftCashBreakdown {
   );
 
   const expectedCash = round2(
-    initialCash + cashSalesTotal + cashDebtReceived - cashRefunds - totalExpenses - totalReturns,
+    initialCash + cashSalesTotal + cashDebtReceived + totalCapital
+      - cashRefunds - totalExpenses - totalReturns,
   );
 
   return {
@@ -113,6 +127,7 @@ export function computeShiftCash(input: ShiftCashInput): ShiftCashBreakdown {
     cashRefunds,
     transferDebtReceived,
     totalExpenses,
+    totalCapital,
     totalReturns,
     expectedCash,
   };

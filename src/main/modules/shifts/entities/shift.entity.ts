@@ -3,6 +3,7 @@ import { User } from "@main/modules/users/entities/user.entity";
 import { Sale } from "@main/modules/sales/entities/sale.entity";
 import { DebtPayment } from "@main/modules/sales/entities/debt-payment.entity";
 import { ShiftExpense } from "./shift-expense.entity";
+import { ShiftCapital } from "./shift-capital.entity";
 
 @Entity("shifts")
 // getActiveShift/getLastClosedShift query by (user_id, status) on every boot
@@ -27,6 +28,9 @@ export class Shift {
 
     @OneToMany(() => ShiftExpense, (expense) => expense.shift)
     expenses!: ShiftExpense[];
+
+    @OneToMany(() => ShiftCapital, (capital) => capital.shift)
+    capitals!: ShiftCapital[];
 
     @CreateDateColumn()
     start_time!: Date;

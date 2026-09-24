@@ -6,6 +6,7 @@ import { SalesHistory } from "./sales-history";
 import { OpenShiftDialog } from "./open-shift-dialog";
 import { NoShiftPrompt } from "./no-shift-prompt";
 import { AddExpenseDialog } from "./add-expense-dialog";
+import { AddCapitalDialog } from "./add-capital-dialog";
 import { ViewExpensesDialog } from "./view-expenses-dialog";
 import { useCart, type FiscalData } from "../hooks/use-cart";
 import { usePOSProducts } from "../hooks/use-pos-products";
@@ -18,6 +19,7 @@ export function POSInterface() {
   const [showSalesHistory, setShowSalesHistory] = useState(false);
   const [showOpenShiftDialog, setShowOpenShiftDialog] = useState(false);
   const [showAddExpenseDialog, setShowAddExpenseDialog] = useState(false);
+  const [showAddCapitalDialog, setShowAddCapitalDialog] = useState(false);
   const [showViewExpensesDialog, setShowViewExpensesDialog] = useState(false);
   // Lifted here so the F2/F4 keyboard shortcuts can drive them
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -90,7 +92,7 @@ export function POSInterface() {
     const handleKey = (e: KeyboardEvent) => {
       if (!["F1", "F2", "F3", "F4"].includes(e.key)) return;
       if (!activeShift || showSalesHistory) return;
-      if (paymentDialogOpen || parkedDialogOpen || showAddExpenseDialog || showViewExpensesDialog || showOpenShiftDialog) return;
+      if (paymentDialogOpen || parkedDialogOpen || showAddExpenseDialog || showAddCapitalDialog || showViewExpensesDialog || showOpenShiftDialog) return;
       e.preventDefault();
 
       switch (e.key) {
@@ -113,12 +115,15 @@ export function POSInterface() {
     return () => window.removeEventListener("keydown", handleKey);
   }, [
     activeShift, showSalesHistory, cart.length, parkSale,
-    paymentDialogOpen, parkedDialogOpen, showAddExpenseDialog, showViewExpensesDialog, showOpenShiftDialog,
+    paymentDialogOpen, parkedDialogOpen, showAddExpenseDialog, showAddCapitalDialog, showViewExpensesDialog, showOpenShiftDialog,
   ]);
 
   return (
     <>
-      <div className="flex gap-6 h-[calc(100vh-6.5rem)]">
+      {/* h-full: con pb-0 en <main>, la fila llena exactamente hasta el
+          borde inferior de la pantalla (antes calc(100vh-6.5rem) dejaba
+          el padding inferior del layout como franja blanca). */}
+      <div className="flex gap-6 h-full">
         {showSalesHistory ? (
           <div className="w-full h-full">
             <SalesHistory setShowSalesHistory={setShowSalesHistory} />
@@ -146,6 +151,7 @@ export function POSInterface() {
                 showSalesHistory={showSalesHistory}
                 setShowSalesHistory={setShowSalesHistory}
                 onAddExpense={() => setShowAddExpenseDialog(true)}
+                onAddCapital={() => setShowAddCapitalDialog(true)}
                 onViewExpenses={() => setShowViewExpensesDialog(true)}
                 searchInputRef={searchInputRef}
               />
@@ -183,6 +189,10 @@ export function POSInterface() {
       <AddExpenseDialog
         isOpen={showAddExpenseDialog}
         onClose={() => setShowAddExpenseDialog(false)}
+      />
+      <AddCapitalDialog
+        isOpen={showAddCapitalDialog}
+        onClose={() => setShowAddCapitalDialog(false)}
       />
       <ViewExpensesDialog
         isOpen={showViewExpensesDialog}

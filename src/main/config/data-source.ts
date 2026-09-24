@@ -10,6 +10,7 @@ import { SaleItem } from "@main/modules/sales/entities/sale-item.entity";
 import { DebtPayment } from "@main/modules/sales/entities/debt-payment.entity";
 import { Shift } from "@main/modules/shifts/entities/shift.entity";
 import { ShiftExpense } from "@main/modules/shifts/entities/shift-expense.entity";
+import { ShiftCapital } from "@main/modules/shifts/entities/shift-capital.entity";
 import { Setting } from "@main/modules/settings/entities/setting.entity";
 import { Customer } from "@main/modules/customers/entities/customer.entity";
 import { Role } from "@main/modules/users/entities/role.entity";
@@ -28,6 +29,7 @@ import { Suppliers1756850000000 } from "@main/migrations/1756850000000-Suppliers
 import { LicenseClockGuard1756950000000 } from "@main/migrations/1756950000000-LicenseClockGuard";
 import { ProductBarcodesAndArchive1757050000000 } from "@main/migrations/1757050000000-ProductBarcodesAndArchive";
 import { ProductUnit1757150000000 } from "@main/migrations/1757150000000-ProductUnit";
+import { ShiftCapital1757250000000 } from "@main/migrations/1757250000000-ShiftCapital";
 import { ProductBarcode } from "@main/modules/products/entities/product-barcode.entity";
 import { Supplier } from "@main/modules/suppliers/entities/supplier.entity";
 import { Purchase, PurchaseItem } from "@main/modules/suppliers/entities/purchase.entity";
@@ -55,6 +57,7 @@ export const AppDataSource = new DataSource({
         DebtPayment,
         Shift,
         ShiftExpense,
+        ShiftCapital,
         Setting,
         Customer,
         AuditLog,
@@ -67,7 +70,7 @@ export const AppDataSource = new DataSource({
         PurchaseItem,
         SupplierPayment,
     ],
-    migrations: [InitialSchema1756150000000, DebtPaymentRefunds1756250000000, LicenseTrial1756350000000, FiscalNcf1756450000000, SaleReturns1756550000000, ProductVariants1756650000000, SaleVoidedAt1756750000000, Suppliers1756850000000, LicenseClockGuard1756950000000, ProductBarcodesAndArchive1757050000000, ProductUnit1757150000000],
+    migrations: [InitialSchema1756150000000, DebtPaymentRefunds1756250000000, LicenseTrial1756350000000, FiscalNcf1756450000000, SaleReturns1756550000000, ProductVariants1756650000000, SaleVoidedAt1756750000000, Suppliers1756850000000, LicenseClockGuard1756950000000, ProductBarcodesAndArchive1757050000000, ProductUnit1757150000000, ShiftCapital1757250000000],
     migrationsTableName: "migrations",
     subscribers: [],
 });

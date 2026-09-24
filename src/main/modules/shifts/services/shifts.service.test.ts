@@ -276,4 +276,91 @@ describe('ShiftsService', () => {
       expect(mine[0].user_id).toBe(user.id);
     });
   });
+
+  // ─── addCapital ─────────────────────────────────────────────────────────────
+
+  describe('addCapital', () => {
+    it('registra un aporte con motivo por defecto y suma al arqueo', async () => {
+      const shift = await createTestShift(user.id, { initial_cash: 1000 });
+      const capital = await service.addCapital(shift.id, 500.005, undefined, user.id);
+      expect(Number(capital.amount)).toBe(500.01);
+      expect(capital.reason).toBe('Aporte a caja');
+      expect(capital.shift_id).toBe(shift.id);
+
+      const closed = await service.closeShift(shift.id, 1500.01, user.id);
+      // 1000 + 500.01 del aporte
+      expect(Number(closed.expected_cash)).toBe(1500.01);
+    });
+
+    it('acepta motivo personalizado recortado', async () => {
+      const shift = await createTestShift(user.id);
+      const capital = await service.addCapital(shift.id, 100, '  Aporte del dueño  ', user.id);
+      expect(capital.reason).toBe('Aporte del dueño');
+    });
+
+    it('rechaza monto <= 0 o no numérico', async () => {
+      const shift = await createTestShift(user.id);
+      await expect(service.addCapital(shift.id, 0, undefined, user.id)).rejects.toThrow(/mayor a 0/);
+      await expect(service.addCapital(shift.id, -5, undefined, user.id)).rejects.toThrow(/mayor a 0/);
+      await expect(service.addCapital(shift.id, NaN, undefined, user.id)).rejects.toThrow(/mayor a 0/);
+    });
+
+    it('rechaza turno cerrado o inexistente', async () => {
+      const closed = await createTestShift(user.id, { status: 'closed' });
+      await expect(service.addCapital(closed.id, 100, undefined, user.id)).rejects.toThrow(/turno abierto/);
+      await expect(service.addCapital('NOEXISTE', 100, undefined, user.id)).rejects.toThrow(/turno abierto/);
+    });
+
+    it('otro usuario no puede aportar a un turno que no es suyo', async () => {
+      const shift = await createTestShift(user.id);
+      const other = await createTestUser();
+      await expect(service.addCapital(shift.id, 100, undefined, other.id)).rejects.toThrow(/tu propio turno/);
+    });
+
+    it('getShiftCapitals devuelve todos los aportes del turno', async () => {
+      const shift = await createTestShift(user.id);
+      await service.addCapital(shift.id, 100, 'primero', user.id);
+      await service.addCapital(shift.id, 200, 'segundo', user.id);
+
+      const list = await service.getShiftCapitals(shift.id);
+      expect(list).toHaveLength(2);
+      expect(list.reduce((sum, c) => sum + Number(c.amount), 0)).toBe(300);
+    });
+  });
+
+  // ─── deleteExpense ──────────────────────────────────────────────────────────
+
+  describe('deleteExpense', () => {
+    it('borra una salida de un turno abierto propio y el arqueo la ignora', async () => {
+      const shift = await createTestShift(user.id, { initial_cash: 1000 });
+      const expense = await service.addExpense(shift.id, 100, 'Hielo', user.id);
+
+      const deleted = await service.deleteExpense(expense.id, user.id);
+      expect(deleted.id).toBe(expense.id);
+
+      const after = await service.getShiftWithExpenses(shift.id);
+      expect(after?.expenses ?? []).toHaveLength(0);
+
+      const closed = await service.closeShift(shift.id, 1000, user.id);
+      expect(Number(closed.expected_cash)).toBe(1000); // sin el gasto de 100
+    });
+
+    it('rechaza deshacer salidas de un turno cerrado', async () => {
+      const shift = await createTestShift(user.id);
+      const expense = await service.addExpense(shift.id, 50, 'x', user.id);
+      await service.closeShift(shift.id, 1000, user.id);
+      await expect(service.deleteExpense(expense.id, user.id)).rejects.toThrow(/turno cerrado/);
+    });
+
+    it('rechaza deshacer la salida de un turno de otro usuario', async () => {
+      const shift = await createTestShift(user.id);
+      const expense = await service.addExpense(shift.id, 50, 'x', user.id);
+      const other = await createTestUser();
+      await expect(service.deleteExpense(expense.id, other.id)).rejects.toThrow(/tu propio turno/);
+    });
+
+    it('salida inexistente', async () => {
+      await expect(service.deleteExpense('NOEXISTE', user.id)).rejects.toThrow(/no encontrada/);
+    });
+  });
 });

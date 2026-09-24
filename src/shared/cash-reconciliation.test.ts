@@ -40,6 +40,25 @@ describe('computeShiftCash', () => {
     expect(r.expectedCash).toBe(590);
   });
 
+  it('suma las inyecciones de capital al efectivo esperado', () => {
+    const r = computeShiftCash({
+      initialCash: 500,
+      sales: [{ payment_method: 'cash', total_amount: 100 }],
+      debtPayments: [],
+      expenses: [{ amount: 50 }],
+      capital: [{ amount: '200.50' }, { amount: 99.5 }],
+    });
+    expect(r.totalCapital).toBe(300);
+    // 500 + 100 − 50 + 300 = 850
+    expect(r.expectedCash).toBe(850);
+  });
+
+  it('sin capital mantiene totalCapital en 0 (compatibilidad hacia atrás)', () => {
+    const r = computeShiftCash({ initialCash: 10, sales: [], debtPayments: [], expenses: [] });
+    expect(r.totalCapital).toBe(0);
+    expect(r.expectedCash).toBe(10);
+  });
+
   it('sin movimientos devuelve el fondo inicial', () => {
     expect(computeShiftCash({ initialCash: 0, sales: [], debtPayments: [], expenses: [] }).expectedCash).toBe(0);
   });

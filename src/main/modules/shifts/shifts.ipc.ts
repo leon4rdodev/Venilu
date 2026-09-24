@@ -140,6 +140,46 @@ export function registerShiftsHandlers() {
         }
     });
 
+    // Deshacer una salida de caja (borrado) — solo en turnos abiertos propios;
+    // el servicio lo rechaza si el turno ya está cerrado.
+    ipcMain.handle('shifts:delete-expense', async (_event, { expenseId }) => {
+        try {
+            const session = requirePermission('shifts:manage_expenses');
+            const expense = await shiftsService.deleteExpense(expenseId, session.id);
+            auditService.log('shifts:expense_undo', expense.shift_id,
+                `${Number(expense.amount).toFixed(2)} · ${expense.reason}`, { amount: expense.amount });
+            return { success: true, data: expense };
+        } catch (error: any) {
+            return { success: false, message: error.message };
+        }
+    });
+
+    // Inyección de capital (aporte de efectivo) — SUMA al arqueo
+    ipcMain.handle('shifts:add-capital', async (_event, { shiftId, amount, reason }) => {
+        try {
+            const session = requirePermission('shifts:manage_expenses');
+            const capital = await shiftsService.addCapital(shiftId, amount, reason, session.id);
+            auditService.log('shifts:capital', shiftId,
+                `${Number(capital.amount).toFixed(2)}${capital.reason ? ` · ${capital.reason}` : ''}`,
+                { amount: capital.amount });
+            return { success: true, data: capital };
+        } catch (error: any) {
+            return { success: false, message: error.message };
+        }
+    });
+
+    // Aportes de capital registrados en el turno (arqueo + listados)
+    ipcMain.handle('shifts:getCapitals', async (_event, { shiftId }) => {
+        try {
+            const session = requireAuth();
+            await shiftsService.assertShiftAccess(shiftId, session.id, hasPermission('shifts:view_others'));
+            const capitals = await shiftsService.getShiftCapitals(shiftId);
+            return { success: true, data: capitals };
+        } catch (error: any) {
+            return { success: false, message: error.message };
+        }
+    });
+
     // Admin force-close any open shift
     ipcMain.handle('shifts:forceClose', async (_event, { shiftId, finalCash, reason }) => {
         try {

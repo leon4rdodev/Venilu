@@ -51,6 +51,8 @@ const ACTION_LABELS: Record<string, string> = {
   "shifts:open": "Abrió turno",
   "shifts:close": "Cerró turno",
   "shifts:expense": "Salida de caja",
+  "shifts:expense_undo": "Anuló salida de caja",
+  "shifts:capital": "Inyectó capital",
   "shifts:force_close": "Cierre forzado de turno",
   "settings:update": "Cambió ajustes",
   "suppliers:create": "Creó suplidor",

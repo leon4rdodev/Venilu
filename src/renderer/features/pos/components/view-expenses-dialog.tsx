@@ -1,9 +1,13 @@
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@components/ui/dialog';
 import { Button } from '@components/ui/button';
 import { formatCurrency } from '@lib/currency';
 import { formatTime } from '@lib/formatters';
-import { ReceiptPoundSterling, LayoutList } from 'lucide-react';
+import { ReceiptPoundSterling, LayoutList, Undo2, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useShift } from '../hooks/use-shift';
+import { usePermission } from '@renderer/features/auth/hooks/use-permission';
+import { PERMISSIONS } from '@shared/permissions';
 
 interface ViewExpensesDialogProps {
   isOpen: boolean;
@@ -13,10 +17,52 @@ interface ViewExpensesDialogProps {
 }
 
 export function ViewExpensesDialog({ isOpen, onClose, expenses, title }: ViewExpensesDialogProps) {
-  const { shiftExpenses: currentShiftExpenses } = useShift();
+  const { shiftExpenses: currentShiftExpenses, removeExpenseFromShift } = useShift();
+  const canManage = usePermission(PERMISSIONS.SHIFTS_EXPENSES);
+
+  // Sin lista explícita mostramos las salidas del turno ACTUAL (abierto):
+  // solo ahí se puede deshacer — un turno cerrado ya tiene arqueo y no
+  // puede alterarse.
+  const isCurrentShift = expenses === undefined;
+  const canUndo = isCurrentShift && canManage;
+
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setConfirmingId(null);
+      setPendingId(null);
+    }
+  }, [isOpen]);
 
   const displayExpenses = expenses || currentShiftExpenses;
   const totalExpenses = displayExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+
+  const handleUndo = async (expense: any) => {
+    if (!expense?.id || pendingId) return;
+    setPendingId(expense.id);
+    try {
+      if (!window.ipcRenderer) throw new Error("IPC Renderer no disponible");
+
+      const result = await window.ipcRenderer.invoke('shifts:delete-expense', {
+        expenseId: expense.id,
+      }) as { success: boolean; message?: string };
+
+      if (result.success) {
+        toast.success(`Salida de ${formatCurrency(Number(expense.amount))} deshecha`);
+        if (isCurrentShift) removeExpenseFromShift(expense.id);
+        setConfirmingId(null);
+      } else {
+        toast.error(result.message || 'No se pudo deshacer la salida');
+      }
+    } catch (error) {
+      console.error('Error undoing expense:', error);
+      toast.error('Error de conexión');
+    } finally {
+      setPendingId(null);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -33,6 +79,7 @@ export function ViewExpensesDialog({ isOpen, onClose, expenses, title }: ViewExp
           </div>
           <DialogDescription className="ml-[42px]">
             Listado detallado de retiros realizados {title ? 'en este turno' : 'en el turno actual'}
+            {canUndo && '. Puedes deshacer cualquier salida mientras el turno siga abierto.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -60,9 +107,50 @@ export function ViewExpensesDialog({ isOpen, onClose, expenses, title }: ViewExp
                       {formatTime(expense.created_at)}
                     </p>
                   </div>
-                  <span className="text-sm font-medium text-destructive font-mono tabular-nums shrink-0">
-                    -{formatCurrency(Number(expense.amount))}
-                  </span>
+                  {confirmingId === expense.id ? (
+                    /* Step 2: inline confirmation — no window.confirm */
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">¿Deshacer?</span>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-7 px-2.5 text-xs"
+                        disabled={pendingId === expense.id}
+                        onClick={() => handleUndo(expense)}
+                      >
+                        {pendingId === expense.id
+                          ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                          : 'Sí, deshacer'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        disabled={pendingId === expense.id}
+                        onClick={() => setConfirmingId(null)}
+                      >
+                        No
+                      </Button>
+                    </div>
+                  ) : (
+                    /* Step 1: amount + undo trigger */
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-sm font-medium text-destructive font-mono tabular-nums">
+                        -{formatCurrency(Number(expense.amount))}
+                      </span>
+                      {canUndo && expense.id && (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingId(expense.id)}
+                          title="Deshacer esta salida"
+                          aria-label={`Deshacer salida: ${expense.reason}`}
+                          className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors outline-none focus-visible:ring-[1px] focus-visible:ring-ring"
+                        >
+                          <Undo2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

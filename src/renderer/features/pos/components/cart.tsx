@@ -74,7 +74,7 @@ export default function Cart({
     <div className="w-96">
       <div
         className="flex flex-col border border-border rounded-lg bg-card overflow-hidden"
-        style={{ height: "clamp(500px, calc(100vh - 6.5rem), 720px)" }}
+        style={{ height: "clamp(500px, calc(100vh - 5.25rem), 720px)" }}
       >
         {/* HEADER */}
         <div className="shrink-0 px-4 py-3 border-b border-border bg-card flex items-center justify-between gap-2">

@@ -12,6 +12,8 @@ interface ShiftContextType {
   shiftSales: ShiftSale[];
   shiftDebtPayments: DebtPayment[];
   shiftExpenses: any[];
+  /** Inyecciones de capital (aportes de efectivo) de este turno */
+  shiftCapitals: any[];
   /** Devoluciones parciales reembolsadas desde la caja de este turno */
   shiftReturns: SaleReturnSummary[];
   isLoading: boolean;
@@ -20,6 +22,9 @@ interface ShiftContextType {
   addSaleToShift: (sale: ShiftSale) => void;
   addDebtPaymentToShift: (payment: DebtPayment) => void;
   addExpenseToShift: (expense: any) => void;
+  /** Deshacer una salida: la quita del estado tras el borrado en backend */
+  removeExpenseFromShift: (expenseId: string) => void;
+  addCapitalToShift: (capital: any) => void;
   addReturnToShift: (ret: SaleReturnSummary) => void;
   fetchActiveShift: () => Promise<void>;
 }
@@ -38,6 +43,7 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
   const [shiftSales, setShiftSales] = useState<ShiftSale[]>([]);
   const [shiftDebtPayments, setShiftDebtPayments] = useState<DebtPayment[]>([]);
   const [shiftExpenses, setShiftExpenses] = useState<any[]>([]);
+  const [shiftCapitals, setShiftCapitals] = useState<any[]>([]);
   const [shiftReturns, setShiftReturns] = useState<SaleReturnSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -47,6 +53,7 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
       setShiftSales([]);
       setShiftDebtPayments([]);
       setShiftExpenses([]);
+      setShiftCapitals([]);
       setShiftReturns([]);
       setIsLoading(false);
       return;
@@ -72,6 +79,9 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
         if (expResult.success && expResult.data) {
           setShiftExpenses(expResult.data);
         }
+        // Cash injections (capital) for the active shift
+        const capResult = await window.ipcRenderer.invoke('shifts:getCapitals', { shiftId: result.data.id }) as IPCResponse<any[]>;
+        setShiftCapitals(capResult.success && capResult.data ? capResult.data : []);
         // Partial returns refunded from this register (subtract from expected cash)
         const retResult = await window.ipcRenderer.invoke('shifts:getReturns', { shiftId: result.data.id }) as IPCResponse<SaleReturnSummary[]>;
         setShiftReturns(retResult.success && retResult.data ? retResult.data : []);
@@ -80,6 +90,7 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
         setShiftSales([]);
         setShiftDebtPayments([]);
         setShiftExpenses([]);
+        setShiftCapitals([]);
         setShiftReturns([]);
       }
     } catch (error) {
@@ -88,6 +99,7 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
       setShiftSales([]);
       setShiftDebtPayments([]);
       setShiftExpenses([]);
+      setShiftCapitals([]);
       setShiftReturns([]);
     } finally {
       setIsLoading(false);
@@ -109,6 +121,7 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
       setShiftSales([]);
       setShiftDebtPayments([]);
       setShiftExpenses([]);
+      setShiftCapitals([]);
       setShiftReturns([]);
     }
     return result;
@@ -124,6 +137,7 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
       setShiftSales([]);
       setShiftDebtPayments([]);
       setShiftExpenses([]);
+      setShiftCapitals([]);
       setShiftReturns([]);
     }
     return result;
@@ -141,25 +155,37 @@ export const ShiftProvider: React.FC<ShiftProviderProps> = ({ children }) => {
     setShiftExpenses(prev => [...prev, expense]);
   };
 
+  const removeExpenseFromShift = (expenseId: string) => {
+    setShiftExpenses(prev => prev.filter(e => e.id !== expenseId));
+  };
+
+  const addCapitalToShift = (capital: any) => {
+    // getCapitals devuelve del más reciente al más antiguo: prepend mantiene el orden
+    setShiftCapitals(prev => [capital, ...prev]);
+  };
+
   const addReturnToShift = (ret: SaleReturnSummary) => {
     setShiftReturns(prev => [ret, ...prev]);
   };
 
   return (
-    <ShiftContext.Provider value={{ 
-      activeShift, 
-      shiftSales, 
-      shiftDebtPayments, 
+    <ShiftContext.Provider value={{
+      activeShift,
+      shiftSales,
+      shiftDebtPayments,
       shiftExpenses,
+      shiftCapitals,
       shiftReturns,
-      isLoading, 
-      openShift, 
-      closeShift, 
-      addSaleToShift, 
-      addDebtPaymentToShift, 
+      isLoading,
+      openShift,
+      closeShift,
+      addSaleToShift,
+      addDebtPaymentToShift,
       addExpenseToShift,
+      removeExpenseFromShift,
+      addCapitalToShift,
       addReturnToShift,
-      fetchActiveShift 
+      fetchActiveShift
     }}>
       {children}
     </ShiftContext.Provider>

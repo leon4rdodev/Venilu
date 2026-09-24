@@ -33,7 +33,12 @@ export function MainLayout() {
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />
 
-          <main ref={mainRef} className="flex-1 overflow-y-auto overflow-x-hidden ml-16 p-5">
+          {/* POS: sin padding inferior — sus paneles llegan al borde inferior
+              de la pantalla (evita la franja blanca de 20px al final). */}
+          <main
+            ref={mainRef}
+            className={`flex-1 overflow-y-auto overflow-x-hidden ml-16 p-5${pathname === "/pos" ? " pb-0" : ""}`}
+          >
             <Outlet />
           </main>
         </div>

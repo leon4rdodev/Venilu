@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Input } from "@components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover"
-import { Search, History, Package, LayoutGrid, X, MinusCircle, ChevronDown } from "lucide-react"
+import { Search, History, Package, LayoutGrid, X, MinusCircle, PlusCircle, ChevronDown } from "lucide-react"
 import { cn } from "@lib/utils"
 import { ProductCard } from "./product-card"
 import { Product } from "@shared/types/models"
@@ -29,6 +29,7 @@ interface ProductGridProps {
   showSalesHistory: boolean;
   setShowSalesHistory: (show: boolean) => void;
   onAddExpense: () => void;
+  onAddCapital: () => void;
   onViewExpenses: () => void;
   /** Shared ref so the POS F1 shortcut can focus the search box from outside */
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
@@ -50,6 +51,7 @@ export function ProductGrid({
   showSalesHistory,
   setShowSalesHistory,
   onAddExpense,
+  onAddCapital,
   onViewExpenses,
   searchInputRef,
 }: ProductGridProps) {
@@ -79,12 +81,14 @@ export function ProductGrid({
   const showSkeleton = useMinimumLoading(isLoading && products.length === 0, 500)
 
   return (
-    <div className="flex-1 flex flex-col gap-3 overflow-hidden">
+    <div className="flex-1 min-w-0 flex flex-col gap-3 overflow-x-clip">
       {/* Header toolbar */}
       {/* Toolbar — flat single row: compact search, category chips, quick actions.
-          The root container is overflow-hidden, so this row keeps a little padding
-          to give the focus ring room to render without being clipped. */}
-      <div className="flex items-center gap-2 shrink-0 px-0.5 pt-0.5">
+          overflow-x-clip keeps the column shrinkable (min-width:0) so narrow
+          windows never push the cart off-screen, while overflow-y stays visible
+          so the focus rings / expenses counter badge render upward into the
+          layout padding uncropped. */}
+      <div className="flex items-center gap-2 shrink-0 px-0.5">
         <div className="relative w-88 shrink-0">
           <Search
             className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
@@ -129,7 +133,7 @@ export function ProductGrid({
               ref={chipsRef}
               role="group"
               aria-label="Filtrar por categoría"
-              className="flex items-center gap-1.5 overflow-x-auto min-w-0 px-0.5 py-0.5"
+              className="flex items-center gap-1.5 overflow-x-auto no-scrollbar min-w-0 px-0.5 py-0.5"
               onWheel={(e) => {
                 if (e.deltaY !== 0 && e.currentTarget.scrollWidth > e.currentTarget.clientWidth) {
                   e.currentTarget.scrollLeft += e.deltaY
@@ -207,29 +211,41 @@ export function ProductGrid({
 
         <div className="flex gap-2 shrink-0">
           {canManageExpenses && (
-            <div className="relative">
+            <>
               <Button
                 variant="outline"
                 size="icon"
-                className="h-9 w-9 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
-                onClick={onAddExpense}
-                title="Registrar gasto de caja"
-                aria-label="Registrar gasto de caja"
+                className="h-9 w-9 shrink-0 text-emerald-600 dark:text-emerald-400 hover:text-emerald-600 hover:bg-emerald-500/10 hover:border-emerald-500/30"
+                onClick={onAddCapital}
+                title="Inyectar capital a la caja"
+                aria-label="Inyectar capital a la caja"
               >
-                <MinusCircle className="h-4 w-4" strokeWidth={1.75} />
+                <PlusCircle className="h-4 w-4" strokeWidth={1.75} />
               </Button>
-              {shiftExpenses.length > 0 && (
-                <button
-                  type="button"
-                  onClick={onViewExpenses}
-                  title="Ver gastos del turno"
-                  aria-label={`Ver gastos del turno (${shiftExpenses.length})`}
-                  className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 px-1 items-center justify-center rounded-full bg-destructive text-[10px] leading-none font-semibold tabular-nums text-white ring-2 ring-background animate-in zoom-in duration-300 motion-reduce:animate-none outline-none focus-visible:ring-ring"
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+                  onClick={onAddExpense}
+                  title="Registrar gasto de caja"
+                  aria-label="Registrar gasto de caja"
                 >
-                  {shiftExpenses.length}
-                </button>
-              )}
-            </div>
+                  <MinusCircle className="h-4 w-4" strokeWidth={1.75} />
+                </Button>
+                {shiftExpenses.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={onViewExpenses}
+                    title="Ver gastos del turno"
+                    aria-label={`Ver gastos del turno (${shiftExpenses.length})`}
+                    className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 px-1 items-center justify-center rounded-full bg-destructive text-[10px] leading-none font-semibold tabular-nums text-white ring-2 ring-background animate-in zoom-in duration-300 motion-reduce:animate-none outline-none focus-visible:ring-ring"
+                  >
+                    {shiftExpenses.length}
+                  </button>
+                )}
+              </div>
+            </>
           )}
 
           <Button

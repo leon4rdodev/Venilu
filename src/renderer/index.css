@@ -257,6 +257,19 @@
   background-color: oklch(0.45 0.04 260);
 }
 
+/* Strips horizontales (p. ej. chips de categoría del POS): sin barra
+   visible — la fila no se "levanta"; el scroll sigue con rueda/trackpad
+   y con el picker "Más". */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 @layer utilities {
   .grid {
     @apply border-border;
