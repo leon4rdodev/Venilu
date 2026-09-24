@@ -48,7 +48,11 @@ export function useCart() {
     cartRef.current = cart;
   }, [cart]);
 
-  const addToCart = useCallback((product: Product) => {
+  /**
+   * Agrega un producto al carrito. Devuelve `true` si se agregó o incrementó;
+   * `false` si no (p. ej. sin más stock — ya muestra el toast de error).
+   */
+  const addToCart = useCallback((product: Product): boolean => {
     // Stock check uses the product's own snapshot — with server-side pagination
     // the full catalog is no longer guaranteed to be in memory.
     // Clic = 1 unidad, o el paso natural de la medida (0.5 libra, 0.5 kilo…).
@@ -60,7 +64,7 @@ export function useCart() {
       toast.error("Sin stock suficiente", {
         description: `Solo quedan ${formatQtyWithUnit(product.stock, product.unit)} de ${product.name}.`,
       });
-      return;
+      return false;
     }
 
     setCart((prev) => {
@@ -75,6 +79,7 @@ export function useCart() {
       }
       return [...prev, { ...product, quantity: step, category: product.category || null }];
     });
+    return true;
   }, []);
 
   const updateQuantity = useCallback((id: string, delta: number) => {

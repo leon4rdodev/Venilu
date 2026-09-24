@@ -72,9 +72,14 @@ export function POSInterface() {
       };
 
       if (result.success && result.data) {
-        addToCart(result.data);
-        toast.success("Producto escaneado", { description: `${result.data.name} agregado al carrito.` });
-        setSearch("");
+        const added = addToCart(result.data);
+        if (added) {
+          toast.success("Producto escaneado", { description: `${result.data.name} agregado al carrito.` });
+        }
+        // Igual que en Inventario: el código escaneado queda en el buscador y
+        // la grilla muestra el producto. Si ya no había más stock, addToCart ya
+        // notificó el error — aquí no se duplica el éxito.
+        setSearch(trimmed);
       } else {
         toast.error("Producto no encontrado", { description: `Ningún producto con el código ${trimmed}.` });
       }

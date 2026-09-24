@@ -54,7 +54,9 @@ beforeEach(() => {
 describe("useCart · addToCart", () => {
   it("adds a new product with quantity 1", () => {
     const { result } = renderHook(() => useCart());
-    act(() => result.current.addToCart(product()));
+    let added = false;
+    act(() => { added = result.current.addToCart(product()); });
+    expect(added).toBe(true);
     expect(result.current.cart).toHaveLength(1);
     expect(result.current.cart[0]).toMatchObject({ id: "p1", quantity: 1 });
   });
@@ -62,7 +64,9 @@ describe("useCart · addToCart", () => {
   it("increments quantity when the product is already in the cart", () => {
     const { result } = renderHook(() => useCart());
     act(() => result.current.addToCart(product()));
-    act(() => result.current.addToCart(product()));
+    let added = false;
+    act(() => { added = result.current.addToCart(product()); });
+    expect(added).toBe(true);
     expect(result.current.cart).toHaveLength(1);
     expect(result.current.cart[0].quantity).toBe(2);
   });
@@ -71,7 +75,9 @@ describe("useCart · addToCart", () => {
     const { result } = renderHook(() => useCart());
     const p = { ...product(), stock: 1 } as Product;
     act(() => result.current.addToCart(p));
-    act(() => result.current.addToCart(p));
+    let added = true;
+    act(() => { added = result.current.addToCart(p); });
+    expect(added).toBe(false);
     expect(result.current.cart[0].quantity).toBe(1);
     expect(h.toastError).toHaveBeenCalledWith("Sin stock suficiente", expect.anything());
   });
