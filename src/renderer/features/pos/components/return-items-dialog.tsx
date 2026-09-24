@@ -7,11 +7,14 @@ import { formatCurrency } from '@lib/currency';
 import { Undo2, Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Sale } from '@shared/types/models';
+import { formatQty, round3, unitDef } from '@shared/units';
 
 interface ReturnableSaleItem {
   id?: string;
   product_name: string;
   quantity: number;
+  /** Snapshot de la unidad al vender ('unidad' | libra | kilo…) */
+  unit?: string;
   unit_price: number;
 }
 
@@ -57,7 +60,7 @@ export function ReturnItemsDialog({
   }, [transaction]);
 
   const totalUnits = useMemo(
-    () => Object.values(quantities).reduce((sum, q) => sum + q, 0),
+    () => round3(Object.values(quantities).reduce((sum, q) => sum + q, 0)),
     [quantities]
   );
 
@@ -75,7 +78,9 @@ export function ReturnItemsDialog({
 
   const adjustQuantity = (itemId: string, delta: number, max: number) => {
     setQuantities((prev) => {
-      const next = Math.min(max, Math.max(0, (prev[itemId] ?? 0) + delta));
+      // round3 + tope en `max`: el paso fraccional (0.5) con tope alcanza
+      // exactamente lo que quedó por devolver (1.75 → 0.5, 1, 1.5, 1.75).
+      const next = round3(Math.min(max, Math.max(0, (prev[itemId] ?? 0) + delta)));
       return { ...prev, [itemId]: next };
     });
   };
@@ -90,7 +95,7 @@ export function ReturnItemsDialog({
 
     const items = Object.entries(quantities)
       .filter(([, qty]) => qty > 0)
-      .map(([sale_item_id, quantity]) => ({ sale_item_id, quantity }));
+      .map(([sale_item_id, quantity]) => ({ sale_item_id, quantity: round3(quantity) }));
 
     setIsSubmitting(true);
     try {
@@ -153,9 +158,12 @@ export function ReturnItemsDialog({
               {saleItems.map((item, index) => {
                 const itemId = item.id;
                 const returned = itemId ? getReturned(alreadyReturned, itemId) : 0;
-                const remaining = Math.max(0, item.quantity - returned);
+                const remaining = Math.max(0, round3(item.quantity - returned));
                 const selected = itemId ? (quantities[itemId] ?? 0) : 0;
                 const disabled = !itemId || remaining <= 0;
+                const itemUnit = unitDef(item.unit);
+                const step = itemUnit.step;
+                const qtySuffix = itemUnit.value === 'unidad' ? '' : ` ${itemUnit.abbr}`;
 
                 return (
                   <div
@@ -170,7 +178,7 @@ export function ReturnItemsDialog({
                         {item.product_name}
                       </p>
                       <p className="text-xs text-muted-foreground truncate tabular-nums">
-                        {formatCurrency(item.unit_price)} · Vendidos: {item.quantity} · Ya devueltos: {returned}
+                        {formatCurrency(item.unit_price)}{qtySuffix} · Vendidos: {formatQty(item.quantity)} · Ya devueltos: {formatQty(returned)}
                       </p>
                     </div>
                     {disabled ? (
@@ -181,32 +189,32 @@ export function ReturnItemsDialog({
                       <div
                         className="flex items-center gap-1 shrink-0"
                         role="group"
-                        aria-label={`Unidades a devolver de ${item.product_name}`}
+                        aria-label={`${itemUnit.plural} a devolver de ${item.product_name}`}
                       >
                         <Button
                           size="icon"
                           variant="outline"
                           className="h-7 w-7"
-                          onClick={() => adjustQuantity(itemId!, -1, remaining)}
+                          onClick={() => adjustQuantity(itemId!, -step, remaining)}
                           disabled={isSubmitting || selected <= 0}
-                          aria-label={`Quitar una unidad de ${item.product_name}`}
+                          aria-label={`Quitar ${step === 1 ? "una" : formatQty(step)} ${step === 1 ? itemUnit.singular : itemUnit.plural} de ${item.product_name}`}
                         >
                           <Minus className="h-3 w-3" strokeWidth={1.75} />
                         </Button>
                         <span
-                          className="w-8 text-center text-sm font-medium tabular-nums"
+                          className="w-12 shrink-0 text-center text-sm font-medium tabular-nums"
                           aria-live="polite"
-                          aria-label={`${selected} de ${remaining} disponibles`}
+                          aria-label={`${formatQty(selected)} de ${formatQty(remaining)} disponibles`}
                         >
-                          {selected}
+                          {formatQty(selected)}
                         </span>
                         <Button
                           size="icon"
                           variant="outline"
                           className="h-7 w-7"
-                          onClick={() => adjustQuantity(itemId!, 1, remaining)}
+                          onClick={() => adjustQuantity(itemId!, step, remaining)}
                           disabled={isSubmitting || selected >= remaining}
-                          aria-label={`Agregar una unidad de ${item.product_name}`}
+                          aria-label={`Agregar ${step === 1 ? "una" : formatQty(step)} ${step === 1 ? itemUnit.singular : itemUnit.plural} de ${item.product_name}`}
                         >
                           <Plus className="h-3 w-3" strokeWidth={1.75} />
                         </Button>

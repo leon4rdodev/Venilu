@@ -8,6 +8,7 @@ import { cn } from "@lib/utils";
 import { getCategoryIcon, getCategoryColor } from "@renderer/features/pos/components/product-card";
 import { productCodeSummary } from "./product-codes";
 import { Product } from "@shared/types/models";
+import { formatQty, unitDef } from "@shared/units";
 
 interface InventoryProductCardProps {
   product: Product;
@@ -34,11 +35,14 @@ export const InventoryProductCard = memo(function InventoryProductCard({ product
   const codes = productCodeSummary(product);
   const isOutOfStock = product.stock === 0;
   const isLowStock = product.stock > 0 && product.stock <= minStock;
+  const stockUnit = unitDef(product.unit);
+  // "12 uds" para unidades; "12.5 lb" para medidas fraccionables.
+  const stockLabel = `${formatQty(product.stock)} ${stockUnit.value === "unidad" ? "uds" : stockUnit.abbr}`;
   const stockTitle = isOutOfStock
     ? "Agotado"
     : isLowStock
       ? `Stock bajo (mínimo ${minStock})`
-      : `${product.stock} unidades`;
+      : `${formatQty(product.stock)} ${stockUnit.plural}`;
   const imageSrc = productImageSrc(product.image);
   // cost_price is stripped server-side when the user lacks inventory:view_costs
   const showCost = product.cost_price !== undefined && product.cost_price !== null;
@@ -82,11 +86,11 @@ export const InventoryProductCard = memo(function InventoryProductCard({ product
           ) : isLowStock ? (
             <>
               <AlertTriangle className="h-3 w-3" strokeWidth={2.25} aria-hidden="true" />
-              {product.stock} uds
+              {stockLabel}
               <span className="sr-only"> (stock bajo)</span>
             </>
           ) : (
-            <>{product.stock} uds</>
+            <>{stockLabel}</>
           )}
         </span>
 

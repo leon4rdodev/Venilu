@@ -20,6 +20,14 @@ export class Product {
     @Column("decimal", { precision: 10, scale: 2, default: 0 })
     cost_price!: number;
 
+    /**
+     * Unidad de medida: 'unidad' (default) = cantidades enteras estrictas;
+     * libra/kilo/litro/… = cantidades fraccionables (hasta 3 decimales).
+     * El precio y el stock se interpretan en esta unidad.
+     */
+    @Column({ default: "unidad" })
+    unit!: string;
+
     @Index()
     @Column("integer", { default: 0 })
     stock!: number;

@@ -9,6 +9,7 @@ import { Shift } from "@main/modules/shifts/entities/shift.entity";
 import { ShiftExpense } from "@main/modules/shifts/entities/shift-expense.entity";
 import { getSessionUser } from "@main/shared/session";
 import { round2 } from "@shared/money";
+import { round3, unitDef } from "@shared/units";
 
 export interface PurchaseItemInput {
     product_id: string;
@@ -115,16 +116,20 @@ export class PurchasesService {
             const session = getSessionUser();
             const updateCosts = input.update_costs !== false;
 
-            // Consolidar líneas repetidas del mismo producto
+            // Consolidar líneas repetidas del mismo producto.
+            // La forma se valida aquí; la regla de enteros por unidad se
+            // aplica después, cuando se conoce el producto de cada línea.
             const merged = new Map<string, { quantity: number; unit_cost: number }>();
             for (const raw of input.items) {
                 const qty = Number(raw.quantity);
                 const cost = Number(raw.unit_cost);
                 if (typeof raw.product_id !== 'string' || !raw.product_id) throw new Error("Producto inválido en la compra");
-                if (!Number.isInteger(qty) || qty <= 0) throw new Error("La cantidad debe ser un entero mayor a 0");
+                if (!Number.isFinite(qty) || qty <= 0 || Math.abs(qty - round3(qty)) > 1e-9) {
+                    throw new Error("La cantidad debe ser un número mayor a 0 con hasta 3 decimales");
+                }
                 if (!Number.isFinite(cost) || cost < 0) throw new Error("El costo unitario es inválido");
                 const prev = merged.get(raw.product_id);
-                merged.set(raw.product_id, { quantity: (prev?.quantity ?? 0) + qty, unit_cost: round2(cost) });
+                merged.set(raw.product_id, { quantity: round3((prev?.quantity ?? 0) + qty), unit_cost: round2(cost) });
             }
 
             let purchaseId = '';
@@ -143,9 +148,14 @@ export class PurchasesService {
                 const product = await manager.findOneBy(Product, { id: productId });
                 if (!product) throw new Error("Producto no encontrado");
                 if (product.archived_at) throw new Error(`El producto "${product.name}" está archivado: restáuralo para registrarle compras`);
+                // Productos por unidad: la cantidad debe ser entera. Las
+                // medidas fraccionables (libra, kilo, litro…) aceptan decimales.
+                if (unitDef(product.unit).integerOnly && !Number.isInteger(line.quantity)) {
+                    throw new Error(`La cantidad de "${product.name}" debe ser un entero mayor a 0 (se vende por unidad)`);
+                }
                 const previousCost = Number(product.cost_price) || 0;
 
-                product.stock = Number(product.stock) + line.quantity;
+                product.stock = round3(Number(product.stock) + line.quantity);
                 if (updateCosts) product.cost_price = line.unit_cost;
                 await manager.save(Product, product);
                 movements.push({ product_id: product.id, quantity_delta: line.quantity, stock_after: product.stock });

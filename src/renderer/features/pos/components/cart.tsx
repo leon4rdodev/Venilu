@@ -15,6 +15,7 @@ import type { ParkedSale, FiscalData } from "../hooks/use-cart";
 interface CartProps {
   cart: CartItemType[];
   onUpdateQuantity: (id: string, delta: number) => void;
+  onSetQuantity: (id: string, qty: number) => boolean;
   onRemoveFromCart: (id: string) => void;
   onClearCart: () => void;
   discountAmount: number;
@@ -36,6 +37,7 @@ interface CartProps {
 export default function Cart({
   cart,
   onUpdateQuantity,
+  onSetQuantity,
   onRemoveFromCart,
   onClearCart,
   discountAmount,
@@ -176,6 +178,7 @@ export default function Cart({
                   key={item.id}
                   item={item}
                   onUpdateQuantity={onUpdateQuantity}
+                  onSetQuantity={onSetQuantity}
                   onRemoveFromCart={onRemoveFromCart}
                 />
               ))}

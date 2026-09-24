@@ -13,6 +13,7 @@ import { cn } from "@lib/utils";
 import { formatCurrency, getCurrencySymbol } from "@lib/currency";
 import { round2 } from "@shared/money";
 import { Product, Purchase, Supplier } from "@shared/types/models";
+import { formatQty, isValidQuantity, unitDef } from "@shared/units";
 import { useShift } from "@renderer/features/pos/hooks/use-shift";
 import { usePermission } from "@renderer/features/auth/hooks/use-permission";
 import { PERMISSIONS } from "@shared/permissions";
@@ -33,6 +34,8 @@ interface Line {
   current_cost: number | null;
   quantity: string;
   unit_cost: string;
+  /** Unidad de medida del producto ('unidad' | libra | kilo…) */
+  unit?: string;
 }
 
 type PayMethod = "cash" | "transfer" | "credit";
@@ -103,12 +106,16 @@ export function PurchaseDialog({ open, onOpenChange, supplier: presetSupplier = 
   const addProduct = (p: Product) => {
     setLines((prev) => {
       if (prev.some((l) => l.product_id === p.id)) {
-        return prev.map((l) => l.product_id === p.id ? { ...l, quantity: String((Number(l.quantity) || 0) + 1) } : l);
+        // Repetido: suma el paso de su medida (1 unidad, 0.5 libra…)
+        return prev.map((l) => l.product_id === p.id
+          ? { ...l, quantity: String((Number(l.quantity) || 0) + unitDef(l.unit).step) }
+          : l);
       }
       const cost = p.cost_price != null ? Number(p.cost_price) : null;
       return [...prev, {
         product_id: p.id, product_name: p.name, current_stock: Number(p.stock) || 0,
         current_cost: cost, quantity: "1", unit_cost: cost != null ? String(cost) : "",
+        unit: p.unit || "unidad",
       }];
     });
     setProductSearch("");
@@ -119,7 +126,7 @@ export function PurchaseDialog({ open, onOpenChange, supplier: presetSupplier = 
   const removeLine = (id: string) => setLines((prev) => prev.filter((l) => l.product_id !== id));
 
   const total = useMemo(
-    () => round2(lines.reduce((sum, l) => sum + (Number.parseInt(l.quantity, 10) || 0) * (Number.parseFloat(l.unit_cost) || 0), 0)),
+    () => round2(lines.reduce((sum, l) => sum + (Number.parseFloat(l.quantity.replace(",", ".")) || 0) * (Number.parseFloat(l.unit_cost) || 0), 0)),
     [lines],
   );
   const paid = method === "credit" ? 0 : amountPaid === "" ? total : (Number.parseFloat(amountPaid) || 0);
@@ -128,8 +135,9 @@ export function PurchaseDialog({ open, onOpenChange, supplier: presetSupplier = 
   const effectiveDue = dueDate || todayPlus(creditDays);
 
   const isLineValid = (l: Line) => {
-    const q = Number.parseInt(l.quantity, 10); const c = Number.parseFloat(l.unit_cost);
-    return Number.isInteger(q) && q > 0 && Number.isFinite(c) && c >= 0;
+    const q = Number.parseFloat(l.quantity.replace(",", "."));
+    const c = Number.parseFloat(l.unit_cost);
+    return isValidQuantity(q, l.unit) && Number.isFinite(c) && c >= 0;
   };
   const linesValid = lines.length > 0 && lines.every(isLineValid);
   const needsShift = method === "cash" && paid > 0 && !activeShift;
@@ -141,9 +149,9 @@ export function PurchaseDialog({ open, onOpenChange, supplier: presetSupplier = 
     ? null
     : !supplierId ? "Selecciona un suplidor para continuar."
     : lines.length === 0 ? "Agrega al menos un producto recibido."
-    : !linesValid ? "Indica cantidad y costo unitario en los productos marcados."
+    : !linesValid ? "Indica cantidad (mayor que 0; entera si se vende por unidad) y costo unitario en los productos marcados."
     : null;
-  const totalUnits = lines.reduce((sum, l) => sum + (Number.parseInt(l.quantity, 10) || 0), 0);
+  const totalUnits = lines.reduce((sum, l) => sum + (Number.parseFloat(l.quantity.replace(",", ".")) || 0), 0);
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -153,7 +161,11 @@ export function PurchaseDialog({ open, onOpenChange, supplier: presetSupplier = 
         supplier_id: supplierId,
         invoice_number: invoice.trim() || undefined,
         notes: notes.trim() || undefined,
-        items: lines.map((l) => ({ product_id: l.product_id, quantity: Number.parseInt(l.quantity, 10), unit_cost: Number.parseFloat(l.unit_cost) })),
+        items: lines.map((l) => ({
+          product_id: l.product_id,
+          quantity: Number.parseFloat(l.quantity.replace(",", ".")),
+          unit_cost: Number.parseFloat(l.unit_cost),
+        })),
         payment_method: method,
         amount_paid: method === "credit" ? 0 : paid,
         due_date: outstanding > 0 ? effectiveDue : null,
@@ -254,7 +266,7 @@ export function PurchaseDialog({ open, onOpenChange, supplier: presetSupplier = 
                     >
                       <span className="min-w-0">
                         <span className="font-medium truncate block" title={p.name}>{p.name}</span>
-                        <span className="text-xs text-muted-foreground tabular-nums">{p.sku || p.barcode || "Sin código"} · stock {p.stock}{index === 0 ? " · Enter para agregar" : ""}</span>
+                        <span className="text-xs text-muted-foreground tabular-nums">{p.sku || p.barcode || "Sin código"} · stock {formatQty(p.stock)}{unitDef(p.unit).value !== "unidad" ? ` ${unitDef(p.unit).abbr}` : ""}{index === 0 ? " · Enter para agregar" : ""}</span>
                       </span>
                       {canSeeCosts && p.cost_price != null && (
                         <span className="text-xs text-muted-foreground font-mono tabular-nums shrink-0">costo {formatCurrency(Number(p.cost_price))}</span>
@@ -264,7 +276,7 @@ export function PurchaseDialog({ open, onOpenChange, supplier: presetSupplier = 
                 </div>
               )}
             </div>
-            <p id="purchase-product-search-help" className="text-xs text-muted-foreground">Escribe para buscar; con Enter agregas el primer resultado. Un producto repetido suma 1 a su cantidad.</p>
+            <p id="purchase-product-search-help" className="text-xs text-muted-foreground">Escribe para buscar; con Enter agregas el primer resultado. Un producto repetido incrementa su cantidad (1 unidad o el paso de su medida).</p>
 
             <div className="rounded-lg border border-border overflow-hidden">
               <table className="w-full text-sm">
@@ -282,23 +294,35 @@ export function PurchaseDialog({ open, onOpenChange, supplier: presetSupplier = 
                   {lines.length === 0 ? (
                     <tr><td colSpan={5} className="px-3 py-8 text-center text-sm text-muted-foreground">Busca y agrega los productos que recibiste.</td></tr>
                   ) : lines.map((l) => {
-                    const q = Number.parseInt(l.quantity, 10) || 0; const c = Number.parseFloat(l.unit_cost) || 0;
+                    const q = Number.parseFloat(l.quantity.replace(",", ".")) || 0; const c = Number.parseFloat(l.unit_cost) || 0;
+                    const lineUnit = unitDef(l.unit);
                     const costChanged = l.current_cost != null && Number.isFinite(c) && round2(c) !== round2(l.current_cost);
-                    const qInvalid = !(Number.isInteger(Number.parseInt(l.quantity, 10)) && Number.parseInt(l.quantity, 10) > 0);
+                    const qInvalid = !isValidQuantity(Number.parseFloat(l.quantity.replace(",", ".")), l.unit);
                     const cInvalid = !(Number.isFinite(Number.parseFloat(l.unit_cost)) && Number.parseFloat(l.unit_cost) >= 0);
                     return (
                       <tr key={l.product_id} className={cn(!isLineValid(l) && "bg-destructive/5")}>
                         <td className="px-3 py-2">
                           <p className="font-medium truncate max-w-[260px]" title={l.product_name}>{l.product_name}</p>
                           <p className="text-xs text-muted-foreground tabular-nums">
-                            Stock {l.current_stock} → {l.current_stock + q}
+                            Stock {formatQty(l.current_stock)} → {formatQty(l.current_stock + q)}
+                            {lineUnit.value !== "unidad" && <span className="ml-1">{lineUnit.abbr}</span>}
                             {costChanged && updateCosts && canSeeCosts && (
                               <span className="ml-2 text-amber-600 dark:text-amber-400">costo {formatCurrency(l.current_cost!)} → {formatCurrency(c)}</span>
                             )}
                           </p>
                         </td>
                         <td className="px-3 py-2">
-                          <Input type="number" min="1" step="1" inputMode="numeric" value={l.quantity} onChange={(e) => updateLine(l.product_id, { quantity: e.target.value.replace(/\D/g, "") })} className="h-8 text-right tabular-nums" aria-label={`Cantidad de ${l.product_name}`} aria-invalid={qInvalid || undefined} />
+                          <Input
+                            type="number"
+                            min="0"
+                            step={lineUnit.integerOnly ? "1" : "0.01"}
+                            inputMode={lineUnit.integerOnly ? "numeric" : "decimal"}
+                            value={l.quantity}
+                            onChange={(e) => updateLine(l.product_id, { quantity: e.target.value.replace(/[^\d.]/g, "") })}
+                            className="h-8 text-right tabular-nums"
+                            aria-label={`Cantidad de ${l.product_name}${lineUnit.integerOnly ? "" : ` (${lineUnit.plural})`}`}
+                            aria-invalid={qInvalid || undefined}
+                          />
                         </td>
                         <td className="px-3 py-2">
                           <Input type="number" min="0" step="0.01" inputMode="decimal" value={l.unit_cost} onChange={(e) => updateLine(l.product_id, { unit_cost: e.target.value })} className="h-8 text-right tabular-nums" placeholder="0.00" aria-label={`Costo unitario de ${l.product_name}`} aria-invalid={cInvalid || undefined} />
@@ -316,7 +340,7 @@ export function PurchaseDialog({ open, onOpenChange, supplier: presetSupplier = 
               </table>
             </div>
             {lines.length > 0 && !linesValid && (
-              <p role="alert" className="text-xs text-destructive px-1">Indica cantidad (entera, mayor que 0) y costo unitario en los productos marcados.</p>
+              <p role="alert" className="text-xs text-destructive px-1">Indica cantidad (mayor que 0; entera si se vende por unidad, hasta 3 decimales en las medidas) y costo unitario en los productos marcados.</p>
             )}
             <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3.5 py-2.5">
               <div className="min-w-0">

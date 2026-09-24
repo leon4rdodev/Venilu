@@ -75,6 +75,11 @@ export interface Product {
   extra_barcodes?: string[];
   sku?: string;
   min_stock?: number;
+  /**
+   * Unidad de medida ('unidad' | libra | kilo | litro…). Ver @shared/units.
+   * Ausente = 'unidad' (compatibilidad con datos viejos).
+   */
+  unit?: string;
   /** true = exento de ITBIS (default: gravado). */
   itbis_exempt?: boolean;
   /** Presentación: id del producto padre (null/ausente = producto principal). */
@@ -131,6 +136,8 @@ export interface SaleItem {
   product_id: string;
   product_name: string;
   quantity: number;
+  /** Snapshot de la unidad del producto al vender. Ausente = 'unidad'. */
+  unit?: string;
   unit_price: number;
   total_price: number;
   /** Legacy alias used by some frontend mappers */

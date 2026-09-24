@@ -3,6 +3,7 @@ import { Product, PaymentMethod, Customer } from "@shared/types/models";
 import { CartItemType } from "../components/cart-item";
 import { toast } from "sonner";
 import { round2 } from "@shared/money";
+import { formatQtyWithUnit, isValidQuantity, qtyLte, round3, unitDef } from "@shared/units";
 import { useShift } from "./use-shift";
 
 /** Datos del comprobante fiscal (NCF) solicitados al cobrar. */
@@ -50,12 +51,14 @@ export function useCart() {
   const addToCart = useCallback((product: Product) => {
     // Stock check uses the product's own snapshot — with server-side pagination
     // the full catalog is no longer guaranteed to be in memory.
+    // Clic = 1 unidad, o el paso natural de la medida (0.5 libra, 0.5 kilo…).
+    const step = unitDef(product.unit).step;
     const existing = cartRef.current.find((item) => item.id === product.id);
     const currentQty = existing?.quantity ?? 0;
 
-    if (currentQty + 1 > product.stock) {
+    if (!qtyLte(round3(currentQty + step), product.stock)) {
       toast.error("Sin stock suficiente", {
-        description: `Solo quedan ${product.stock} unidades de ${product.name}.`,
+        description: `Solo quedan ${formatQtyWithUnit(product.stock, product.unit)} de ${product.name}.`,
       });
       return;
     }
@@ -63,12 +66,14 @@ export function useCart() {
     setCart((prev) => {
       const found = prev.find((item) => item.id === product.id);
       if (found) {
-        if (found.quantity + 1 > product.stock) return prev;
+        if (!qtyLte(round3(found.quantity + step), product.stock)) return prev;
         return prev.map((item) =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === product.id
+            ? { ...item, quantity: round3(item.quantity + step) }
+            : item
         );
       }
-      return [...prev, { ...product, quantity: 1, category: product.category || null }];
+      return [...prev, { ...product, quantity: step, category: product.category || null }];
     });
   }, []);
 
@@ -76,10 +81,10 @@ export function useCart() {
     const item = cartRef.current.find((i) => i.id === id);
     if (!item) return;
 
-    const newQuantity = Math.max(0, item.quantity + delta);
-    if (newQuantity > item.stock) {
+    const newQuantity = Math.max(0, round3(item.quantity + delta));
+    if (!qtyLte(newQuantity, item.stock)) {
       toast.error("Sin stock suficiente", {
-        description: `Solo quedan ${item.stock} unidades de ${item.name}.`,
+        description: `Solo quedan ${formatQtyWithUnit(item.stock, item.unit)} de ${item.name}.`,
       });
       return;
     }
@@ -89,6 +94,39 @@ export function useCart() {
         .map((i) => (i.id === id ? { ...i, quantity: newQuantity } : i))
         .filter((i) => i.quantity > 0)
     );
+  }, []);
+
+  /**
+   * Fija la cantidad escrita a mano en el carrito (0.75 lb, 1.5 kg…).
+   * Devuelve true si se aplicó; false = cantidad inválida o sin stock
+   * (se muestra un toast y el carrito queda intacto).
+   */
+  const setQuantity = useCallback((id: string, qty: number): boolean => {
+    const item = cartRef.current.find((i) => i.id === id);
+    if (!item) return false;
+
+    const newQuantity = round3(qty);
+    if (!isValidQuantity(newQuantity, item.unit)) {
+      toast.error("Cantidad inválida", {
+        description: `Escribe un número mayor que 0${
+          unitDef(item.unit).integerOnly ? " sin decimales" : " con hasta 3 decimales"
+        }.`,
+      });
+      return false;
+    }
+    if (!qtyLte(newQuantity, item.stock)) {
+      toast.error("Sin stock suficiente", {
+        description: `Solo quedan ${formatQtyWithUnit(item.stock, item.unit)} de ${item.name}.`,
+      });
+      return false;
+    }
+
+    setCart((prev) =>
+      prev
+        .map((i) => (i.id === id ? { ...i, quantity: newQuantity } : i))
+        .filter((i) => i.quantity > 0)
+    );
+    return true;
   }, []);
 
   const removeFromCart = useCallback((id: string) => {
@@ -255,6 +293,7 @@ export function useCart() {
     cart,
     addToCart,
     updateQuantity,
+    setQuantity,
     removeFromCart,
     clearCart,
     handleProcessSale,

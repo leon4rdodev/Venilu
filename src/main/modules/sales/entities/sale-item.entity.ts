@@ -31,6 +31,10 @@ export class SaleItem {
     @Column("integer")
     quantity!: number;
 
+    /** Unidad de medida al momento de vender (snapshot de product.unit). */
+    @Column({ default: "unidad" })
+    unit?: string;
+
     @Column("decimal", { precision: 10, scale: 2, nullable: true })
     unit_price?: number; // Snapshot of price
 

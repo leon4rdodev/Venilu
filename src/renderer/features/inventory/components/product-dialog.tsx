@@ -8,14 +8,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@components/ui/switch"
 import { useCategories } from "@renderer/features/settings"
 import { Skeleton } from "@components/ui/skeleton"
-import { capitalizeWords } from "@lib/utils"
+import { capitalizeWords, cn } from "@lib/utils"
 import { fileToCompressedWebP, productImageSrc } from "@lib/image"
 import { formatCurrency } from "@lib/currency"
 import { ipc } from "@lib/ipc"
 import { toast } from "sonner"
-import { PackagePlus, Save, Plus, ImagePlus, X, Layers, Package, Pencil } from "lucide-react"
+import { PackagePlus, Save, Plus, ImagePlus, X, Layers, Package, Pencil, Tag, DollarSign, Boxes, Barcode } from "lucide-react"
 import { CategoryManagerDialog } from "./category-manager-dialog"
 import { BarcodeListInput } from "./barcode-list-input"
+import { UNITS, formatQty, unitDef } from "@shared/units"
 
 import { Product, Category } from "@shared/types/models";
 
@@ -40,6 +41,19 @@ function productBarcodes(product: Product | null): string[] {
   return [...new Set(codes.filter((c): c is string => !!c))];
 }
 
+/** Encabezado de sección del formulario: icono + título + ayuda opcional a la derecha. */
+function SectionHeading({ icon: Icon, title, hint }: { icon: React.ElementType; title: string; hint?: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+        {title}
+      </h3>
+      {hint && <span className="text-xs text-muted-foreground text-right min-w-0">{hint}</span>}
+    </div>
+  );
+}
+
 /** Estado inicial del formulario según el modo (editar / crear / crear presentación). */
 function buildFormState(product: Product | null, variantParent: Product | null | undefined, categories: Category[]) {
   if (product) {
@@ -48,15 +62,18 @@ function buildFormState(product: Product | null, variantParent: Product | null |
       category_id: (product.category_id || product.category?.id || "").toString(),
       cost_price: (product.cost_price || 0).toString(),
       sale_price: (product.sale_price || 0).toString(),
-      stock: (product.stock || 0).toString(),
+      stock: String(product.stock || 0),
       sku: product.sku || "",
       min_stock: (product.min_stock ?? 5).toString(), // 0 es válido: sin alerta de stock bajo
       itbis_exempt: product.itbis_exempt ?? false,
       variant_name: product.variant_name || "",
+      unit: product.unit || "unidad",
     }
   }
   if (variantParent) {
-    // Nueva presentación: hereda nombre (como prefijo), categoría y exención de ITBIS
+    // Nueva presentación: hereda nombre (como prefijo), categoría, exención
+    // de ITBIS y unidad de medida ("Caja x24" de un producto por libra sigue
+    // midiendo en libras).
     return {
       name: `${variantParent.name} `,
       category_id: (variantParent.category_id || variantParent.category?.id || "").toString(),
@@ -67,6 +84,7 @@ function buildFormState(product: Product | null, variantParent: Product | null |
       min_stock: "5",
       itbis_exempt: variantParent.itbis_exempt ?? false,
       variant_name: "",
+      unit: variantParent.unit || "unidad",
     }
   }
   return {
@@ -79,6 +97,7 @@ function buildFormState(product: Product | null, variantParent: Product | null |
     min_stock: "5",
     itbis_exempt: false,
     variant_name: "",
+    unit: "unidad",
   }
 }
 
@@ -132,6 +151,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
   );
   const [isCompressing, setIsCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handleCategoriesUpdated = () => loadCategories();
@@ -149,6 +169,13 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
     setBarcodes(productBarcodes(product));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, product, variantParent]);
+
+  // Al crear, el cursor arranca en el nombre: el primer paso siempre es nombrar.
+  useEffect(() => {
+    if (!open || product) return;
+    const id = setTimeout(() => nameRef.current?.focus(), 60);
+    return () => clearTimeout(id);
+  }, [open, product]);
 
   // Keep the category_id in sync if it's empty and categories just loaded
   useEffect(() => {
@@ -171,6 +198,16 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
   const handleCategoryChange = (value: string) => {
     setFormData((prev) => ({ ...prev, category_id: value }));
   };
+
+  const handleUnitChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, unit: value }));
+  };
+
+  // Reglas dinámicas según la unidad elegida: 'unidad' pide enteros;
+  // las medidas fraccionables aceptan decimales en stock y mínimo.
+  const selectedUnit = unitDef(formData.unit);
+  const stockStep = selectedUnit.integerOnly ? "1" : "0.01";
+  const stockInputMode = selectedUnit.integerOnly ? ("numeric" as const) : ("decimal" as const);
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -197,14 +234,15 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
   };
 
   const handleSave = () => {
-    const minStock = Number.parseInt(formData.min_stock);
+    const minStock = Number.parseFloat(String(formData.min_stock).replace(",", "."));
     const data: Partial<Product> = {
       name: formData.name,
       category_id: formData.category_id || undefined,
       category: null,
+      unit: formData.unit || "unidad",
       cost_price: Number.parseFloat(formData.cost_price) || 0,
       sale_price: Number.parseFloat(formData.sale_price) || 0,
-      stock: Number.parseInt(formData.stock) || 0,
+      stock: Number.parseFloat(String(formData.stock).replace(",", ".")) || 0,
       sku: formData.sku,
       // Primer código = principal; el resto son adicionales (set completo)
       barcode: barcodes[0] ?? "",
@@ -224,12 +262,22 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
     onSave(data as Product);
   }
 
-  const isIncomplete =
-    !formData.name ||
-    !formData.cost_price ||
-    !formData.sale_price ||
-    !formData.stock ||
-    (isVariantMode && !formData.variant_name.trim());
+  // Aviso específico de lo que falta: más claro que un "incompleto" genérico.
+  const missingFields = [
+    !formData.name.trim() ? "el nombre" : null,
+    isVariantMode && !formData.variant_name.trim() ? "el nombre de presentación" : null,
+    !formData.cost_price ? "el precio de compra" : null,
+    !formData.sale_price ? "el precio de venta" : null,
+    !formData.stock ? "el stock" : null,
+  ].filter((x): x is string => !!x);
+  const isIncomplete = missingFields.length > 0;
+
+  // Margen en vivo: feedback inmediato de la ganancia por cada venta.
+  const costNum = Number.parseFloat(formData.cost_price) || 0;
+  const saleNum = Number.parseFloat(formData.sale_price) || 0;
+  const hasBothPrices = costNum > 0 && saleNum > 0;
+  const marginPct = hasBothPrices ? ((saleNum - costNum) / costNum) * 100 : null;
+  const belowCost = costNum > 0 && saleNum < costNum;
 
   const title = isCreatingVariant
     ? "Agregar Presentación"
@@ -245,7 +293,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
           {/* Header */}
           <div className="p-6 pb-4 border-b border-border space-y-1 shrink-0">
             <DialogTitle className="text-lg font-semibold tracking-tight">{title}</DialogTitle>
@@ -253,7 +301,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
           </div>
 
           {/* Body */}
-          <div className="p-6 space-y-4 flex-1 overflow-y-auto min-h-0">
+          <div className="p-6 space-y-6 flex-1 overflow-y-auto min-h-0">
             {/* Banner de presentación: este producto pertenece a un principal */}
             {isVariantMode && (
               <div className="bg-muted/50 rounded-lg px-3 py-2 text-sm flex items-center gap-2">
@@ -265,27 +313,119 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
               </div>
             )}
 
-            {/* Product photo — auto-converted to compressed WebP */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium leading-none">Foto del Producto</p>
-                <span className="text-xs text-muted-foreground">Opcional</span>
-              </div>
-              <div className="flex items-start gap-4">
-                <div className="h-24 w-24 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
-                  {imagePreview ? (
-                    <img src={imagePreview} alt="Vista previa de la foto del producto" className="h-full w-full object-cover" />
-                  ) : (
-                    <ImagePlus className="h-6 w-6 text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
+            {/* ── Información básica + foto ─────────────────────────────── */}
+            <section className="space-y-4">
+              <SectionHeading icon={Tag} title="Información básica" hint="Opcional salvo el nombre" />
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_152px] gap-4 items-start">
+                <div className="space-y-4 min-w-0">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nombre del Producto</Label>
+                    <Input
+                      id="name"
+                      ref={nameRef}
+                      value={formData.name}
+                      onChange={handleChange}
+                      placeholder="Ej: Producto Genérico"
+                      disabled={isSaving}
+                      required
+                      autoComplete="off"
+                      className="h-9 bg-background"
+                    />
+                  </div>
+
+                  {/* Nombre de la presentación — solo en modo presentación */}
+                  {isVariantMode && (
+                    <div className="space-y-2">
+                      <Label htmlFor="variant_name">Nombre de presentación</Label>
+                      <Input
+                        id="variant_name"
+                        value={formData.variant_name}
+                        onChange={handleChange}
+                        placeholder="Pequeño 250ml / Caja x24"
+                        disabled={isSaving}
+                        required
+                        autoComplete="off"
+                        className="h-9 bg-background"
+                      />
+                    </div>
                   )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2 min-w-0">
+                      <Label htmlFor="category">Categoría</Label>
+                      <div className="flex gap-2">
+                        {loadingCategories ? (
+                          <Skeleton className="flex-1 h-9 rounded-md" />
+                        ) : (
+                          <Select value={formData.category_id} onValueChange={handleCategoryChange} disabled={isSaving}>
+                            <SelectTrigger id="category" className="flex-1 bg-background min-w-0">
+                              <SelectValue placeholder="Selecciona una categoría" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {categories.map((category) => (
+                                <SelectItem key={category.id} value={category.id.toString()}>
+                                  {category.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setCategoryManagerOpen(true)}
+                          disabled={isSaving}
+                          title="Gestionar categorías"
+                          aria-label="Gestionar categorías"
+                        >
+                          <Plus className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 min-w-0">
+                      <Label htmlFor="unit">Unidad de medida</Label>
+                      <Select value={formData.unit} onValueChange={handleUnitChange} disabled={isSaving}>
+                        <SelectTrigger id="unit" className="bg-background min-w-0" aria-describedby="unit-hint">
+                          <SelectValue placeholder="Unidad" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {UNITS.map((u) => (
+                            <SelectItem key={u.value} value={u.value}>
+                              {u.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <p id="unit-hint" className="text-xs text-muted-foreground">
+                    {selectedUnit.integerOnly
+                      ? "Se vende por unidad: cantidades enteras (1, 2, 3…)."
+                      : `Precio y stock se miden en ${selectedUnit.plural}: ej. RD$120 la ${selectedUnit.singular}, media = 0.5.`}
+                  </p>
                 </div>
-                <div className="flex flex-col gap-2 min-w-0 pt-1">
-                  <div className="flex gap-2">
+
+                {/* Foto — columna lateral, opcional (auto-convertida a WebP) */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium leading-none">Foto</p>
+                    <span className="text-xs text-muted-foreground">Opcional</span>
+                  </div>
+                  <div className="aspect-square w-full rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden">
+                    {imagePreview ? (
+                      <img src={imagePreview} alt="Vista previa de la foto del producto" className="h-full w-full object-cover" />
+                    ) : (
+                      <ImagePlus className="h-6 w-6 text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-9"
+                      className="h-9 w-full"
                       disabled={isSaving || isCompressing}
                       aria-busy={isCompressing}
                       onClick={() => fileInputRef.current?.click()}
@@ -297,7 +437,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-9 text-muted-foreground hover:text-destructive"
+                        className="h-9 w-full text-muted-foreground hover:text-destructive"
                         disabled={isSaving || isCompressing}
                         onClick={handleImageRemove}
                       >
@@ -309,211 +449,184 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
                   <p className="text-xs text-muted-foreground">
                     Se convierte a WebP y se comprime automáticamente.
                   </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    aria-hidden="true"
+                    tabIndex={-1}
+                    onChange={handleImageSelect}
+                  />
                 </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  aria-hidden="true"
-                  tabIndex={-1}
-                  onChange={handleImageSelect}
-                />
               </div>
-            </div>
+            </section>
 
-            <div className="space-y-2">
-              <Label htmlFor="name">Nombre del Producto</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={handleChange}
-                placeholder="Ej: Producto Genérico"
-                disabled={isSaving}
-                required
-                autoComplete="off"
-                className="h-9 bg-background"
-              />
-            </div>
+            {/* ── Precios (con margen en vivo) ──────────────────────────── */}
+            <section className="space-y-2">
+              <SectionHeading icon={DollarSign} title="Precios" hint="Lo que pagas y lo que cobras" />
+              <div className="rounded-lg border border-border p-3.5 space-y-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cost_price">Precio de Compra ($)</Label>
+                    <Input
+                      id="cost_price"
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      value={formData.cost_price}
+                      onChange={handleChange}
+                      placeholder="0.00"
+                      disabled={isSaving}
+                      required
+                      className="h-9 bg-background text-right tabular-nums"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sale_price">
+                      Precio de Venta {selectedUnit.integerOnly ? "($)" : `por ${selectedUnit.singular} ($)`}
+                    </Label>
+                    <Input
+                      id="sale_price"
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      value={formData.sale_price}
+                      onChange={handleChange}
+                      placeholder="0.00"
+                      disabled={isSaving}
+                      required
+                      className="h-9 bg-background text-right tabular-nums"
+                    />
+                  </div>
+                </div>
 
-            {/* Nombre de la presentación — solo en modo presentación */}
-            {isVariantMode && (
-              <div className="space-y-2">
-                <Label htmlFor="variant_name">Nombre de presentación</Label>
-                <Input
-                  id="variant_name"
-                  value={formData.variant_name}
-                  onChange={handleChange}
-                  placeholder="Pequeño 250ml / Caja x24"
-                  disabled={isSaving}
-                  required
-                  autoComplete="off"
-                  className="h-9 bg-background"
-                />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <Label htmlFor="barcode-input">Códigos de Barras</Label>
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {barcodes.length > 0 ? `${barcodes.length} código${barcodes.length !== 1 ? "s" : ""}` : "Opcional"}
-                </span>
-              </div>
-              <BarcodeListInput value={barcodes} onChange={setBarcodes} disabled={isSaving} />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <Label htmlFor="sku">SKU / Código interno</Label>
-                <span className="text-xs text-muted-foreground">Opcional</span>
-              </div>
-              <Input
-                id="sku"
-                value={formData.sku}
-                onChange={handleChange}
-                placeholder="Ej: COD-12345"
-                disabled={isSaving}
-                autoComplete="off"
-                className="h-9 bg-background font-mono"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="category">Categoría</Label>
-              <div className="flex gap-2">
-                {loadingCategories ? (
-                  <Skeleton className="flex-1 h-9 rounded-md" />
-                ) : (
-                  <Select value={formData.category_id} onValueChange={handleCategoryChange} disabled={isSaving}>
-                    <SelectTrigger id="category" className="flex-1 bg-background">
-                      <SelectValue placeholder="Selecciona una categoría" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id.toString()}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCategoryManagerOpen(true)}
-                  disabled={isSaving}
-                  title="Gestionar categorías"
-                  aria-label="Gestionar categorías"
+                {/* Margen en vivo */}
+                <p
+                  className={cn("text-xs", belowCost ? "text-destructive font-medium" : "text-muted-foreground")}
+                  role={belowCost ? "alert" : undefined}
                 >
-                  <Plus className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
-                </Button>
-              </div>
-            </div>
+                  {belowCost
+                    ? "El precio de venta está por debajo del costo — revisa antes de guardar."
+                    : hasBothPrices
+                      ? `Margen: ${marginPct!.toFixed(0)}% sobre el costo · ganancia ${formatCurrency(saleNum - costNum)} por ${selectedUnit.integerOnly ? "unidad" : selectedUnit.singular}.`
+                      : "Agrega el precio de compra y el de venta para ver el margen de ganancia."}
+                </p>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="cost_price">Precio de Compra ($)</Label>
-                <Input
-                  id="cost_price"
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="0.01"
-                  value={formData.cost_price}
-                  onChange={handleChange}
-                  placeholder="0.00"
-                  disabled={isSaving}
-                  required
-                  className="h-9 bg-background text-right tabular-nums"
-                />
+                {/* Exención de ITBIS (fiscal RD) */}
+                <div className="flex items-center justify-between gap-4 pt-3 border-t border-border">
+                  <div className="min-w-0 space-y-0.5">
+                    <Label htmlFor="itbis_exempt" className="text-sm font-medium">Exento de ITBIS</Label>
+                    <p id="itbis_exempt-hint" className="text-xs text-muted-foreground">
+                      Actívalo solo para productos exentos según la DGII (víveres básicos, medicinas...).
+                    </p>
+                  </div>
+                  <Switch
+                    id="itbis_exempt"
+                    aria-describedby="itbis_exempt-hint"
+                    checked={formData.itbis_exempt}
+                    onCheckedChange={(checked) =>
+                      setFormData((prev) => ({ ...prev, itbis_exempt: checked }))
+                    }
+                    disabled={isSaving}
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="sale_price">Precio de Venta ($)</Label>
-                <Input
-                  id="sale_price"
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="0.01"
-                  value={formData.sale_price}
-                  onChange={handleChange}
-                  placeholder="0.00"
-                  disabled={isSaving}
-                  required
-                  className="h-9 bg-background text-right tabular-nums"
-                />
-              </div>
-            </div>
+            </section>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="stock">Stock</Label>
-                <Input
-                  id="stock"
-                  type="number"
-                  inputMode="numeric"
-                  min="0"
-                  step="1"
-                  value={formData.stock}
-                  onChange={handleChange}
-                  placeholder="0"
-                  disabled={isSaving}
-                  required
-                  className="h-9 bg-background text-right tabular-nums"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="min_stock">Alerta de Stock Bajo</Label>
-                <Input
-                  id="min_stock"
-                  type="number"
-                  inputMode="numeric"
-                  min="0"
-                  step="1"
-                  value={formData.min_stock}
-                  onChange={handleChange}
-                  placeholder="5"
-                  disabled={isSaving}
-                  aria-describedby="min_stock-hint"
-                  className="h-9 bg-background text-right tabular-nums"
-                />
+            {/* ── Inventario ────────────────────────────────────────────── */}
+            <section className="space-y-2">
+              <SectionHeading
+                icon={Boxes}
+                title="Inventario"
+                hint={selectedUnit.integerOnly ? undefined : `Se contará en ${selectedUnit.plural}`}
+              />
+              <div className="rounded-lg border border-border p-3.5 space-y-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="stock">
+                      Stock {selectedUnit.integerOnly ? "" : `(${selectedUnit.plural})`}
+                    </Label>
+                    <Input
+                      id="stock"
+                      type="number"
+                      inputMode={stockInputMode}
+                      min="0"
+                      step={stockStep}
+                      value={formData.stock}
+                      onChange={handleChange}
+                      placeholder="0"
+                      disabled={isSaving}
+                      required
+                      className="h-9 bg-background text-right tabular-nums"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="min_stock">Alerta de Stock Bajo</Label>
+                    <Input
+                      id="min_stock"
+                      type="number"
+                      inputMode={stockInputMode}
+                      min="0"
+                      step={stockStep}
+                      value={formData.min_stock}
+                      onChange={handleChange}
+                      placeholder="5"
+                      disabled={isSaving}
+                      aria-describedby="min_stock-hint"
+                      className="h-9 bg-background text-right tabular-nums"
+                    />
+                  </div>
+                </div>
                 <p id="min_stock-hint" className="text-xs text-muted-foreground">
                   Se marcará como bajo stock al llegar a esta cantidad.
                 </p>
               </div>
-            </div>
+            </section>
 
-            {/* Exención de ITBIS (fiscal RD) */}
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-3.5">
-              <div className="min-w-0 space-y-0.5">
-                <Label htmlFor="itbis_exempt" className="text-sm font-medium">Exento de ITBIS</Label>
-                <p id="itbis_exempt-hint" className="text-xs text-muted-foreground">
-                  Actívalo solo para productos exentos según la DGII (víveres básicos, medicinas...).
-                </p>
+            {/* ── Códigos ───────────────────────────────────────────────── */}
+            <section className="space-y-2">
+              <SectionHeading icon={Barcode} title="Códigos de venta" hint="Para escanear en el POS" />
+              <div className="rounded-lg border border-border p-3.5 space-y-3">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="barcode-input">Códigos de Barras</Label>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {barcodes.length > 0 ? `${barcodes.length} código${barcodes.length !== 1 ? "s" : ""}` : "Opcional"}
+                    </span>
+                  </div>
+                  <BarcodeListInput value={barcodes} onChange={setBarcodes} disabled={isSaving} />
+                </div>
+                <div className="space-y-2 sm:max-w-64">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="sku">SKU / Código interno</Label>
+                    <span className="text-xs text-muted-foreground">Opcional</span>
+                  </div>
+                  <Input
+                    id="sku"
+                    value={formData.sku}
+                    onChange={handleChange}
+                    placeholder="Ej: COD-12345"
+                    disabled={isSaving}
+                    autoComplete="off"
+                    className="h-9 bg-background font-mono"
+                  />
+                </div>
               </div>
-              <Switch
-                id="itbis_exempt"
-                aria-describedby="itbis_exempt-hint"
-                checked={formData.itbis_exempt}
-                onCheckedChange={(checked) =>
-                  setFormData((prev) => ({ ...prev, itbis_exempt: checked }))
-                }
-                disabled={isSaving}
-              />
-            </div>
+            </section>
 
             {/* Presentaciones del producto principal en edición */}
             {isEditingPrincipal && (
-              <div className="space-y-2 pt-3 border-t border-border">
-                <div className="flex items-center gap-1.5">
-                  <Layers className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
-                  <h3 className="text-sm font-medium leading-none">Presentaciones</h3>
-                  {variants.length > 0 && (
-                    <span className="text-xs text-muted-foreground tabular-nums">({variants.length})</span>
-                  )}
-                </div>
+              <section className="space-y-2">
+                <SectionHeading
+                  icon={Layers}
+                  title="Presentaciones"
+                  hint={variants.length > 0
+                    ? `${variants.length} ${variants.length === 1 ? "guardada" : "guardadas"}`
+                    : undefined}
+                />
 
                 {variantsQuery.isPending ? (
                   <div className="space-y-2" role="status" aria-busy="true" aria-label="Cargando presentaciones">
@@ -542,6 +655,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
                   <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
                     {variants.map((v) => {
                       const src = productImageSrc(v.image);
+                      const vUnit = unitDef(v.unit);
                       return (
                         <div key={v.id} className="flex items-center gap-2.5 px-3 py-2">
                           {src ? (
@@ -571,7 +685,8 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
                             <p className="text-xs text-muted-foreground tabular-nums">
                               <span className="font-mono">{formatCurrency(v.sale_price)}</span>
                               {" · "}
-                              {v.stock} uds
+                              {formatQty(v.stock)}
+                              {vUnit.value === "unidad" ? " uds" : ` ${vUnit.abbr}`}
                             </p>
                           </div>
                           {onEditVariant && (
@@ -607,7 +722,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
                     Agregar presentación
                   </Button>
                 )}
-              </div>
+              </section>
             )}
           </div>
 
@@ -615,9 +730,7 @@ export function ProductDialog({ open, onOpenChange, product, onSave, isSaving = 
           <div className="p-6 pt-4 border-t border-border space-y-3 shrink-0">
             {isIncomplete && !isSaving && (
               <p id="product-form-hint" className="text-xs text-muted-foreground text-center">
-                {isVariantMode
-                  ? "Completa nombre, nombre de presentación, precios y stock para guardar."
-                  : "Completa nombre, precios y stock para guardar."}
+                Completa {missingFields.join(", ")} para poder guardar.
               </p>
             )}
             <div className="flex gap-3">

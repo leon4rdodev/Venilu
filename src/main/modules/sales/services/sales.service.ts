@@ -7,6 +7,7 @@ import { Customer as CustomerEntity } from "@main/modules/customers/entities/cus
 import { DebtPayment as DebtPaymentEntity } from "@main/modules/sales/entities/debt-payment.entity";
 import { Repository, DataSource } from "typeorm";
 import { round2 } from "@shared/money";
+import { isValidQuantity, qtyLte, round3, unitDef } from "@shared/units";
 import { StockMovement } from "@main/modules/products/entities/stock-movement.entity";
 import { Setting as SettingEntity } from "@main/modules/settings/entities/setting.entity";
 import { SaleReturn, SaleReturnItem } from "@main/modules/sales/entities/sale-return.entity";
@@ -141,11 +142,6 @@ export class SalesService {
             const movementDrafts: Array<{ product_id: string; quantity_delta: number; stock_after: number }> = [];
 
             for (const item of items) {
-                const quantity = Number(item.quantity);
-                if (!Number.isInteger(quantity) || quantity <= 0) {
-                    throw new Error("Cantidad inválida en la venta");
-                }
-
                 const product = await transactionalEntityManager.findOne(ProductEntity, { where: { id: item.product_id } });
                 if (!product) {
                     throw new Error(`Product not found: ${item.product_id}`);
@@ -154,14 +150,25 @@ export class SalesService {
                     throw new Error(`El producto "${product.name}" está archivado y no se puede vender`);
                 }
 
-                if (product.stock < quantity) {
+                // Cantidad según la unidad: 'unidad' exige enteros; las
+                // medidas fraccionables (libra, kilo, litro…) aceptan hasta
+                // 3 decimales. El mensaje base se conserva para 'unidad'.
+                const quantity = Number(item.quantity);
+                if (!isValidQuantity(quantity, product.unit)) {
+                    throw new Error(unitDef(product.unit).integerOnly
+                        ? "Cantidad inválida en la venta"
+                        : `Cantidad inválida para "${product.name}": debe ser un número mayor a 0 con hasta 3 decimales`);
+                }
+                const qty = round3(quantity);
+
+                if (!qtyLte(qty, product.stock)) {
                     throw new Error(`Insufficient stock for product: ${product.name}`);
                 }
 
                 // Update stock
-                product.stock -= quantity;
+                product.stock = round3(product.stock - qty);
                 await transactionalEntityManager.save(product);
-                movementDrafts.push({ product_id: product.id, quantity_delta: -quantity, stock_after: product.stock });
+                movementDrafts.push({ product_id: product.id, quantity_delta: -qty, stock_after: product.stock });
 
                 // Unit price is ALWAYS the DB price unless the user holds
                 // pos:price_override and explicitly sends one.
@@ -178,9 +185,10 @@ export class SalesService {
                 const saleItem = new SaleItemEntity();
                 saleItem.product_id = product.id;
                 saleItem.product_name = product.name;
-                saleItem.quantity = quantity;
+                saleItem.quantity = qty;
+                saleItem.unit = product.unit || 'unidad';
                 saleItem.unit_price = unitPrice;
-                saleItem.total_price = round2(quantity * unitPrice);
+                saleItem.total_price = round2(qty * unitPrice);
                 // ITBIS incluido en el precio (0 si el producto está exento)
                 saleItem.itbis_amount = product.itbis_exempt
                     ? 0
@@ -558,12 +566,12 @@ export class SalesService {
                         where: { id: item.product_id }
                     });
                     if (product) {
-                        product.stock += item.quantity;
+                        product.stock = round3(product.stock + Number(item.quantity));
                         await transactionalEntityManager.save(ProductEntity, product);
                         await transactionalEntityManager.save(StockMovement, transactionalEntityManager.create(StockMovement, {
                             product_id: product.id,
                             type: 'void',
-                            quantity_delta: item.quantity,
+                            quantity_delta: Number(item.quantity),
                             stock_after: product.stock,
                             reference: sale.id,
                             user_id: session?.id,
@@ -692,27 +700,33 @@ export class SalesService {
 
             for (const req of items) {
                 const qty = Number(req.quantity);
-                if (!Number.isInteger(qty) || qty <= 0) {
-                    throw new Error("Cantidad a devolver inválida");
-                }
                 const line = (sale.items || []).find(i => i.id === req.sale_item_id);
                 if (!line) throw new Error("Artículo no pertenece a esta venta");
 
+                // Misma regla que al vender: enteros para 'unidad', hasta 3
+                // decimales para medidas fraccionables (snapshot en la línea).
+                if (!isValidQuantity(qty, line.unit)) {
+                    throw new Error(unitDef(line.unit).integerOnly
+                        ? "Cantidad a devolver inválida"
+                        : `Cantidad a devolver inválida de "${line.product_name}": hasta 3 decimales`);
+                }
+                const returnQty = round3(qty);
+
                 const remaining = Number(line.quantity) - (alreadyReturned.get(line.id!) ?? 0);
-                if (qty > remaining) {
-                    throw new Error(`De "${line.product_name}" solo quedan ${remaining} unidad(es) por devolver`);
+                if (!qtyLte(returnQty, remaining)) {
+                    throw new Error(`De "${line.product_name}" solo quedan ${round3(remaining)} unidad(es) por devolver`);
                 }
 
                 const unitGross = Number(line.total_price) / Number(line.quantity);
                 const unitItbis = Number(line.itbis_amount || 0) / Number(line.quantity);
-                const amount = round2(unitGross * qty * discountFactor);
-                const itbis = round2(unitItbis * qty * discountFactor);
+                const amount = round2(unitGross * returnQty * discountFactor);
+                const itbis = round2(unitItbis * returnQty * discountFactor);
 
                 const item = manager.create(SaleReturnItem, {
                     sale_item_id: line.id!,
                     product_id: line.product_id,
                     product_name: line.product_name,
-                    quantity: qty,
+                    quantity: returnQty,
                     amount_refunded: amount,
                     itbis_refunded: itbis,
                 });
@@ -723,10 +737,10 @@ export class SalesService {
                 // Reposición de stock + costo revertido
                 const product = await manager.findOne(ProductEntity, { where: { id: line.product_id } });
                 if (product) {
-                    product.stock += qty;
+                    product.stock = round3(product.stock + returnQty);
                     await manager.save(product);
-                    kardexDrafts.push({ product_id: product.id, quantity_delta: qty, stock_after: product.stock });
-                    costRefunded = round2(costRefunded + qty * Number(product.cost_price || 0));
+                    kardexDrafts.push({ product_id: product.id, quantity_delta: returnQty, stock_after: product.stock });
+                    costRefunded = round2(costRefunded + returnQty * Number(product.cost_price || 0));
                 }
             }
 

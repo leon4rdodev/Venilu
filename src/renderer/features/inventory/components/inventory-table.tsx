@@ -23,6 +23,7 @@ import { DeleteConfirmDialog } from "@renderer/shared/components/delete-confirm-
 import { WidgetHeader } from "@renderer/shared/components/widget-header";
 import { TablePagination } from "@renderer/shared/components/table-pagination";
 import { useMinimumLoading } from "@renderer/shared/hooks/use-minimum-loading";
+import { formatQty, unitDef } from "@shared/units";
 import { formatCurrency } from "@lib/currency";
 import { productImageSrc } from "@lib/image";
 import { cn } from "@lib/utils";
@@ -500,11 +501,14 @@ export function InventoryTable() {
                   const minStock = product.min_stock ?? 5; // 0 = sin alerta, igual que el servidor
                   const isOut = product.stock === 0;
                   const isLow = product.stock > 0 && product.stock <= minStock;
+                  const stockUnit = unitDef(product.unit);
+                  // "12 uds" para unidades; "12.5 lb" para medidas fraccionables.
+                  const stockLabel = `${formatQty(product.stock)} ${stockUnit.value === "unidad" ? "uds" : stockUnit.abbr}`;
                   const stockTitle = isOut
                     ? "Agotado"
                     : isLow
                       ? `Stock bajo (mínimo ${minStock})`
-                      : `${product.stock} unidades`;
+                      : `${formatQty(product.stock)} ${stockUnit.plural}`;
                   return (
                     <TableRow key={product.id} className="hover:bg-muted/40">
                       <TableCell className="max-w-[240px]">
@@ -577,11 +581,11 @@ export function InventoryTable() {
                           ) : isLow ? (
                             <>
                               <AlertTriangle className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
-                              {product.stock} uds
+                              {stockLabel}
                               <span className="sr-only"> (stock bajo)</span>
                             </>
                           ) : (
-                            <>{product.stock} uds</>
+                            <>{stockLabel}</>
                           )}
                         </span>
                       </TableCell>

@@ -12,6 +12,7 @@ import { productImageSrc } from "@lib/image";
 import { DeleteConfirmDialog } from "@renderer/shared/components/delete-confirm-dialog";
 import { TablePagination } from "@renderer/shared/components/table-pagination";
 import { Product } from "@shared/types/models";
+import { formatQty, unitDef } from "@shared/units";
 
 type ArchivedProductsDialogProps = {
   open: boolean;
@@ -163,7 +164,10 @@ export function ArchivedProductsDialog({ open, onOpenChange }: ArchivedProductsD
                         <p className="text-sm font-medium truncate" title={product.name}>{product.name}</p>
                         <p className="text-xs text-muted-foreground tabular-nums truncate">
                           <span className="font-mono">{formatCurrency(product.sale_price)}</span>
-                          {" · "}{product.stock} uds{" · "}Archivado el {formatDate(product.archived_at)}
+                          {" · "}
+                          {formatQty(product.stock)}
+                          {unitDef(product.unit).value !== "unidad" ? ` ${unitDef(product.unit).abbr}` : " uds"}
+                          {" · "}Archivado el {formatDate(product.archived_at)}
                         </p>
                       </div>
                       <Button

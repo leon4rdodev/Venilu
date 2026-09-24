@@ -13,6 +13,7 @@ import {
 import { formatCurrency } from "@lib/currency";
 import { productImageSrc } from "@lib/image";
 import { cn } from "@lib/utils";
+import { unitDef } from "@shared/units";
 
 export const getCategoryIcon = (category: string) => {
   const lower = category.toLowerCase();
@@ -45,7 +46,11 @@ export const ProductCard = memo(function ProductCard({ product, onAddToCart }: P
   const isOutOfStock = product.stock === 0;
   const isLowStock = product.stock > 0 && product.stock <= (product.min_stock ?? 5);
   const imageSrc = productImageSrc(product.image);
-  const priceLabel = formatCurrency(product.sale_price);
+  // Precio por la medida del producto: "RD$120 / lb", "RD$45 / cj"…
+  const unit = unitDef(product.unit);
+  const priceLabel = unit.value === "unidad"
+    ? formatCurrency(product.sale_price)
+    : `${formatCurrency(product.sale_price)} / ${unit.abbr}`;
 
   const handleAdd = () => {
     if (!isOutOfStock) onAddToCart(product);

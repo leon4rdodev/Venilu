@@ -4,6 +4,7 @@ import { WidgetHeader } from "@renderer/shared/components/widget-header";
 import { Button } from "@components/ui/button";
 import { cn } from "@lib/utils";
 import { Product } from "@shared/types/models";
+import { formatQty, unitDef } from "@shared/units";
 
 interface LowStockWidgetProps {
   products: Product[];
@@ -69,6 +70,7 @@ export function LowStockWidget({ products, loading }: LowStockWidgetProps) {
             {products.map((product) => {
               const critical = product.stock <= CRITICAL_STOCK;
               const severity = critical ? "Stock crítico" : "Stock bajo";
+              const stockUnit = unitDef(product.unit);
               return (
                 <li key={product.id} className="flex items-center justify-between gap-3 py-3">
                   <span className="text-sm font-medium text-foreground truncate min-w-0" title={product.name}>
@@ -76,7 +78,7 @@ export function LowStockWidget({ products, loading }: LowStockWidgetProps) {
                   </span>
                   <span
                     title={severity}
-                    aria-label={`${product.stock} unidades, ${severity.toLowerCase()}`}
+                    aria-label={`${formatQty(product.stock)} ${stockUnit.plural}, ${severity.toLowerCase()}`}
                     className={cn(
                       "inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 tabular-nums",
                       critical
@@ -85,7 +87,7 @@ export function LowStockWidget({ products, loading }: LowStockWidgetProps) {
                     )}
                   >
                     {critical && <AlertTriangle className="h-3 w-3" strokeWidth={2} aria-hidden="true" />}
-                    {product.stock} unds
+                    {formatQty(product.stock)} {stockUnit.value === "unidad" ? "unds" : stockUnit.abbr}
                   </span>
                 </li>
               );

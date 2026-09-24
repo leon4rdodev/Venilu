@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { SalesService } from '../../modules/sales/services/sales.service';
 import { SettingsService } from '../../modules/settings/services/settings.service';
+import { formatQty, unitDef } from '@shared/units';
 // import { UsersService } from '../../modules/users/services/users.service';
 
 const salesService = new SalesService();
@@ -133,13 +134,20 @@ export class PrinterService {
         const esc = (v: unknown) => String(v ?? '')
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-        const itemsHTML = items.map((item: any) => `
+        const itemsHTML = items.map((item: any) => {
+            // Cantidad con abreviatura de unidad para medidas fraccionables:
+            // "0.5 lb". Los productos por unidad quedan como antes: solo el número.
+            const qty = formatQty(Number(item.quantity) || 0);
+            const unit = unitDef(item.unit);
+            const qtyLabel = unit.value === 'unidad' ? qty : `${qty} ${unit.abbr}`;
+            return `
             <tr>
-                <td class="qty">${Number(item.quantity) || 0}</td>
+                <td class="qty">${qtyLabel}</td>
                 <td class="desc">${esc(item.product_name || item.name)}</td>
                 <td class="price">${formatCurrency(item.total_price ?? (Number(item.unit_price) || 0) * (Number(item.quantity) || 0))}</td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
 
         return `<!DOCTYPE html>
 <html>

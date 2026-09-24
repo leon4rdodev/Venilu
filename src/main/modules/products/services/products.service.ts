@@ -6,6 +6,7 @@ import { SaleItem as SaleItemEntity } from "@main/modules/sales/entities/sale-it
 import { PurchaseItem as PurchaseItemEntity } from "@main/modules/suppliers/entities/purchase.entity";
 import { imagesService } from "@main/shared/services/images.service";
 import { In, IsNull, Not, Repository } from "typeorm";
+import { QTY_EPSILON, isKnownUnit, round3, unitDef } from "@shared/units";
 
 interface ProductQueryOptions {
     page?: number;
@@ -130,8 +131,12 @@ export class ProductsService {
         };
     }
 
-    /** Coerces and validates numeric product fields from an untrusted payload. */
-    private validateNumericFields(data: any): void {
+    /**
+     * Coerces and validates numeric product fields from an untrusted payload.
+     * `unit` decides the rule: 'unidad' requires integer stock/min_stock;
+     * fractional measures (libra, kilo…) allow up to 3 decimals.
+     */
+    private validateNumericFields(data: any, unit?: string): void {
         if (data.sale_price !== undefined) {
             data.sale_price = Number(data.sale_price);
             if (!Number.isFinite(data.sale_price) || data.sale_price < 0) throw new Error("Precio de venta inválido");
@@ -140,21 +145,35 @@ export class ProductsService {
             data.cost_price = Number(data.cost_price);
             if (!Number.isFinite(data.cost_price) || data.cost_price < 0) throw new Error("Precio de compra inválido");
         }
+        const integerOnly = unitDef(unit).integerOnly;
+        const validQty = (v: number) =>
+            Number.isFinite(v) && v >= 0 &&
+            (integerOnly ? Number.isInteger(v) : Math.abs(v - round3(v)) <= QTY_EPSILON);
         if (data.stock !== undefined) {
             data.stock = Number(data.stock);
-            if (!Number.isInteger(data.stock) || data.stock < 0) throw new Error("Stock inválido");
+            if (!validQty(data.stock)) {
+                throw new Error(integerOnly
+                    ? "Stock inválido"
+                    : "Stock inválido: usa un número mayor o igual a 0 con hasta 3 decimales");
+            }
+            if (!integerOnly) data.stock = round3(data.stock);
         }
         if (data.min_stock !== undefined) {
             data.min_stock = Number(data.min_stock);
-            if (!Number.isInteger(data.min_stock) || data.min_stock < 0) throw new Error("Stock mínimo inválido");
+            if (!validQty(data.min_stock)) {
+                throw new Error(integerOnly
+                    ? "Stock mínimo inválido"
+                    : "Stock mínimo inválido: usa un número mayor o igual a 0 con hasta 3 decimales");
+            }
+            if (!integerOnly) data.min_stock = round3(data.min_stock);
         }
     }
 
     /** Whitelists editable fields — never accepts id/timestamps/relations. */
     private pickEditableFields(productData: Partial<ProductEntity>): any {
-        const { name, description, sale_price, cost_price, stock, min_stock, barcode, sku, image, category_id, itbis_exempt, parent_product_id, variant_name } =
+        const { name, description, sale_price, cost_price, stock, min_stock, barcode, sku, image, category_id, itbis_exempt, parent_product_id, variant_name, unit } =
             productData as any;
-        const data: any = { name, description, sale_price, cost_price, stock, min_stock, barcode, sku, image, category_id, parent_product_id, variant_name };
+        const data: any = { name, description, sale_price, cost_price, stock, min_stock, barcode, sku, image, category_id, parent_product_id, variant_name, unit };
         if (itbis_exempt !== undefined) data.itbis_exempt = Boolean(itbis_exempt);
         Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
 
@@ -295,7 +314,10 @@ export class ProductsService {
             throw new Error("El nombre del producto es requerido");
         }
         data.name = data.name.trim();
-        this.validateNumericFields(data);
+        if (data.unit !== undefined && !isKnownUnit(data.unit)) {
+            throw new Error("Unidad de medida inválida");
+        }
+        this.validateNumericFields(data, data.unit);
         // assertCodesUnique normaliza barcode/sku; los adicionales se depuran contra ellos después
         let extraBarcodes = this.normalizeExtraBarcodes((productData as any).extra_barcodes, []) ?? [];
         await this.assertCodesUnique(data, null, extraBarcodes);
@@ -345,7 +367,21 @@ export class ProductsService {
             }
             dataToUpdate.name = dataToUpdate.name.trim();
         }
-        this.validateNumericFields(dataToUpdate);
+        if (dataToUpdate.unit !== undefined && !isKnownUnit(dataToUpdate.unit)) {
+            throw new Error("Unidad de medida inválida");
+        }
+        // Regla numérica según la unidad RESULTANTE (la que se envía o la
+        // vigente): cambiar libra → unidad exige stock entero.
+        const effectiveUnit = dataToUpdate.unit ?? current.unit;
+        this.validateNumericFields(dataToUpdate, effectiveUnit);
+        if (dataToUpdate.unit !== undefined && dataToUpdate.unit !== current.unit) {
+            const finalStock = dataToUpdate.stock !== undefined ? dataToUpdate.stock : Number(current.stock);
+            if (unitDef(dataToUpdate.unit).integerOnly && !Number.isInteger(finalStock)) {
+                throw new Error(
+                    `El stock actual (${finalStock}) tiene decimales: ajusta el stock a un número entero antes de cambiar la unidad a "Unidad"`
+                );
+            }
+        }
         const incomingExtras = this.normalizeExtraBarcodes((productData as any).extra_barcodes, []);
         await this.assertCodesUnique(dataToUpdate, id, incomingExtras ?? []);
 

@@ -6,6 +6,7 @@ import { Label } from "@components/ui/label";
 import { Boxes, Minus, Plus } from "lucide-react";
 import { cn } from "@lib/utils";
 import { Product } from "@shared/types/models";
+import { formatQtyWithUnit, round3, unitDef } from "@shared/units";
 
 interface AdjustStockDialogProps {
   open: boolean;
@@ -45,16 +46,22 @@ export function AdjustStockDialog({ open, onOpenChange, product, onAdjust, isSav
 
   if (!product) return null;
 
-  const parsed = Number.parseInt(value, 10);
-  const newStock = Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
-  const delta = newStock !== null ? newStock - product.stock : 0;
-  const canSave = newStock !== null && newStock !== product.stock && !isSaving;
+  // Regla según la unidad: 'unidad' = entero estricto; libra/kilo/litro… = hasta 3 decimales.
+  const unit = unitDef(product.unit);
+  const parsedRaw = Number.parseFloat(value.replace(",", "."));
+  const isValidStock = Number.isFinite(parsedRaw) && parsedRaw >= 0 &&
+    (unit.integerOnly
+      ? Number.isInteger(parsedRaw)
+      : Math.abs(parsedRaw - round3(parsedRaw)) <= 1e-9);
+  const newStock = isValidStock ? round3(parsedRaw) : null;
+  const delta = newStock !== null ? round3(newStock - product.stock) : 0;
+  const canSave = newStock !== null && Math.abs(delta) > 1e-9 && !isSaving;
   const hasError = newStock === null && value !== "";
-  const deltaLabel = delta > 0 ? `+${delta}` : String(delta);
+  const deltaLabel = delta > 0 ? `+${formatQtyWithUnit(delta, product.unit)}` : formatQtyWithUnit(delta, product.unit);
 
   const applyDelta = (d: number) => {
     const base = newStock ?? product.stock;
-    setValue(String(Math.max(0, base + d)));
+    setValue(String(Math.max(0, round3(base + d))));
   };
 
   const handleSave = async () => {
@@ -83,12 +90,12 @@ export function AdjustStockDialog({ open, onOpenChange, product, onAdjust, isSav
         <div className="p-6 space-y-4">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Stock actual</span>
-            <span className="font-mono font-semibold tabular-nums">{product.stock}</span>
+            <span className="font-mono font-semibold tabular-nums">{formatQtyWithUnit(product.stock, product.unit)}</span>
           </div>
 
           <div className="flex items-center gap-2" role="group" aria-label="Ajuste rápido">
             {QUICK_DELTAS.map((d) => {
-              const units = Math.abs(d) === 1 ? "unidad" : "unidades";
+              const units = Math.abs(d) === 1 ? unit.singular : unit.plural;
               return (
                 <Button
                   key={d}
@@ -99,6 +106,7 @@ export function AdjustStockDialog({ open, onOpenChange, product, onAdjust, isSav
                   disabled={isSaving}
                   onClick={() => applyDelta(d)}
                   aria-label={d > 0 ? `Sumar ${d} ${units}` : `Restar ${Math.abs(d)} ${units}`}
+                  title={d > 0 ? `+${Math.abs(d)} ${units}` : `−${Math.abs(d)} ${units}`}
                 >
                   {d > 0 ? (
                     <Plus className="h-3 w-3" strokeWidth={1.75} aria-hidden="true" />
@@ -112,13 +120,13 @@ export function AdjustStockDialog({ open, onOpenChange, product, onAdjust, isSav
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="adjust-stock-value">Nuevo stock</Label>
+            <Label htmlFor="adjust-stock-value">Nuevo stock {unit.integerOnly ? "" : `(${unit.plural})`}</Label>
             <Input
               id="adjust-stock-value"
               type="number"
-              inputMode="numeric"
+              inputMode={unit.integerOnly ? "numeric" : "decimal"}
               min="0"
-              step="1"
+              step={unit.integerOnly ? "1" : "0.01"}
               value={value}
               onChange={(e) => setValue(e.target.value)}
               disabled={isSaving}
@@ -129,7 +137,9 @@ export function AdjustStockDialog({ open, onOpenChange, product, onAdjust, isSav
             />
             {hasError && (
               <p id="adjust-stock-error" className="text-xs text-destructive" role="alert">
-                Ingresa un número entero mayor o igual a 0.
+                {unit.integerOnly
+                  ? "Ingresa un número entero mayor o igual a 0."
+                  : "Ingresa un número mayor o igual a 0 con hasta 3 decimales."}
               </p>
             )}
           </div>
@@ -151,9 +161,6 @@ export function AdjustStockDialog({ open, onOpenChange, product, onAdjust, isSav
               )}
             >
               {deltaLabel}
-              {delta !== 0 && (
-                <span className="sr-only"> {Math.abs(delta) === 1 ? "unidad" : "unidades"}</span>
-              )}
             </span>
           </div>
         </div>

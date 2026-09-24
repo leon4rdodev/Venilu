@@ -33,7 +33,7 @@ export function POSInterface() {
   const { categories } = useCategories();
   const { products, pagination, isLoading, loadMore, refresh } = usePOSProducts(search, categoryId);
   const {
-    cart, addToCart, updateQuantity, removeFromCart, clearCart,
+    cart, addToCart, updateQuantity, setQuantity, removeFromCart, clearCart,
     handleProcessSale, discountAmount, setDiscountAmount,
     selectedCustomer, setSelectedCustomer,
     parkedSales, parkSale, resumeParkedSale, removeParkedSale,
@@ -152,6 +152,7 @@ export function POSInterface() {
               <Cart
                 cart={cart}
                 onUpdateQuantity={updateQuantity}
+                onSetQuantity={setQuantity}
                 onRemoveFromCart={removeFromCart}
                 onClearCart={clearCart}
                 discountAmount={discountAmount}

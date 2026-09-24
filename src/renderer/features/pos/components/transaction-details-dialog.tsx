@@ -12,11 +12,14 @@ import { usePermission } from '@renderer/features/auth/hooks/use-permission';
 import { PERMISSIONS } from '@shared/permissions';
 import { ConfirmDialog } from '@renderer/shared/components/confirm-dialog';
 import { ReturnItemsDialog } from './return-items-dialog';
+import { formatQty, unitDef } from '@shared/units';
 
 interface SaleItem {
   id?: string;
   product_name: string;
   quantity: number;
+  /** Snapshot de la unidad al vender ('unidad' | libra | kilo…) */
+  unit?: string;
   unit_price: number;
 }
 
@@ -418,19 +421,23 @@ export function TransactionDetailsDialog({
               </p>
             ) : (
               <div className="bg-card border border-border rounded-lg divide-y divide-border">
-                {saleItems.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between px-3.5 py-2.5 gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className={cn("text-sm font-medium truncate", isVoided && "line-through text-muted-foreground")} title={item.product_name}>{item.product_name}</p>
-                      <p className="text-xs text-muted-foreground truncate tabular-nums">
-                        {item.quantity} × {formatCurrency(item.unit_price)}
-                      </p>
+                {saleItems.map((item, index) => {
+                  const itemUnit = unitDef(item.unit);
+                  return (
+                    <div key={index} className="flex items-center justify-between px-3.5 py-2.5 gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className={cn("text-sm font-medium truncate", isVoided && "line-through text-muted-foreground")} title={item.product_name}>{item.product_name}</p>
+                        <p className="text-xs text-muted-foreground truncate tabular-nums">
+                          {formatQty(item.quantity)}
+                          {itemUnit.value !== 'unidad' ? ` ${itemUnit.abbr}` : ''} × {formatCurrency(item.unit_price)}
+                        </p>
+                      </div>
+                      <span className={cn("text-sm font-medium font-mono tabular-nums text-right shrink-0 whitespace-nowrap", isVoided && "line-through text-muted-foreground")}>
+                        {formatCurrency(item.quantity * item.unit_price)}
+                      </span>
                     </div>
-                    <span className={cn("text-sm font-medium font-mono tabular-nums text-right shrink-0 whitespace-nowrap", isVoided && "line-through text-muted-foreground")}>
-                      {formatCurrency(item.quantity * item.unit_price)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
                 <div className="flex items-center justify-between px-3.5 py-2.5 bg-muted/40">
                   <span className="text-sm font-semibold">Total</span>
                   <span className={cn("text-sm font-semibold font-mono tabular-nums text-right", isVoided && "line-through text-muted-foreground")}>{formatCurrency(transaction.total_amount)}</span>

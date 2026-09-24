@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@components/ui/table";
 import { TablePagination } from "@renderer/shared/components/table-pagination";
+import { formatQty, unitDef } from "@shared/units";
 import { useMinimumLoading } from "@renderer/shared/hooks/use-minimum-loading";
 import { cn } from "@lib/utils";
 import { Product, StockMovementEntry } from "@shared/types/models";
@@ -125,7 +126,9 @@ export function StockMovementsDialog({ open, onOpenChange, product }: StockMovem
           </div>
           <DialogDescription className="text-sm text-muted-foreground truncate" title={product.name}>
             {product.name} · Stock actual:{" "}
-            <span className="font-mono font-medium tabular-nums text-foreground">{product.stock}</span>
+            <span className="font-mono font-medium tabular-nums text-foreground">
+              {formatQty(product.stock)}{unitDef(product.unit).value !== "unidad" ? ` ${unitDef(product.unit).abbr}` : ""}
+            </span>
           </DialogDescription>
         </div>
 
