@@ -6,9 +6,10 @@ import { round2 } from "@shared/money";
 import { formatQtyWithUnit, isValidQuantity, qtyLte, round3, unitDef } from "@shared/units";
 import { useShift } from "./use-shift";
 
-/** Datos del comprobante fiscal (NCF) solicitados al cobrar. */
+/** Datos del comprobante fiscal (e-CF) solicitados al cobrar. */
 export interface FiscalData {
-  ncfType: 'B01' | 'B02';
+  /** e-CF: 32 Factura de Consumo Electrónica · 31 Factura de Crédito Fiscal Electrónica. */
+  ncfType: '31' | '32';
   customerRnc?: string;
   customerName?: string;
 }
@@ -256,7 +257,7 @@ export function useCart() {
 
         if (result.success) {
           const isCredit = paymentMethod === 'credit';
-          const ncfSuffix = result.ncf ? ` · NCF ${result.ncf}` : "";
+          const ncfSuffix = result.ncf ? ` · e-NCF ${result.ncf}` : "";
           toast.success(isCredit ? "Venta a crédito registrada" : "Venta exitosa", {
             description: isCredit
               ? `Venta #${result.saleId} registrada a crédito para ${selectedCustomer?.name}.${ncfSuffix}`

@@ -7,6 +7,7 @@ import { formatCurrency } from '@lib/currency';
 import { Undo2, Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Sale } from '@shared/types/models';
+import { ncfCorto } from '@shared/ncf';
 import { formatQty, formatQtyWithUnit, isValidQuantity, qtyLte, round3, unitDef } from '@shared/units';
 
 interface ReturnableSaleItem {
@@ -343,7 +344,7 @@ export function ReturnItemsDialog({
           </div>
           <div className="text-xs text-muted-foreground leading-relaxed">
             <p>El reembolso sale en efectivo de tu caja.</p>
-            {transaction.ncf && <p>Se emitirá una Nota de Crédito (B04).</p>}
+            {transaction.ncf && <p>Se emitirá una {ncfCorto('34')}.</p>}
           </div>
           <Button
             onClick={handleSubmit}

@@ -87,6 +87,14 @@ const PERMISSION_GROUPS = [
     ]
   },
   {
+    title: 'Facturación Electrónica (e-CF)',
+    permissions: [
+      { id: PERMISSIONS.ECF_VIEW, label: 'Ver comprobantes electrónicos emitidos' },
+      { id: PERMISSIONS.ECF_EMIT, label: 'Firmar y transmitir e-CF a la DGII' },
+      { id: PERMISSIONS.ECF_CONFIG, label: 'Configurar certificado, ambiente y conexión' },
+    ]
+  },
+  {
     title: 'Seguridad y Usuarios',
     permissions: [
       { id: PERMISSIONS.USR_VIEW, label: 'Ver lista de usuarios' },

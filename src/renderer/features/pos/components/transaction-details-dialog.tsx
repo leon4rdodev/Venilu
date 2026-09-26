@@ -8,6 +8,7 @@ import { Skeleton } from "@components/ui/skeleton";
 import { cn } from '@lib/utils';
 import { toast } from 'sonner';
 import { Sale } from '@shared/types/models';
+import { ncfCorto } from '@shared/ncf';
 import { usePermission } from '@renderer/features/auth/hooks/use-permission';
 import { PERMISSIONS } from '@shared/permissions';
 import { ConfirmDialog } from '@renderer/shared/components/confirm-dialog';
@@ -342,17 +343,17 @@ export function TransactionDetailsDialog({
             <div className="px-5 pb-3 space-y-2">
               <h3 className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <ReceiptText className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-                Comprobante Fiscal
+                Comprobante Fiscal Electrónico
               </h3>
               <div className="bg-card border border-border rounded-lg divide-y divide-border text-sm">
                 <div className="flex items-center justify-between px-3.5 py-2.5">
                   <span className="text-muted-foreground">Tipo</span>
                   <span className="font-medium text-right">
-                    {transaction.ncf_type === 'B01' ? 'Factura de Crédito Fiscal (B01)' : 'Factura de Consumo (B02)'}
+                    {ncfCorto(transaction.ncf_type)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between px-3.5 py-2.5">
-                  <span className="text-muted-foreground">NCF</span>
+                  <span className="text-muted-foreground">e-NCF</span>
                   <span className="font-medium font-mono tabular-nums text-right">{transaction.ncf}</span>
                 </div>
                 {transaction.fiscal_customer_rnc && (
@@ -378,7 +379,7 @@ export function TransactionDetailsDialog({
                 {isVoided && transaction.credit_note_ncf && (
                   <div className="flex items-center justify-between px-3.5 py-2.5 gap-3">
                     <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-destructive/10 text-destructive shrink-0">
-                      Nota de Crédito (B04)
+                      {ncfCorto('34')}
                     </span>
                     <span className="font-medium font-mono tabular-nums text-right">{transaction.credit_note_ncf}</span>
                   </div>

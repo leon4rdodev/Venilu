@@ -54,7 +54,12 @@ import { cn } from "@lib/utils";
 
 // ─── Tipos del contrato IPC fiscal (espejo de main/modules/fiscal) ──────────
 
-type NcfType = "B01" | "B02" | "B04";
+/**
+ * Tipo de e-CF autorizado como secuencia. Códigos oficiales del XSD
+ * `TipoeCFType` de la DGII: 31 Factura de Crédito Fiscal Electrónica,
+ * 32 Factura de Consumo Electrónica, 34 Nota de Crédito Electrónica.
+ */
+type NcfType = "31" | "32" | "34";
 
 interface SequenceStatus {
   id: string;
@@ -69,18 +74,25 @@ interface SequenceStatus {
 }
 
 const NCF_TYPE_LABELS: Record<NcfType, string> = {
-  B02: "Consumo",
-  B01: "Crédito Fiscal",
-  B04: "Nota de Crédito",
+  "31": "Crédito Fiscal",
+  "32": "Consumo",
+  "34": "Nota de Crédito",
 };
 
 const NCF_TYPE_OPTIONS: { value: NcfType; label: string }[] = [
-  { value: "B02", label: "B02 · Factura de Consumo" },
-  { value: "B01", label: "B01 · Factura de Crédito Fiscal" },
-  { value: "B04", label: "B04 · Nota de Crédito" },
+  { value: "32", label: "32 · Factura de Consumo Electrónica" },
+  { value: "31", label: "31 · Factura de Crédito Fiscal Electrónica" },
+  { value: "34", label: "34 · Nota de Crédito Electrónica" },
 ];
 
-const MAX_NCF_NUMBER = 99_999_999;
+/**
+ * Los 10 dígitos secuenciales del e-NCF (`E` + 2 dígitos de tipo + 10
+ * secuenciales = 13 posiciones) — estructura oficial del e-NCF.
+ */
+const MAX_NCF_NUMBER = 9_999_999_999;
+
+/** "9,999,999,999" para los mensajes de validación. */
+const MAX_NCF_LABEL = "9,999,999,999";
 
 /** "2026-12-31" → "31 dic 2026" (sin desfase de zona horaria). */
 function formatExpiryDate(value: string): string {
@@ -112,11 +124,11 @@ function FiscalToggleCard({ canEdit }: { canEdit: boolean }) {
     if (result.success) {
       toast.success(
         checked
-          ? "Facturación con comprobantes activada"
-          : "Facturación con comprobantes desactivada",
+          ? "Facturación electrónica (e-CF) activada"
+          : "Facturación electrónica desactivada",
         {
           description: checked
-            ? "Las ventas emitirán NCF según las secuencias configuradas."
+            ? "Las ventas emitirán e-NCF según las secuencias configuradas."
             : "Las ventas se registrarán sin comprobante fiscal.",
         },
       );
@@ -147,8 +159,8 @@ function FiscalToggleCard({ canEdit }: { canEdit: boolean }) {
     <div className="bg-card border border-border rounded-lg p-6">
       <WidgetHeader
         icon={ReceiptText}
-        title="Facturación con Comprobantes (NCF)"
-        subtitle="Emite comprobantes fiscales de la DGII en cada venta"
+        title="Facturación Electrónica (e-CF)"
+        subtitle="Emite comprobantes fiscales electrónicos de la DGII en cada venta"
       />
 
       <div className="mt-6 space-y-5">
@@ -156,10 +168,10 @@ function FiscalToggleCard({ canEdit }: { canEdit: boolean }) {
         <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-4">
           <div className="min-w-0">
             <Label htmlFor="fiscal-enabled" className="text-sm font-medium cursor-pointer">
-              Emitir comprobantes fiscales
+              Emitir comprobantes fiscales electrónicos
             </Label>
             <p id="fiscal-enabled-hint" className="text-xs text-muted-foreground mt-1">
-              Cada venta consumirá un NCF de las secuencias autorizadas por la DGII.
+              Cada venta consumirá un e-NCF de las secuencias autorizadas por la DGII.
             </p>
           </div>
           <Switch
@@ -227,7 +239,7 @@ interface SequenceFormData {
 
 function emptyForm(): SequenceFormData {
   return {
-    type: "B02",
+    type: "32",
     from_number: "",
     to_number: "",
     next_number: "",
@@ -275,10 +287,14 @@ function SequenceDialog({
     const from = parseIntField(formData.from_number);
     const to = parseIntField(formData.to_number);
     if (!Number.isInteger(from) || from < 1 || from > MAX_NCF_NUMBER) {
-      return "El número inicial debe ser un entero entre 1 y 99,999,999";
+      return `El número inicial debe ser un entero entre 1 y ${MAX_NCF_LABEL}`;
     }
     if (!Number.isInteger(to) || to < from || to > MAX_NCF_NUMBER) {
-      return "El número final debe ser un entero mayor o igual al inicial (máx. 99,999,999)";
+      return `El número final debe ser un entero mayor o igual al inicial (máx. ${MAX_NCF_LABEL})`;
+    }
+    // El XSD del e-CF 31 exige <FechaVencimientoSecuencia> en IdDoc.
+    if (formData.type === "31" && !formData.expires_at.trim()) {
+      return "El e-CF 31 (Crédito Fiscal) exige registrar la fecha de vencimiento de la secuencia autorizada por la DGII.";
     }
     if (isEditing) {
       const next = parseIntField(formData.next_number);
@@ -347,7 +363,7 @@ function SequenceDialog({
           <DialogDescription className="text-sm text-muted-foreground">
             {isEditing
               ? "Modifica el rango autorizado por la DGII."
-              : "Registra un rango de NCF autorizado por la DGII."}
+              : "Registra un rango de e-NCF autorizado por la DGII."}
           </DialogDescription>
         </div>
 
@@ -426,7 +442,9 @@ function SequenceDialog({
               </div>
             </div>
             <p id="range-hint" className="text-xs text-muted-foreground">
-              Números de secuencia tal como aparecen en la autorización de la DGII (máx. 99,999,999).
+              Secuencia de 10 dígitos tal como aparece en la autorización de la DGII (máx.{" "}
+              {MAX_NCF_LABEL}). El e-NCF se imprime como <span className="font-mono">E</span> + tipo +
+              secuencia (13 posiciones).
             </p>
           </fieldset>
 
@@ -454,7 +472,14 @@ function SequenceDialog({
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="expires_at">Fecha de Vencimiento (opcional)</Label>
+            <Label htmlFor="expires_at">
+              Fecha de Vencimiento
+              {formData.type === "31" ? (
+                <span className="text-destructive"> *</span>
+              ) : (
+                " (opcional)"
+              )}
+            </Label>
             <Input
               id="expires_at"
               type="date"
@@ -570,9 +595,12 @@ function SequencesCard({
   const [deleteTarget, setDeleteTarget] = useState<SequenceStatus | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const missingB04 = !sequences.some(
-    (s) => s.type === "B04" && s.active && !s.expired && s.remaining > 0,
-  );
+  // Sin secuencia activa de un tipo no se puede emitir ese e-CF.
+  const activa = (tipo: NcfType) =>
+    sequences.some((s) => s.type === tipo && s.active && !s.expired && s.remaining > 0);
+  const faltantes = (["32", "34"] as NcfType[])
+    .filter((tipo) => !activa(tipo))
+    .map((tipo) => `${NCF_TYPE_LABELS[tipo]} (${tipo})`);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -614,8 +642,8 @@ function SequencesCard({
     <div className="bg-card border border-border rounded-lg p-6">
       <WidgetHeader
         icon={Landmark}
-        title="Secuencias de NCF"
-        subtitle="Rangos de comprobantes autorizados por la DGII"
+        title="Secuencias de e-NCF"
+        subtitle="Rangos de comprobantes fiscales electrónicos autorizados por la DGII"
         action={
           canEdit ? (
             <Button
@@ -632,11 +660,12 @@ function SequencesCard({
         }
       />
 
-      {fiscalEnabled && missingB04 && (
+      {fiscalEnabled && faltantes.length > 0 && (
         <div role="status" className="mt-4 flex items-start gap-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3">
           <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm text-amber-700 dark:text-amber-300">
-            Sin secuencia B04 activa no podrás anular ventas con comprobante.
+            Sin secuencia activa de {faltantes.join(" ni de ")} no podrás emitir ese comprobante
+            electrónico.
           </p>
         </div>
       )}
@@ -651,8 +680,8 @@ function SequencesCard({
               No hay secuencias registradas
             </p>
             <p className="text-sm text-muted-foreground mt-1 max-w-md">
-              Registra aquí los rangos de NCF que la DGII autorizó a tu negocio
-              (B02 para consumo, B01 para crédito fiscal y B04 para notas de
+              Registra aquí los rangos de e-NCF que la DGII autorizó a tu negocio
+              (32 para consumo, 31 para crédito fiscal y 34 para notas de
               crédito de anulaciones).
             </p>
           </div>
@@ -777,7 +806,7 @@ function SequencesCard({
             </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTargetHasEmitted
-                ? "Esta secuencia ya emitió comprobantes, por lo que no puede borrarse: se desactivará y dejará de emitir NCF, pero su historial se conserva."
+                ? "Esta secuencia ya emitió comprobantes, por lo que no puede borrarse: se desactivará y dejará de emitir e-NCF, pero su historial se conserva."
                 : "La secuencia será eliminada permanentemente. Esta acción no se puede deshacer."}
               {deleteTarget && (
                 <span className="mt-4 block p-4 bg-muted rounded-md text-sm">
@@ -861,7 +890,7 @@ export function FiscalSettings() {
         "fiscal:get-sequences",
       )) as IPCResponse<SequenceStatus[]>;
       if (!result.success || !result.data) {
-        throw new Error(result.message || "Error al cargar las secuencias de NCF");
+        throw new Error(result.message || "Error al cargar las secuencias de e-NCF");
       }
       return result.data;
     },
@@ -883,15 +912,15 @@ export function FiscalSettings() {
         <div className="bg-card border border-border rounded-lg p-6">
           <WidgetHeader
             icon={Landmark}
-            title="Secuencias de NCF"
-            subtitle="Rangos de comprobantes autorizados por la DGII"
+            title="Secuencias de e-NCF"
+            subtitle="Rangos de comprobantes fiscales electrónicos autorizados por la DGII"
           />
           <div role="alert" className="mt-4 flex items-start gap-2.5 rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-destructive" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm text-destructive">
               {sequencesQuery.error instanceof Error
                 ? sequencesQuery.error.message
-                : "Error al cargar las secuencias de NCF"}
+                : "Error al cargar las secuencias de e-NCF"}
             </p>
           </div>
         </div>

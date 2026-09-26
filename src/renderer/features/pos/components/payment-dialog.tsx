@@ -16,8 +16,9 @@ import { CustomerDialog } from "@renderer/features/customers/components/customer
 import { usePermission } from "@renderer/features/auth/hooks/use-permission"
 import { PERMISSIONS } from "@shared/permissions"
 import type { FiscalData } from "../hooks/use-cart"
+import { ncfCorto } from "@shared/ncf"
 
-type NcfChoice = "none" | "B02" | "B01"
+type NcfChoice = "none" | "32" | "31"
 
 type PaymentDialogProps = {
   open: boolean
@@ -310,10 +311,10 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
   const change = paymentMethod === "cash" ? Math.max(0, Math.round((amountPaid - total) * 100) / 100) : 0
   const isCredit = paymentMethod === "credit"
 
-  // B01 exige RNC (9 dígitos) o cédula (11 dígitos) del cliente
+  // El e-CF tipo 31 (Crédito Fiscal) exige RNC (9 dígitos) o cédula (11) del cliente
   const fiscalEnabled = Boolean(settings?.fiscal_enabled)
   const rncValid = /^(\d{9}|\d{11})$/.test(fiscalRnc)
-  const isFiscalValid = !fiscalEnabled || ncfChoice !== "B01" || rncValid
+  const isFiscalValid = !fiscalEnabled || ncfChoice !== "31" || rncValid
 
   // Epsilon avoids float artifacts (e.g. 3 × 0.1) rejecting an exact payment
   const isValidPayment = (isCredit
@@ -343,7 +344,7 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
       fiscalEnabled && ncfChoice !== "none"
         ? {
             ncfType: ncfChoice,
-            ...(ncfChoice === "B01"
+            ...(ncfChoice === "31"
               ? {
                   customerRnc: fiscalRnc,
                   customerName: fiscalName.trim() || undefined,
@@ -446,13 +447,13 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                 <div className="px-6 pt-1 pb-3 space-y-2.5">
                   <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     <ReceiptText className="h-3.5 w-3.5" strokeWidth={1.75} />
-                    Comprobante Fiscal
+                    Comprobante Fiscal Electrónico
                   </div>
-                  <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Tipo de comprobante fiscal">
+                  <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Tipo de comprobante fiscal electrónico">
                     {([
                       { id: "none", label: "Sin comprobante" },
-                      { id: "B02", label: "Consumo (B02)" },
-                      { id: "B01", label: "Crédito Fiscal (B01)" },
+                      { id: "32", label: "Consumo (32)" },
+                      { id: "31", label: "Crédito Fiscal (31)" },
                     ] as const).map((option) => (
                       <button
                         key={option.id}
@@ -474,7 +475,7 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                       </button>
                     ))}
                   </div>
-                  {ncfChoice === "B01" && (
+                  {ncfChoice === "31" && (
                     <div className="space-y-3 pt-0.5">
                       <div className="space-y-1.5">
                         <Label htmlFor="fiscal-rnc" className="text-xs text-muted-foreground">
@@ -736,7 +737,7 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
                   {issuedNcf && (
                     <div className="flex items-center justify-between gap-4 px-4 py-3 bg-muted/50">
                       <span className="text-muted-foreground font-medium shrink-0">
-                        {confirmedDetails?.ncfType === "B01" ? "NCF Crédito Fiscal (B01)" : "NCF Consumo (B02)"}
+                        e-NCF {ncfCorto(confirmedDetails?.ncfType)}
                       </span>
                       <span className="font-semibold font-mono tabular-nums truncate" title={issuedNcf}>{issuedNcf}</span>
                     </div>

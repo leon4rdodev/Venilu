@@ -244,7 +244,7 @@ describe("useCart · handleProcessSale", () => {
   });
 
   it("sends fiscal data when provided and returns the issued NCF", async () => {
-    const invoke = vi.fn(async () => ({ success: true, saleId: "S10", ncf: "B0100000042" }));
+    const invoke = vi.fn(async () => ({ success: true, saleId: "S10", ncf: "E310000000042" }));
     (window as any).ipcRenderer.invoke = invoke;
     const { result } = renderHook(() => useCart());
     act(() => result.current.addToCart(product()));
@@ -252,7 +252,7 @@ describe("useCart · handleProcessSale", () => {
     let res: any;
     await act(async () => {
       res = await result.current.handleProcessSale("cash" as any, 10, 0, () => {}, {
-        ncfType: "B01",
+        ncfType: "31",
         customerRnc: "131234567",
         customerName: "Empresa SRL",
       });
@@ -262,14 +262,14 @@ describe("useCart · handleProcessSale", () => {
       "process-sale",
       expect.objectContaining({
         saleData: expect.objectContaining({
-          fiscal: { ncfType: "B01", customerRnc: "131234567", customerName: "Empresa SRL" },
+          fiscal: { ncfType: "31", customerRnc: "131234567", customerName: "Empresa SRL" },
         }),
       })
     );
-    expect(res).toEqual({ success: true, saleId: "S10", ncf: "B0100000042" });
+    expect(res).toEqual({ success: true, saleId: "S10", ncf: "E310000000042" });
     expect(h.toastSuccess).toHaveBeenCalledWith(
       "Venta exitosa",
-      expect.objectContaining({ description: expect.stringContaining("NCF B0100000042") })
+      expect.objectContaining({ description: expect.stringContaining("NCF E310000000042") })
     );
   });
 

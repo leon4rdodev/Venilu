@@ -11,8 +11,10 @@ import {
   ShieldCheck,
   SunMoon,
   Users,
+  FileKey2,
 } from "lucide-react";
 import { BusinessSettings } from "./business-settings";
+import { EcfSettings } from "./ecf-settings";
 import { FiscalSettings } from "./fiscal-settings";
 import { AppearanceSettings } from "./appearance-settings";
 import { UserSettings } from "./user-settings";
@@ -28,6 +30,7 @@ import { cn } from "@lib/utils";
 type SectionId =
   | "business"
   | "fiscal"
+  | "ecf"
   | "appearance"
   | "users"
   | "roles"
@@ -55,9 +58,16 @@ const SECTIONS: Section[] = [
   {
     id: "fiscal",
     label: "Fiscal",
-    description: "Comprobantes fiscales (NCF), ITBIS y secuencias de la DGII",
+    description: "Facturación electrónica, ITBIS, RNC y secuencias de e-NCF",
     icon: Landmark,
     content: () => <FiscalSettings />,
+  },
+  {
+    id: "ecf",
+    label: "e-CF",
+    description: "Certificado digital, ambiente DGII y conexión con la DGII",
+    icon: FileKey2,
+    content: () => <EcfSettings />,
   },
   {
     id: "appearance",
@@ -144,6 +154,7 @@ export function SettingsInterface() {
     const allowed: Record<SectionId, boolean> = {
       business: perms["settings:view"],
       fiscal: perms["settings:view"],
+      ecf: perms["settings:view"],
       appearance: true,
       users: perms["users:view"],
       roles: perms["users:roles"],

@@ -20,7 +20,7 @@ const sale = {
   total_amount: 180,
   payment_method: "cash",
   status: "completed",
-  ncf: "B0200000015",
+  ncf: "E320000000015",
 } as unknown as Sale;
 
 const saleItems = [
@@ -62,7 +62,7 @@ describe("ReturnItemsDialog", () => {
     expect(screen.getByText(/Vendidos: 1 · Ya devueltos: 1/)).toBeInTheDocument();
     expect(screen.getByText("Devuelto")).toBeInTheDocument();
     // NCF sale announces the credit note
-    expect(screen.getByText("Se emitirá una Nota de Crédito (B04).")).toBeInTheDocument();
+    expect(screen.getByText("Se emitirá una Nota de Crédito (34).")).toBeInTheDocument();
   });
 
   it("caps the stepper at the remaining quantity and applies the sale discount factor", async () => {
@@ -90,7 +90,7 @@ describe("ReturnItemsDialog", () => {
       success: true,
       returnId: "7",
       totalRefunded: 90,
-      creditNoteNcf: "B0400000003",
+      creditNoteNcf: "E340000000003",
     });
     const { props } = renderDialog();
 
@@ -108,7 +108,7 @@ describe("ReturnItemsDialog", () => {
       })
     );
     expect(h.toastSuccess).toHaveBeenCalledWith(
-      "Devolución #7 procesada — RD$ 90.00 reembolsados · NC B0400000003"
+      "Devolución #7 procesada — RD$ 90.00 reembolsados · NC E340000000003"
     );
     expect(props.onSuccess).toHaveBeenCalled();
     expect(props.onOpenChange).toHaveBeenCalledWith(false);
