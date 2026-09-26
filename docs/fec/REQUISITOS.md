@@ -19,6 +19,7 @@ Procedencia y hash de cada fuente: [`FUENTES.md`](FUENTES.md).
 > **[FG]**  `Instructivo-Facturador-Gratuito-de-FE.pdf`
 > **[CT]**  `Instructivo-Contingencia-FE.pdf`
 > **[GU]**  `Guia-Basica-Proveedor-de-Servicios-de-Facturacion-Electronica.pdf`
+> **[A06]** `Aviso 06-26 — Extensión del plazo de implementación de facturación electrónica`
 
 ---
 
@@ -334,6 +335,51 @@ reescrito a mano.
 
 ---
 
+### 4.10 Tipos de e-CF que emite Venilu (31 / 32 / 34)
+
+> **[XSD]** `e-CF 31/32/34 v.1.0.xsd` → `xs:simpleType name="TipoeCFType"`, comentario literal
+> de cada enumeración:
+> `31` *Factura de Crédito Fiscal Electrónica* · `32` *Factura de Consumo Electrónica* ·
+> `33` *Nota de Débito Electrónica* · `34` *Nota de Crédito Electrónica* ·
+> `41` *Compras Electrónico* · `43` *Gastos Menores Electrónico* ·
+> `44` *Regímenes Especiales Electrónico* · `45` *Gubernamental Electrónico* ·
+> `46` *Comprobante de Exportaciones Electrónico* · `47` *Comprobante para Pagos al Exterior
+> Electrónico*.
+
+Venilu emite **31** (al cobrar con RNC/cédula del cliente), **32** (consumo) y **34**
+(anulaciones y devoluciones); `33` y los demás tipos no son operación de un POS.
+
+→ `fiscal.service.ts` (`NcfType`), `src/shared/ncf.ts` (etiquetas),
+Ajustes → *Fiscal* (secuencias) y el diálogo de cobro.
+
+### 4.11 Retiro de la facturación en papel (secuencias B)
+
+> Calendario de obligatoriedad → §7 (fuente **[A06]** `Aviso 06-26`): las secuencias tipo B
+> vencen el **31 oct 2026** y desde el **1 nov / 15 nov 2026** solo se emiten e-CF.
+
+Decisión de implementación (no es una regla de la DGII, es la forma de cumplirla): la
+migración `1757450000000-EcfDocuments` **borra** las secuencias `B01/B02/B04` de
+`ncf_sequences` y deja el registro de rangos **e-NCF** en Ajustes → Fiscal. Un rango tipo B
+autoriza comprobantes en papel (serie B, 8 dígitos) y el e-NCF es otra estructura de 13
+posiciones autorizada aparte en la Oficina Virtual: reutilizarlo produciría e-NCF sin
+autorización.
+
+Las ventas antiguas con NCF de papel se conservan en la base para lectura e impresión de
+recibos históricos (`src/shared/ncf.ts` acepta `B01/B02/B04` **solo** para etiquetarlas), pero
+el sistema ya no los emite.
+
+### 4.12 `FechaVencimientoSecuencia` obligatoria en el e-CF 31
+
+> **[XSD]** `e-CF 31 v.1.0.xsd` → `IdDoc`:
+> `<xs:element name="FechaVencimientoSecuencia" type="FechaValidationType" minOccurs="1" maxOccurs="1"/>`
+
+→ el elemento es **obligatorio**. Por eso el formulario de secuencias exige la fecha cuando
+el tipo es `31` (`fiscal-settings.tsx`) y `FiscalService.saveSequence` la rechaza sin ella.
+En los tipos 32 y 34 el XSD lo marca `minOccurs="0"` y no se exige.
+
+
+---
+
 ## 5. PENDIENTES DE CONFIRMACIÓN CON LA DGII
 
 Nada de esto está resuelto en el código. Cada punto está aislado en su propio módulo con un
@@ -417,6 +463,34 @@ quién guarda el `.p12` y quién firma. No se toca nada hasta confirmarlo con la
 
 **Pendiente:** decidir si se reporta a la DGII y/o se envía un XSD corregido durante la
 certificación.
+
+### 5.7 Equivalencia entre los tipos de papel retirados y los e-CF
+
+**Qué dice la DGII:** el XSD `TipoeCFType` nombra a `31` *Factura de Crédito Fiscal
+Electrónica*, `32` *Factura de Consumo Electrónica* y `34` *Nota de Crédito Electrónica*.
+**Qué no dice (en las fuentes de `FUENTES.md`):** una tabla que diga literalmente
+"B01 → 31, B02 → 32, B04 → 34".
+
+**Supuesto en uso:** la correspondencia se establece **por el nombre del comprobante**, que
+es idéntico en ambos casos (`B01` Crédito Fiscal · `B02` Consumo · `B04` Nota de Crédito).
+
+**Dónde está aislado:** `src/shared/ncf.ts` — el único sitio que traduce un tipo a una
+etiqueta; cambiar la regla ahí cambia toda la interfaz.
+
+**Pendiente:** confirmarlo con la DGII durante la certificación (o con el Anexo de
+Resolencias Normativas que define las series B).
+
+### 5.8 Nombre del archivo multipart de la semilla
+
+**Qué dice la DGII:** la recepción de e-CF exige `RNCEmisor+e-NCF.xml`
+(`nombreArchivoXml()` → §1.1) y el contrato del servicio de autenticación es `POST` con
+`-F 'xml=@…'`.
+**Qué no dice:** el nombre de archivo que debe llevar el `xml` de la **semilla firmada**.
+
+**Supuesto en uso:** `semilla.xml` (literal en `dgii/client.ts`).
+
+**Pendiente:** verificarlo en la pre-certificación; si la DGII lo rechaza, es un solo literal.
+
 
 ---
 

@@ -42,8 +42,8 @@ export function registerFiscalHandlers() {
 
   /**
    * Reporte 607 (ventas con comprobante) del mes dado, como CSV para el
-   * contador. Incluye las Notas de Crédito B04 como filas propias que
-   * referencian el NCF modificado. Payload: { year, month (1-12) }.
+   * contador. Incluye las Notas de Crédito Electrónicas (34) como filas
+   * propias que referencian el e-NCF modificado. Payload: { year, month (1-12) }.
    */
   ipcMain.handle('fiscal:export-607', async (_event, { year, month } = {}) => {
     try {
@@ -85,16 +85,16 @@ export function registerFiscalHandlers() {
           rnc, idType, s.ncf, '', s.ncf_type ?? '',
           dateOf(s.created_at), num(s.total_amount), num(s.itbis_amount ?? 0),
         ));
-        // Nota de crédito de una venta anulada — misma magnitud, NCF B04 propio
+        // Nota de crédito de una venta anulada — misma magnitud, e-NCF 34 propio
         if (s.credit_note_ncf) {
           lines.push(csvRow(
-            rnc, idType, s.credit_note_ncf, s.ncf, 'B04',
+            rnc, idType, s.credit_note_ncf, s.ncf, '34',
             dateOf(s.voided_at ?? s.created_at), num(s.total_amount), num(s.itbis_amount ?? 0),
           ));
         }
       }
 
-      // Notas de Crédito B04 de DEVOLUCIONES PARCIALES del mes
+      // Notas de Crédito Electrónicas (34) de DEVOLUCIONES PARCIALES del mes
       const returns = await AppDataSource.getRepository(SaleReturn)
         .createQueryBuilder('ret')
         .leftJoinAndSelect('ret.sale', 'sale')
@@ -107,7 +107,7 @@ export function registerFiscalHandlers() {
         const rnc = r.sale?.fiscal_customer_rnc ?? '';
         const idType = rnc.length === 9 ? '1' : rnc.length === 11 ? '2' : '';
         lines.push(csvRow(
-          rnc, idType, r.credit_note_ncf, r.sale?.ncf ?? '', 'B04',
+          rnc, idType, r.credit_note_ncf, r.sale?.ncf ?? '', '34',
           dateOf(r.created_at), num(r.total_refunded), num(r.itbis_refunded ?? 0),
         ));
       }

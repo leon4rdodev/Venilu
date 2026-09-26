@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Fecha de anulación de la venta: la Nota de Crédito B04 del reporte 607
+ * Fecha de anulación de la venta: la Nota de Crédito Electrónica (34) del reporte 607
  * debe llevar la fecha en que se emitió (anulación), no la de la venta.
  */
 export class SaleVoidedAt1756750000000 implements MigrationInterface {

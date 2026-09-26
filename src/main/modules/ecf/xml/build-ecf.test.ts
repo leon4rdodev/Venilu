@@ -220,7 +220,7 @@ describe('e-CF — el validador detecta lo que la DGII rechazaría', () => {
     });
 
     it('un e-NCF que no mida 13 caracteres', () => {
-        const { xml } = buildEcfXml({ ...e31(), encf: 'B0100000143' });
+        const { xml } = buildEcfXml({ ...e31(), encf: 'E3100000143' });
         const result = check(xml, 31);
         expect(result.valid).toBe(false);
         expect(formatIssues(result)).toMatch(/patrón/);

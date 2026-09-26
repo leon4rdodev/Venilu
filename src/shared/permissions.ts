@@ -95,6 +95,14 @@ export const PERMISSIONS = {
   /** Configure tax rates and currency */
   SET_TAXES:         'settings:taxes',
 
+  // ─── Facturación electrónica (e-CF) ───────────────────────────────────────
+  /** Ver el listado de comprobantes fiscales electrónicos emitidos */
+  ECF_VIEW:          'ecf:view',
+  /** Firmar y transmitir e-CF a la DGII */
+  ECF_EMIT:          'ecf:emit',
+  /** Configurar certificado digital, ambiente y probar conexión con la DGII */
+  ECF_CONFIG:        'ecf:config',
+
   // ─── Users & Roles ────────────────────────────────────────────────────────
   /** View user list */
   USR_VIEW:          'users:view',

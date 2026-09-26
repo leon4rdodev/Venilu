@@ -56,6 +56,21 @@ export class Setting {
     @Column("decimal", { precision: 5, scale: 2, default: 18 })
     itbis_rate!: number;
 
+    /** Ambiente DGII para el e-CF: 'testecf' (pre-cert.) | 'certecf' | 'ecf'. */
+    @Column({ default: 'testecf' })
+    ecf_ambiente!: string;
+
+    /** Ruta del certificado digital .p12/ .pfx del PSFE. */
+    @Column({ nullable: true })
+    ecf_cert_path?: string;
+
+    /**
+     * Contraseña del certificado, cifrada con `safeStorage` (llave del
+     * sistema) y guardada en base64. Nunca en claro si el SO la soporta.
+     */
+    @Column({ nullable: true, type: 'text' })
+    ecf_cert_password?: string;
+
     /**
      * Escala de interfaz (zoom tipo navegador): 1 = 100%, 1.25 = 125%…
      * Se aplica vía webContents.setZoomFactor y se persiste para que la vista

@@ -4,7 +4,7 @@ import { Sale } from "./sale.entity";
 /**
  * Devolución parcial de una venta: repone stock, reembolsa dinero EN EFECTIVO
  * desde la caja del turno abierto de quien la procesa, y — si la venta llevaba
- * NCF — emite su propia Nota de Crédito B04.
+ * NCF — emite su propia Nota de Crédito Electrónica (34).
  *
  * Reglas v1: solo ventas pagadas (efectivo/tarjeta/transferencia o crédito ya
  * saldado). Una venta a crédito con deuda pendiente se ANULA, no se devuelve.
@@ -48,7 +48,7 @@ export class SaleReturn {
     @Column("decimal", { precision: 10, scale: 2, default: 0 })
     cost_refunded!: number;
 
-    /** Nota de Crédito B04 emitida (si la venta original llevaba NCF). */
+    /** Nota de Crédito Electrónica (34) emitida (si la venta original llevaba NCF). */
     @Column({ nullable: true })
     credit_note_ncf?: string;
 

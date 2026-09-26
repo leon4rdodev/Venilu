@@ -1,3 +1,6 @@
+import type { NcfTipo } from "../ncf";
+export type { NcfTipo } from "../ncf";
+
 export type UserRole = "admin" | "employee";
 export type PaymentMethod = "cash" | "card" | "transfer" | "credit";
 export type SaleStatus = "paid" | "credit" | "partial" | "voided";
@@ -119,11 +122,12 @@ export interface Sale {
   status: SaleStatus;
   /** Comprobante fiscal (RD) — presentes solo si se emitió NCF. */
   ncf?: string | null;
-  ncf_type?: 'B01' | 'B02' | null;
+  /** Tipo de comprobante: 31/32/34 (e-CF) — B01/B02 solo como histórico. */
+  ncf_type?: NcfTipo | null;
   fiscal_customer_rnc?: string | null;
   fiscal_customer_name?: string | null;
   itbis_amount?: number | null;
-  /** Nota de Crédito B04 emitida al anular esta venta. */
+  /** Nota de Crédito Electrónica (34) emitida al anular esta venta. */
   credit_note_ncf?: string | null;
   items?: SaleItem[];
   created_at: string | Date;

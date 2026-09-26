@@ -35,6 +35,8 @@ import { ProductBarcode } from "@main/modules/products/entities/product-barcode.
 import { Supplier } from "@main/modules/suppliers/entities/supplier.entity";
 import { Purchase, PurchaseItem } from "@main/modules/suppliers/entities/purchase.entity";
 import { SupplierPayment } from "@main/modules/suppliers/entities/supplier-payment.entity";
+import { EcfDocument } from "@main/modules/ecf/entities/ecf-document.entity";
+import { EcfDocuments1757450000000 } from "@main/migrations/1757450000000-EcfDocuments";
 
 const isDev = process.env.NODE_ENV === 'development';
 const dbPath = path.join(app.getPath('userData'), 'database.sqlite');
@@ -70,8 +72,9 @@ export const AppDataSource = new DataSource({
         Purchase,
         PurchaseItem,
         SupplierPayment,
+        EcfDocument,
     ],
-    migrations: [InitialSchema1756150000000, DebtPaymentRefunds1756250000000, LicenseTrial1756350000000, FiscalNcf1756450000000, SaleReturns1756550000000, ProductVariants1756650000000, SaleVoidedAt1756750000000, Suppliers1756850000000, LicenseClockGuard1756950000000, ProductBarcodesAndArchive1757050000000, ProductUnit1757150000000, ShiftCapital1757250000000, UIScale1757350000000],
+    migrations: [InitialSchema1756150000000, DebtPaymentRefunds1756250000000, LicenseTrial1756350000000, FiscalNcf1756450000000, SaleReturns1756550000000, ProductVariants1756650000000, SaleVoidedAt1756750000000, Suppliers1756850000000, LicenseClockGuard1756950000000, ProductBarcodesAndArchive1757050000000, ProductUnit1757150000000, ShiftCapital1757250000000, UIScale1757350000000, EcfDocuments1757450000000],
     migrationsTableName: "migrations",
     subscribers: [],
 });

@@ -60,14 +60,15 @@ export class Sale {
     @Column({ default: 'paid' })
     status!: 'paid' | 'credit' | 'partial' | 'voided';
 
-    /** NCF emitido para esta venta (p. ej. "B0200000143"), si se solicitó. */
+    /** e-NCF emitido para esta venta (p. ej. "E320000000143"), si se solicitó. */
     @Column({ nullable: true })
     ncf?: string;
 
+    /** Tipo de e-CF: 31 Crédito Fiscal · 32 Consumo (B01/B02 solo histórico). */
     @Column({ nullable: true })
-    ncf_type?: 'B01' | 'B02';
+    ncf_type?: '31' | '32' | '34';
 
-    /** RNC/cédula del cliente (obligatorio en B01). */
+    /** RNC/cédula del cliente (obligatorio en el e-CF 31). */
     @Column({ nullable: true })
     fiscal_customer_rnc?: string;
 
@@ -78,11 +79,11 @@ export class Sale {
     @Column("decimal", { precision: 10, scale: 2, nullable: true })
     itbis_amount?: number;
 
-    /** NCF de la Nota de Crédito (B04) emitida al anular esta venta. */
+    /** e-NCF de la Nota de Crédito Electrónica (34) emitida al anular esta venta. */
     @Column({ nullable: true })
     credit_note_ncf?: string;
 
-    /** Fecha de anulación (la Nota de Crédito B04 se reporta con esta fecha). */
+    /** Fecha de anulación (la Nota de Crédito Electrónica se reporta con esta fecha). */
     @Column({ type: "datetime", nullable: true })
     voided_at?: Date;
 
