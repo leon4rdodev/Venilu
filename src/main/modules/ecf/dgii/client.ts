@@ -112,30 +112,99 @@ export function limpiarToken(): void {
     cache = null;
 }
 
-// ── Consulta de estatus (sin autenticación) ─────────────────────────────────
+// ── Consultas sin autenticación ─────────────────────────────────────────────
 
-export interface EstatusServicio {
+export interface ResultadoRed {
     ok: boolean;
     status: number;
-    /** Cuerpo de la respuesta tal cual, para mostrarlo en Ajustes → e-CF. */
+    /** Cuerpo de la respuesta tal cual, para mostrarlo en Ajustes → Fiscal. */
     detalle: string;
+    /**
+     * true cuando la DGII responde **401**: el servicio exige una credencial
+     * (API key) que esta app no recibe. NO significa que los servicios e-CF
+     * estén caídos — para eso está `probarAmbiente()`.
+     */
+    credencialRequerida: boolean;
+}
+
+export type EstatusServicio = ResultadoRed;
+
+/**
+ * Comprueba que el ambiente elegido responde de verdad ante la DGII.
+ *
+ * Usa el **GET de la semilla**, que es el primer paso del flujo de autenticación
+ * documentado en *Descripción Técnica Servicios DGII* → Autenticación (entrada
+ * "N/A") y **no exige token ni API key**. Verificado el 2026-09-26: los tres
+ * ambientes (`testecf`, `certecf`, `ecf`) devuelven `HTTP 200` con `<SemillaModel>`.
+ *
+ * Esta es la comprobación real de conexión: cubre DNS, TLS, ruta y ambiente.
+ */
+export async function probarAmbiente(ambiente: Ambiente): Promise<ResultadoRed> {
+    const vacio = (status: number, detalle: string): ResultadoRed => ({
+        ok: false,
+        status,
+        detalle,
+        credencialRequerida: status === 401,
+    });
+    try {
+        const r = await get(AUTENTICACION.semilla(ambiente), 15_000);
+        const cuerpo = await r.text();
+        if (!r.ok) {
+            return vacio(
+                r.status,
+                `El ambiente ${ambiente} respondió HTTP ${r.status}${
+                    cuerpo ? `: ${cuerpo.slice(0, 300).replace(/\s+/g, ' ').trim()}` : ' sin cuerpo.'
+                }`,
+            );
+        }
+        if (!/<SemillaModel/i.test(cuerpo)) {
+            return vacio(
+                r.status,
+                `El ambiente ${ambiente} respondió HTTP ${r.status}, pero la respuesta no es una semilla válida: ${cuerpo
+                    .slice(0, 300)
+                    .replace(/\s+/g, ' ')
+                    .trim()}`,
+            );
+        }
+        return {
+            ok: true,
+            status: r.status,
+            detalle: `Ambiente ${ambiente} accesible: HTTP ${r.status} con semilla válida.`,
+            credencialRequerida: false,
+        };
+    } catch (err) {
+        return vacio(0, err instanceof Error ? err.message : `Sin respuesta del ambiente ${ambiente}.`);
+    }
 }
 
 /**
- * Consulta la disponibilidad de los servicios de la DGII.
- * No requiere token ni certificado: sirve para verificar que hay conexión y
- * que la DGII no está en ventana de mantenimiento.
+ * Lista de estatus de los servicios de la DGII.
+ *
+ * IMPORTANTE: el servicio **no está documentado** en *Descripción Técnica
+ * Servicios DGII* (su índice no lo incluye) y en ejecución responde siempre
+ * `HTTP 401` con cuerpo vacío, con o sin encabezado de autorización
+ * (verificado el 2026-09-26). Se conserva la consulta, pero **no decide** si
+ * hay conexión: para eso se usa `probarAmbiente()`.
  */
 export async function estatusServicios(): Promise<EstatusServicio> {
     try {
         const r = await get(ESTATUS_SERVICIOS.obtener, 15_000);
         const cuerpo = (await r.text()).slice(0, 1000);
-        return { ok: r.ok, status: r.status, detalle: cuerpo };
+        const credencial = r.status === 401;
+        return {
+            ok: r.ok,
+            status: r.status,
+            detalle: credencial
+                ? 'HTTP 401 (credencial requerida). Este servicio exige una API key entregada por la DGII y no está documentado en la Descripción Técnica vigente; no invalida la conexión.'
+                : cuerpo || `HTTP ${r.status}.`,
+            credencialRequerida: credencial,
+        };
     } catch (err) {
         return {
             ok: false,
             status: 0,
             detalle: err instanceof Error ? err.message : 'Sin respuesta de la DGII',
+            credencialRequerida: false,
         };
     }
 }

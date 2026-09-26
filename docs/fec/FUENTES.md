@@ -139,6 +139,36 @@ documento aparece en mayúsculas/camelCase (`RncEmisor`, `ENCF`, `CodigoSegurida
 ejemplo workado los escribe en minúsculas. **Ambas formas son válidas.** El código usa
 minúsculas, que reproducen el ejemplo oficial byte a byte.
 
+### 3.3 El servicio "Estatus Servicios" salió de la documentación vigente
+
+El índice de **`Descripcion Tecnica Servicios DGII.pdf`** (vigente, bitácora hasta
+02-01-2026) **no incluye** ninguna sección de estatus/ventanas de mantenimiento; se buscó
+literalmente `obtenerestatus`, `estatusservicios`, `apikey`, `mantenimiento` y `disponible`
+en el texto extraído y no aparece el servicio. Tampoco está en `Informe Técnico e-CF v1.0`
+(§4.9 solo lo describe funcionalmente, sin URL).
+
+La definición completa **sí** está en el documento sustituido, *Descripción Técnica de
+Facturación Electrónica v1.5 (Mayo 2023)*, sección *Estatus Servicios*:
+
+> "Este servicio cuenta con una clave única (**APIKEY**) para la autorización de su uso, el
+> cual es **entregado por la autoridad tributaria cuando se cumplen ciertos requisitos**."
+>
+> `REQUEST URL  https://statusecf.dgii.gov.do/api/estatusservicios/obtenerestatus`
+> `curl … -H 'Authorization: Apikey XXXXXXX-XXXXXXX-XXXX-XXXXXXXXXX'`
+
+**Verificación en vivo el 2026-09-26** (la URL es correcta y el servicio sigue de pie, pero
+no responde sin la clave):
+
+| Prueba | Resultado |
+| --- | --- |
+| `GET …/api/estatusservicios/obtenerestatus` | `HTTP 401`, cuerpo vacío, `Server: Kestrel` |
+| …con `Authorization: Bearer`, `Authorization:`, `x-api-key` o `api-key` inventados | `HTTP 401` en los cuatro casos |
+| …con el segmento de ambiente (`/testecf`, `/ecf`) añadido | `HTTP 404` (la URL oficial **no** lleva ambiente) |
+| `GET https://ecf.dgii.gov.do/{testecf,certecf,ecf}/autenticacion/api/autenticacion/semilla` | `HTTP 200` con `<SemillaModel>` en los tres |
+
+Por eso la prueba de conexión de la app **no** usa este servicio para decidir si hay
+conexión: usa el GET de la semilla, que no exige credencial. Ver §5.9 de `REQUISITOS.md`.
+
 ---
 
 ## 4. Dependencias de npm (solo las que la documentación oficial exige o nombra)

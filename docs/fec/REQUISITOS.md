@@ -20,6 +20,9 @@ Procedencia y hash de cada fuente: [`FUENTES.md`](FUENTES.md).
 > **[CT]**  `Instructivo-Contingencia-FE.pdf`
 > **[GU]**  `Guia-Basica-Proveedor-de-Servicios-de-Facturacion-Electronica.pdf`
 > **[A06]** `Aviso 06-26 — Extensión del plazo de implementación de facturación electrónica`
+> **[DT5]** `Descripcion Tecnica de Facturacion Electronica v1.5 (Mayo 2023)` — *documento
+> **sustituido** el 02-01-2026 (ver FUENTES §3.1 y §3.3); solo se cita donde la versión
+> vigente ya no recoge el contenido*
 
 ---
 
@@ -266,7 +269,7 @@ Código: `dgii/endpoints.ts` → `Ambiente`, `AMBIENTES`.
 | `CONSULTAS.porNcf` | Consulta estado e-CF | **[SDG]** → *Consulta de estado e-CF* |
 | `CONSULTAS.trackIds` | Consulta trackId e-CF | **[SDG]** → *Consulta de trackId e-CF* |
 | `TIMBRE.general` / `.consumo` | Consulta timbre / Consulta timbre FC | **[SDG]** → secciones homónimas |
-| `ESTATUS_SERVICIOS.*` | Consulta estatus servicios | **[SDG]** → *Consulta Estatus Servicios* |
+| `ESTATUS_SERVICIOS.*` | Consulta estatus servicios | **[DT5]** → *Estatus Servicios* (la versión vigente **[SDG]** ya no lo incluye; ver FUENTES §3.3) |
 
 > **[SDG]** → *Recomendaciones #5*: "Tener en cuenta a la hora de realizar la representación
 > impresa de los e-CF, que existen dos consultas timbre con variación de uso para los tipos 32."
@@ -377,6 +380,61 @@ el sistema ya no los emite.
 el tipo es `31` (`fiscal-settings.tsx`) y `FiscalService.saveSequence` la rechaza sin ella.
 En los tipos 32 y 34 el XSD lo marca `minOccurs="0"` y no se exige.
 
+### 4.13 Forma exacta de las respuestas de la DGII *(contrato de la Fase 3 — aún no implementado)*
+
+Todas las citas de esta sección son de **[SDG]** → *Descripción de Servicios* → FORMATOS
+SALIDA de cada servicio (la bitácora del 18-05-2023 indica: "Se agregaron descripciones de
+los **parámetros de salida de todos los servicios** de Impuestos Internos").
+
+> *VALIDAR SEMILLA*:
+> `{ "token": "string", "expira": " yyyy-MM-ddTHH:mm:ssZ ", "expedido": " yyyy-MM-ddTHH:mm:ssZ" }`
+> (XML `<RespuestaAutenticacion>`) → ver §4.4.
+
+> *Recepción de e‐CF*:
+> `{ "trackId": "string", "error": "string", "mensaje": "string" }`
+> / XML `<RespuestaRecepcion><trackId/><error/><mensaje/></RespuestaRecepcion>`.
+> "Trackid: número único generado por Impuestos Internos a un e-CF recibido."
+> "Error: motivo del mensaje de error recibido (Si aplica)."
+
+> *Recepción de resumen factura de consumo electrónica (RFCE)*:
+> `{ "codigo": 1, "estado": "string", "mensajes": [{ "codigo": "string", "valor": "string" }], "encf": "string", "secuenciaUtilizada": true }`
+
+> *Consulta de resultado e‐CF*:
+> `{ "trackId", "codigo", "estado", "rnc", "eNCF", "secuenciaUtilizada", "fechaRecepcion", "mensajes": [{ "valor", "codigo" }] }`
+> **Ojo:** en JSON la clave es `eNCF`; en la respuesta XML es `encf`.
+
+> *Consulta de estado e‐CF*:
+> `{ "codigo", "estado", "rncEmisor", "ncfElectronico", "montoTotal", "totalITBIS", "fechaEmision", "fechaFirma", "rncComprador", "codigoSeguridad", "idExtranjero" }`
+
+**Discrepancia detectada entre servicios:** en *RFCE* `mensajes[].codigo` es **string** y en
+*Consulta de resultado* es **number**. El parser de la Fase 3 debe tolerar ambos tipos.
+
+Cabeceras de los ejemplos curl oficiales: `accept: application/json` y
+`Authorization: bearer <token>` (§4.4). Multipart con `-F 'xml=@RNCEmisor+e-NCF.xml;type=text/xml'`
+→ nombre de archivo en §1.1.
+
+### 4.14 `secuenciaUtilizada`: cuándo se puede reusar un e-NCF rechazado *(Fase 3)*
+
+> **[SDG]** → *Consulta de resultado e‐CF* → DESCRIPCIÓN:
+> "secuenciaUtilizada permite dar a conocer si el número de secuencia que fue recibido por
+> Impuestos Internos puede reutilizarse en otro Comprobante Fiscal Electrónico (e-CF) en el
+> escenario de que el resultado de la validación haya sido 'Rechazado' por los siguientes
+> motivos: Certificado y/o firma inválida · Estructura del comprobante (XML) no es válida ·
+> Firmante del comprobante fiscal electrónico no corresponde a un delegado autorizado para
+> hacer transacciones para el RNC Emisor · El e-NCF no está autorizado para el RNC Emisor del
+> comprobante fiscal electrónico · El e-NCF autorizado se encuentra vencido a la fecha de envío
+> del comprobante fiscal electrónico · El RNC Emisor del comprobante no corresponde a un emisor
+> electrónico · El RNC Emisor no existe · El RNC Emisor no se encuentra activo."
+>
+> "Posibles valores del parámetro: **True = No puede reutilizarse la secuencia.**
+> **False = Puede reutilizarse la secuencia.**"
+
+Implicación para la máquina de estados: un documento **rechazado no devuelve por sí solo** el
+número al rango; solo se libera cuando la DGII responde `secuenciaUtilizada: false`.
+
+También de **[SDG]** → *Consulta de resultado* → ESTADOS SALIDA: "El promedio estimado de
+validación es de **200 ms**" — útil para dimensionar el reintento del worker.
+
 
 ---
 
@@ -387,7 +445,15 @@ parámetro/constante para poder cambiarlo en un solo lugar cuando la DGII lo con
 
 ### 5.1 Código de seguridad: algoritmo y codificación del "hash"
 
-**Qué dice la DGII:** "los primeros seis (6) dígitos del hash generado en el SignatureValue".
+**Qué dice la DGII** (ahora confirmado en **dos** documentos):
+
+> **[SDG]** → *Consulta de estado e‐CF* → DESCRIPCION (y lo mismo en *Consulta de resultado e‐CF*):
+> "− codigoSeguridad: extraído de los **primeros seis (6) dígitos del hash generado en el
+> SignatureValue** de la firma digital del e-CF recibido."
+
+> **[FR]** → campo 31 "Código Seguridad Factura de Consumo DOP$<250 M" → Largo **6**, Tipo
+> **ALFA NUM**.
+
 **Qué no dice:** cuál es el algoritmo (`¿MD5? ¿SHA-1? ¿SHA-256?`) ni la codificación
 (`¿hex? ¿base64?`), ni si "hash" significa *el valor que ya está dentro de `SignatureValue`*
 o *un hash aplicado sobre él*.
@@ -403,7 +469,8 @@ o *un hash aplicado sobre él*.
 
 **Cómo se llega a que el valor mide 6 caracteres y no 6 dígitos numéricos:**
 > **[FR]** → campo 31 "Código Seguridad Factura de Consumo DOP$<250 M" → Largo **6**, Tipo
-> **ALFA NUM**, más los ejemplos oficiales `dcp79q` y `uabnyh` (mezcla de letras y números).
+> **ALFA NUM**, más los ejemplos oficiales `dcp79q` y `uabnyh` (mezcla de letras y números)
+> — los mismos ejemplos que aparecen en las URL de timbre de **[SDG]** (§3.2 y §3.3).
 
 ### 5.2 Zona horaria de `<FechaHoraFirma>`
 
@@ -490,6 +557,32 @@ Resolencias Normativas que define las series B).
 **Supuesto en uso:** `semilla.xml` (literal en `dgii/client.ts`).
 
 **Pendiente:** verificarlo en la pre-certificación; si la DGII lo rechaza, es un solo literal.
+
+### 5.9 API key del servicio "Estatus Servicios" y su desaparición del documento vigente
+
+**Qué dice la DGII** (fuente **[DT5]**, *Estatus Servicios* → OBTENER ESTATUS):
+
+> "Este servicio cuenta con una clave única (**APIKEY**) para la autorización de su uso, el
+> cual es **entregado por la autoridad tributaria cuando se cumplen ciertos requisitos**."
+>
+> `REQUEST URL  https://statusecf.dgii.gov.do/api/estatusservicios/obtenerestatus`
+> `-H 'Authorization: Apikey XXXXXXX-XXXXXXX-XXXX-XXXXXXXXXX'`
+
+**Qué no dice la versión vigente:** nada. El índice de **[SDG]** (bitácora hasta 02-01-2026)
+**no incluye** este servicio — ver FUENTES §3.3.
+
+**Verificado en vivo el 2026-09-26:** la URL es correcta y el servicio responde, pero siempre
+`HTTP 401` con cuerpo vacío (con y sin encabezados inventados; añadiendo el segmento de
+ambiente devuelve `404`). Por tanto:
+
+**Estado en el código:** `estatusServicios()` se conserva en `dgii/client.ts`, se muestra como
+**informativo** y su `401` se marca `credencialRequerida: true`. **No decide** si hay conexión.
+La prueba de conexión real es `probarAmbiente()`, que hace `GET` de la semilla del ambiente
+elegido (`testecf` / `certecf` / `ecf`) y exige `HTTP 200` con `<SemillaModel>` — verificado el
+2026-09-26 en los tres ambientes, sin token ni API key.
+
+**Pendiente:** confirmar en pre-certificación si el servicio sigue publicado y cómo se solicita
+la API key.
 
 
 ---

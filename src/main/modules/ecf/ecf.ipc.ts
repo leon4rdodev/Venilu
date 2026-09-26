@@ -8,7 +8,13 @@ import { AppDataSource } from '@main/config/data-source';
 import { Setting } from '@main/modules/settings/entities/setting.entity';
 
 import { ecfService, EcfConfigView } from '@main/modules/ecf/services/ecf.service';
-import { estatusServicios, autenticar, limpiarToken, EstatusServicio } from '@main/modules/ecf/dgii/client';
+import {
+    estatusServicios,
+    probarAmbiente,
+    autenticar,
+    limpiarToken,
+    ResultadoRed,
+} from '@main/modules/ecf/dgii/client';
 import { Ambiente } from '@main/modules/ecf/dgii/endpoints';
 import {
     cargarCertificadoP12,
@@ -16,7 +22,7 @@ import {
     verificarTitularCertificado,
 } from '@main/modules/ecf/signing/p12';
 
-/** Estado del certificado digital, tal como se muestra en Ajustes → e-CF. */
+/** Estado del certificado digital, tal como se muestra en Ajustes → Fiscal. */
 interface EstadoCertificado {
     ruta: string;
     existe: boolean;
@@ -188,20 +194,28 @@ export function registerEcfHandlers() {
 
     /**
      * Prueba de conexión con la DGII:
-     *  1. disponibilidad de los servicios (sin autenticación) y
-     *  2. si hay certificado, semilla → token (la autenticación real).
+     *  1. el ambiente elegido responde de verdad (GET de la semilla, sin clave),
+     *  2. la lista de estatus de servicios (exige API key de la DGII → 401),
+     *  3. si hay certificado, semilla → token (la autenticación real).
      */
     ipcMain.handle('ecf:connection-test', async () => {
         try {
             requirePermission('ecf:config');
 
-            const estatus: EstatusServicio = await estatusServicios();
             const cfg = await ecfService.obtenerConfig();
+            // En paralelo: la semilla es la comprobación que decide si hay
+            // conexión; la lista de estatus es informativa (requiere API key).
+            const [ambiente, estatus] = await Promise.all([
+                probarAmbiente(cfg.ambiente),
+                estatusServicios(),
+            ]);
+
             const resultado: {
-                estatus: EstatusServicio;
+                ambiente_check: ResultadoRed;
+                estatus: ResultadoRed;
                 ambiente: Ambiente;
                 autenticacion?: { ok: boolean; detalle: string };
-            } = { estatus, ambiente: cfg.ambiente };
+            } = { ambiente_check: ambiente, estatus, ambiente: cfg.ambiente };
 
             if (cfg.cert_path) {
                 const estado = await leerCertificado();

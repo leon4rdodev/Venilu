@@ -48,7 +48,15 @@ interface EstadoCertificado {
 }
 
 interface PruebaConexion {
-  estatus: { ok: boolean; status: number; detalle: string };
+  /** Comprobación real: el ambiente responde con una semilla válida. */
+  ambiente_check: { ok: boolean; status: number; detalle: string };
+  estatus: {
+    ok: boolean;
+    status: number;
+    detalle: string;
+    /** true → 401: el servicio de estatus exige API key de la DGII. */
+    credencialRequerida: boolean;
+  };
   ambiente: Ambiente;
   autenticacion?: { ok: boolean; detalle: string };
 }
@@ -159,13 +167,19 @@ export function EcfSettings() {
       const res = (await window.ipcRenderer.invoke("ecf:connection-test")) as IPCResponse<PruebaConexion>;
       if (res.success && res.data) {
         setResultado(res.data);
-        const dgiiOk = res.data.estatus.ok;
+        const ambienteOk = res.data.ambiente_check.ok;
         const authOk = res.data.autenticacion?.ok ?? null;
-        if (dgiiOk && authOk !== false) {
-          toast.success("Conexión con la DGII verificada");
+        if (ambienteOk && authOk !== false) {
+          toast.success("Conexión con la DGII verificada", {
+            description: res.data.ambiente_check.detalle,
+          });
+        } else if (!ambienteOk) {
+          toast.error("Sin respuesta del ambiente de la DGII", {
+            description: res.data.ambiente_check.detalle,
+          });
         } else {
-          toast.warning("La prueba encontró problemas", {
-            description: res.data.autenticacion?.detalle ?? `HTTP ${res.data.estatus.status}`,
+          toast.warning("El ambiente responde, pero falló la autenticación", {
+            description: res.data.autenticacion?.detalle ?? "Revisa el certificado digital.",
           });
         }
       } else {
@@ -339,7 +353,7 @@ export function EcfSettings() {
         <WidgetHeader
           icon={PlugZap}
           title="Conexión con la DGII"
-          subtitle="Verifica los servicios y, si hay certificado, la autenticación"
+          subtitle="Comprueba el ambiente elegido y, si hay certificado, la autenticación"
         />
         <div className="mt-5 flex items-center gap-3">
           <Button
@@ -363,14 +377,17 @@ export function EcfSettings() {
 
         {resultado && (
           <div className="mt-4 space-y-3 rounded-lg border border-border p-4">
+            {/* Decide si hay conexión: GET de la semilla del ambiente elegido. */}
             <Campo
-              titulo="Servicios de la DGII"
-              ok={resultado.estatus.ok}
-              detalle={
-                resultado.estatus.ok
-                  ? `Respuesta HTTP ${resultado.estatus.status}.`
-                  : resultado.estatus.detalle
-              }
+              titulo={`Ambiente ${resultado.ambiente}`}
+              ok={resultado.ambiente_check.ok}
+              detalle={resultado.ambiente_check.detalle}
+            />
+            {/* Informativo: este servicio exige API key de la DGII (401). */}
+            <Campo
+              titulo="Lista de estatus de servicios"
+              ok={resultado.estatus.credencialRequerida ? null : resultado.estatus.ok}
+              detalle={resultado.estatus.detalle}
             />
             {resultado.autenticacion && (
               <Campo
