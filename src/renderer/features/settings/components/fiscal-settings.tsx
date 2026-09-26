@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  Info,
   Landmark,
   Pencil,
   Plus,
   ReceiptText,
   Trash2,
 } from "lucide-react";
+import { EcfSettings } from "./ecf-settings";
 import { Button, buttonVariants } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
@@ -643,7 +645,7 @@ function SequencesCard({
       <WidgetHeader
         icon={Landmark}
         title="Secuencias de e-NCF"
-        subtitle="Rangos de comprobantes fiscales electrónicos autorizados por la DGII"
+        subtitle="Rangos de comprobantes fiscales electrónicos que la DGII autorizó a tu negocio"
         action={
           canEdit ? (
             <Button
@@ -659,6 +661,23 @@ function SequencesCard({
           ) : undefined
         }
       />
+
+      {/*
+        Por qué se capturan a mano: la DGII no publica ningún servicio web que
+        entregue los rangos autorizados. Se solicitan en la Oficina Virtual
+        ("Rol de Solicitante: … solicitar las secuencias … desde su oficina
+        virtual" — Facturador Gratuito de FE) y se registran aquí.
+      */}
+      <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-border bg-muted/50 px-4 py-3">
+        <Info className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Los rangos e-NCF se solicitan en la{" "}
+          <span className="font-medium text-foreground">Oficina Virtual de la DGII</span> y se
+          registran aquí: la DGII no ofrece un servicio que los descargue automáticamente.
+          Venilu usa este rango para numerar cada comprobante, avisarte cuando se agota o
+          vence, y llenar <code className="font-mono text-[11px]">&lt;FechaVencimientoSecuencia&gt;</code>.
+        </p>
+      </div>
 
       {fiscalEnabled && faltantes.length > 0 && (
         <div role="status" className="mt-4 flex items-start gap-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3">
@@ -680,9 +699,12 @@ function SequencesCard({
               No hay secuencias registradas
             </p>
             <p className="text-sm text-muted-foreground mt-1 max-w-md">
-              Registra aquí los rangos de e-NCF que la DGII autorizó a tu negocio
-              (32 para consumo, 31 para crédito fiscal y 34 para notas de
-              crédito de anulaciones).
+              Solicita los rangos en la Oficina Virtual de la DGII y regístralos aquí con
+              “Nueva Secuencia”. Mientras no haya un rango activo, no se podrán emitir
+              comprobantes electrónicos: <strong className="font-medium text-foreground">32</strong>{" "}
+              para consumo, <strong className="font-medium text-foreground">31</strong> para crédito
+              fiscal y <strong className="font-medium text-foreground">34</strong> para las notas de
+              crédito de anulaciones y devoluciones.
             </p>
           </div>
         ) : (
@@ -913,7 +935,7 @@ export function FiscalSettings() {
           <WidgetHeader
             icon={Landmark}
             title="Secuencias de e-NCF"
-            subtitle="Rangos de comprobantes fiscales electrónicos autorizados por la DGII"
+            subtitle="Rangos de comprobantes fiscales electrónicos que la DGII autorizó a tu negocio"
           />
           <div role="alert" className="mt-4 flex items-start gap-2.5 rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-destructive" strokeWidth={1.75} aria-hidden="true" />
@@ -924,6 +946,7 @@ export function FiscalSettings() {
             </p>
           </div>
         </div>
+        <EcfSettings />
       </div>
     );
   }
@@ -939,6 +962,8 @@ export function FiscalSettings() {
           void queryClient.invalidateQueries({ queryKey: ["ncf-sequences"] });
         }}
       />
+      {/* Certificado, ambiente y conexión con la DGII: mismo bloque de pantalla. */}
+      <EcfSettings />
     </div>
   );
 }
