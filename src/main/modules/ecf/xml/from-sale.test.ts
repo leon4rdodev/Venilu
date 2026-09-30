@@ -115,3 +115,56 @@ describe('mapearVenta — Nota de Crédito (34)', () => {
         });
     });
 });
+
+/**
+ * Casos que el POS produce a diario y que romperían la firma si el mapeo
+ * cambiara: comprador sin datos, cantidad fraccionaria y totales que deben
+ * cuadrar con `sales.total_amount` / `sales.itbis_amount`.
+ */
+describe('mapearVenta — Factura de Consumo en condiciones reales', () => {
+    /** `fiscal_customer_rnc` y `fiscal_customer_name` vacíos. */
+    const sinComprador = { compradorRnc: undefined, compradorNombre: undefined } as const;
+
+    it('el XML valida con <Comprador> vacío (todos sus hijos son minOccurs=0)', () => {
+        expect(xmlDe(venta(sinComprador))).toContain('<Comprador></Comprador>');
+    });
+
+    it('admite cantidades con decimal (cantidad 0.5)', () => {
+        xmlDe(
+            venta({
+                ...sinComprador,
+                lineas: [
+                    { nombre: 'Azúcar', cantidad: 0.5, precioUnitario: 15, montoLinea: 7.5, exento: true },
+                ],
+            })
+        );
+    });
+
+    it('cuadra con los totales de la venta (674.99 con 85.42 de ITBIS incluidos)', () => {
+        const xml = xmlDe(
+            venta({
+                ...sinComprador,
+                metodoPago: 'transfer',
+                lineas: [
+                    { nombre: 'Azucar Morena', cantidad: 5, precioUnitario: 15, montoLinea: 75, exento: true },
+                    { nombre: 'Arroz Selecto 1lb', cantidad: 1, precioUnitario: 40, montoLinea: 40, exento: true },
+                    { nombre: 'Cerveza Presidente', cantidad: 1, precioUnitario: 200, montoLinea: 200, exento: false },
+                    { nombre: 'Jabón Líquido', cantidad: 1, precioUnitario: 149.99, montoLinea: 149.99, exento: false },
+                    { nombre: 'Cerveza Presidente Pequeña', cantidad: 1, precioUnitario: 100, montoLinea: 100, exento: false },
+                    { nombre: 'Pan De Agua', cantidad: 1, precioUnitario: 10, montoLinea: 10, exento: false },
+                    { nombre: 'Refresco Cola 2L', cantidad: 1, precioUnitario: 100, montoLinea: 100, exento: false },
+                ],
+            })
+        );
+        expect(xml).toContain('<MontoTotal>674.99</MontoTotal>');
+        expect(xml).toContain('<TotalITBIS>85.42</TotalITBIS>');
+    });
+
+    it('normaliza el teléfono de Ajustes (8095551234 → 809-555-1234)', () => {
+        expect(xmlDe(venta(sinComprador))).toContain('<TelefonoEmisor>809-555-1234</TelefonoEmisor>');
+    });
+
+    it('vía RFCE cuando el total es menor a RD$250,000', () => {
+        expect(mapearVenta(venta(sinComprador)).via).toBe('rfce');
+    });
+});
