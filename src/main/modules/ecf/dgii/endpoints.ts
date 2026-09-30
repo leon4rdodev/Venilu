@@ -49,7 +49,12 @@ export const RECEPCION = {
 
 export const CONSULTAS = {
     /**
-     * GET `?trackid=` — resultado de la validación de un e-CF enviado.
+     * GET `?RNC_Emisor=&ENCF=&Cod_Seguridad_eCF=` — estado de un **RFCE**
+     * (Factura de Consumo < RD$250,000). La DGII publica los tres ambientes.
+     * Los nombres de los parámetros son literalmente los del ejemplo CURL.
+     */
+    rfce: (a: Ambiente) => `${HOST_FC}/${a}/consultarfce/api/Consultas/Consulta`,
+    /** GET `?trackid=` — resultado de la validación de un e-CF enviado.
      * (Servicio "Consulta Resultado".)
      */
     porTrackId: (a: Ambiente) => `${HOST_ECF}/${a}/consultaresultado/api/consultas/estado`,
@@ -108,13 +113,21 @@ export function formatoFecha(fecha: Date): string {
  * Formato `dd-MM-yyyy HH:mm:ss` que exige el XSD (`DateTimeValidationType`,
  * máx. 19 caracteres) para `<FechaHoraFirma>`.
  *
- * OJO: usa la zona horaria LOCAL. La DGII no fija zona horaria para este tag;
- * ver `docs/fec/REQUISITOS.md` (pendiente de confirmar si debe emitirse en
- * hora local de RD).
+ * La zona horaria NO es local: la DGII la fija.
+ *
+ *   "Fecha y hora de la firma digital del e-CF < FechaHoraFirma> — Fecha y
+ *    hora en formato dd-MM-AAAA HH:mm:ss; **Zona horaria GMT -4**."
+ *    — Formato de Comprobante Fiscal Electrónico, sección G "FECHA Y HORA DE
+ *      LA FIRMA DIGITAL", `docs/fec/REQUISITOS.md` §4.16.
  */
 export function formatoFechaHora(fecha: Date): string {
-    const hh = String(fecha.getHours()).padStart(2, '0');
-    const mi = String(fecha.getMinutes()).padStart(2, '0');
-    const ss = String(fecha.getSeconds()).padStart(2, '0');
-    return `${formatoFecha(fecha)} ${hh}:${mi}:${ss}`;
+    // GMT-4 = UTC-4: al desplazar la marca de tiempo leemos los campos UTC.
+    const gmt4 = new Date(fecha.getTime() - 4 * 3_600_000);
+    const dd = String(gmt4.getUTCDate()).padStart(2, "0");
+    const mm = String(gmt4.getUTCMonth() + 1).padStart(2, "0");
+    const yyyy = gmt4.getUTCFullYear();
+    const hh = String(gmt4.getUTCHours()).padStart(2, "0");
+    const mi = String(gmt4.getUTCMinutes()).padStart(2, "0");
+    const ss = String(gmt4.getUTCSeconds()).padStart(2, "0");
+    return `${dd}-${mm}-${yyyy} ${hh}:${mi}:${ss}`;
 }

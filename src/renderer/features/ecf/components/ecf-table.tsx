@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { ReceiptText, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { ReceiptText, RefreshCw, Send, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { Button } from '@components/ui/button';
 import {
   Table,
   TableBody,
@@ -65,10 +66,20 @@ function Campo({ titulo, children }: { titulo: string; children: React.ReactNode
   );
 }
 
-function Detalle({ doc, open, onOpenChange }: {
+/** Acciones manuales que `EcfInterface` inyecta (según permisos `ecf:*`). */
+export interface AccionesTabla {
+  /** `undefined` si el usuario no tiene el permiso `ecf:emit`. */
+  onEmitir?: (id: string) => void;
+  onConsultar?: (id: string) => void;
+  emitando: boolean;
+  consultando: boolean;
+}
+
+function Detalle({ doc, open, onOpenChange, acciones }: {
   doc: EcfDocument | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  acciones: AccionesTabla;
 }) {
   if (!doc) return null;
   const meta = ESTADO_ECF[doc.estado];
@@ -165,21 +176,56 @@ function Detalle({ doc, open, onOpenChange }: {
             Comprobante validado por la DGII.
           </p>
         )}
+
+        {(PENDIENTES.includes(doc.estado) && acciones.onEmitir) ||
+        (doc.estado === 'sent' && acciones.onConsultar) ? (
+          <div className="flex flex-wrap justify-end gap-2">
+            {PENDIENTES.includes(doc.estado) && acciones.onEmitir && (
+              <Button
+                size="sm"
+                onClick={() => acciones.onEmitir?.(doc.id)}
+                disabled={acciones.emitando}
+              >
+                <Send className="h-4 w-4" aria-hidden="true" />
+                {acciones.emitando ? 'Procesando…' : 'Emitir ahora'}
+              </Button>
+            )}
+            {doc.estado === 'sent' && acciones.onConsultar && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => acciones.onConsultar?.(doc.id)}
+                disabled={acciones.consultando}
+              >
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                {acciones.consultando ? 'Consultando…' : 'Consultar estado'}
+              </Button>
+            )}
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
 }
 
-export function EcfTable({ documentos, loading }: {
+export function EcfTable({ documentos, loading, acciones }: {
   documentos: EcfDocument[];
   loading: boolean;
+  acciones: AccionesTabla;
 }) {
   const [filtro, setFiltro] = useState<Filtro>('todos');
-  const [seleccion, setSeleccion] = useState<EcfDocument | null>(null);
+  const [seleccionId, setSeleccionId] = useState<string | null>(null);
 
   const filas = useMemo(
     () => documentos.filter((d) => pasaFiltro(d, filtro)),
     [documentos, filtro],
+  );
+
+  // Se deriva de la lista: así el diálogo refleja el estado real después de
+  // emitir o consultar, sin tener que volver a abrirlo.
+  const seleccion = useMemo(
+    () => (seleccionId ? (documentos.find((d) => d.id === seleccionId) ?? null) : null),
+    [documentos, seleccionId],
   );
 
   if (loading) {
@@ -249,7 +295,7 @@ export function EcfTable({ documentos, loading }: {
                 <TableRow
                   key={doc.id}
                   className="cursor-pointer"
-                  onClick={() => setSeleccion(doc)}
+                  onClick={() => setSeleccionId(doc.id)}
                 >
                   <TableCell className="font-mono text-xs">{doc.encf}</TableCell>
                   <TableCell className="whitespace-nowrap">{ncfCorto(String(doc.tipo))}</TableCell>
@@ -272,7 +318,12 @@ export function EcfTable({ documentos, loading }: {
         </div>
       )}
 
-      <Detalle doc={seleccion} open={!!seleccion} onOpenChange={(o) => !o && setSeleccion(null)} />
+      <Detalle
+        doc={seleccion}
+        open={!!seleccion}
+        onOpenChange={(o) => !o && setSeleccionId(null)}
+        acciones={acciones}
+      />
     </div>
   );
 }

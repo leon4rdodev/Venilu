@@ -57,6 +57,14 @@ export interface EcfStats {
   rejected: number;
 }
 
+/** Resumen de una pasada de emisión (`ecf:emit-pending`). */
+export interface ResumenEmision {
+  emitidos: number;
+  enviados: number;
+  consultados: number;
+  fallos: number;
+}
+
 /** Etiqueta corta de cada estado, para chips, filtros y toasts. */
 export const ESTADO_ECF: Record<EstadoEcf, { label: string; tone: string }> = {
   draft:    { label: 'Pendiente de firma', tone: 'bg-muted text-muted-foreground' },

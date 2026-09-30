@@ -5,6 +5,9 @@ documentos listados aquí. Nada se tomó de blogs, librerías de terceros ni de
 documentación de otros países.
 
 - **Fecha de verificación de las URLs y de los hashes: 2026-09-26.**
+  Re-verificación puntual **2026-09-30**: se volvió a descargar `formato-ecf.pdf` (se borró la
+  copia de trabajo en `/tmp`) y el SHA-256 siguió coincidiendo con el de §2 (`c811c91a…`);
+  con ese PDF se confirmaron las citas de REQUISITOS §4.16 y §5.10.
 - Página de origen de todos los enlaces:
   <https://www.dgii.gov.do/cicloContribuyente/facturacion/comprobantesFiscalesElectronicosE-CF/Paginas/documentacionSobreE-CF.aspx>
 - Si un documento cambia, el hash deja de coincidir: eso es la señal de que hay que

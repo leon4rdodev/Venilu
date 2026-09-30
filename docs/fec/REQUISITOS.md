@@ -90,7 +90,7 @@ El XSD impone el patrón. `formatoFecha()` produce `dd-MM-yyyy` (`FechaValidatio
 caracteres) para `<FechaHoraFirma>`.
 
 Código: `src/main/modules/ecf/dgii/endpoints.ts`.
-> La **zona horaria** de `<FechaHoraFirma>` está pendiente → sección 5.4.
+> La **zona horaria** de `<FechaHoraFirma>` es **GMT-4** → sección 4.16 (antes pendiente).
 
 ### 1.6 Redondeo de campos numéricos
 
@@ -267,6 +267,7 @@ Código: `dgii/endpoints.ts` → `Ambiente`, `AMBIENTES`.
 | `RECEPCION.rfce` | Recepción de resumen factura de consumo (RFCE) | **[SDG]** → *Recepción de resumen factura de consumo electrónica (RFCE)* |
 | `CONSULTAS.porTrackId` | Consulta resultado e-CF | **[SDG]** → *Consulta de resultado e-CF* |
 | `CONSULTAS.porNcf` | Consulta estado e-CF | **[SDG]** → *Consulta de estado e-CF* |
+| `CONSULTAS.rfce` | Consulta de resumen factura de consumo (RFCE) | **[SDG]** → *Consulta de Resumen de Factura de Consumo Electrónica (RFCE)* |
 | `CONSULTAS.trackIds` | Consulta trackId e-CF | **[SDG]** → *Consulta de trackId e-CF* |
 | `TIMBRE.general` / `.consumo` | Consulta timbre / Consulta timbre FC | **[SDG]** → secciones homónimas |
 | `ESTATUS_SERVICIOS.*` | Consulta estatus servicios | **[DT5]** → *Estatus Servicios* (la versión vigente **[SDG]** ya no lo incluye; ver FUENTES §3.3) |
@@ -380,7 +381,7 @@ el sistema ya no los emite.
 el tipo es `31` (`fiscal-settings.tsx`) y `FiscalService.saveSequence` la rechaza sin ella.
 En los tipos 32 y 34 el XSD lo marca `minOccurs="0"` y no se exige.
 
-### 4.13 Forma exacta de las respuestas de la DGII *(contrato de la Fase 3 — aún no implementado)*
+### 4.13 Forma exacta de las respuestas de la DGII *(contrato de la Fase 3 — implementado)*
 
 Todas las citas de esta sección son de **[SDG]** → *Descripción de Servicios* → FORMATOS
 SALIDA de cada servicio (la bitácora del 18-05-2023 indica: "Se agregaron descripciones de
@@ -413,7 +414,7 @@ Cabeceras de los ejemplos curl oficiales: `accept: application/json` y
 `Authorization: bearer <token>` (§4.4). Multipart con `-F 'xml=@RNCEmisor+e-NCF.xml;type=text/xml'`
 → nombre de archivo en §1.1.
 
-### 4.14 `secuenciaUtilizada`: cuándo se puede reusar un e-NCF rechazado *(Fase 3)*
+### 4.14 `secuenciaUtilizada`: cuándo se puede reusar un e-NCF rechazado
 
 > **[SDG]** → *Consulta de resultado e‐CF* → DESCRIPCIÓN:
 > "secuenciaUtilizada permite dar a conocer si el número de secuencia que fue recibido por
@@ -435,13 +436,113 @@ número al rango; solo se libera cuando la DGII responde `secuenciaUtilizada: fa
 También de **[SDG]** → *Consulta de resultado* → ESTADOS SALIDA: "El promedio estimado de
 validación es de **200 ms**" — útil para dimensionar el reintento del worker.
 
+### 4.15 Ciclo de emisión de un comprobante (Fase 3)
+
+Implementado en `src/main/modules/ecf/services/emision.ts` (+ `services/worker.ts`).
+
+**Máquina de estados** (columnas `ecf_documents.estado` / `via`, sin migración nueva):
+
+```
+draft ──firmar──▶ signed ──enviar──▶ sent ──consulta──▶ accepted | rejected
+  │                 │                  │
+  └── last_error ───┴── backoff ───────┘        (el estado NO retrocede)
+```
+
+| Paso | Regla | Cita |
+| --- | --- | --- |
+| `firmar` | `mapearVenta` → XML → XSD **sin firma** → `firmarXml` → XSD **con firma** → código de seguridad | §2.1, §1.4 |
+| `enviar` | `POST` multipart, campo `xml`, nombre `RNC+e-NCF.xml`, cabeceras `accept: application/json` y `Authorization: bearer <token>` | §1.1, §4.4, §4.13 |
+| `consultar` | e-CF → `?trackid=`; RFCE → `?RNC_Emisor=&ENCF=&Cod_Seguridad_eCF=` | §4.13 |
+| `via` | `ecf` si `tipo ≠ 32` **o** `monto ≥ 250,000`; `rfce` solo para 32 < 250,000 | §4.3 |
+
+**Estados de la DGII** (`codigo`) → estado nuestro:
+
+> **[SDG]** → ESTADOS SALIDA: "0 No encontrado · 1 Aceptado · 2 Rechazado ·
+> 3 En proceso · 4 Aceptado condicional"
+
+| `codigo` | Texto (`estado`) | Nuestro `estado` |
+| --- | --- | --- |
+| 1 o 4 | contenga "aceptad" | `accepted` (+ `resolved_at`) |
+| 2 | contenga "rechaz" | `rejected` (+ `resolved_at`) |
+| 0, 3 o sin código | — | `sent` → se vuelve a consultar con backoff |
+
+El texto se interpreta **primero** porque la recepción RFCE devuelve la frase y el código
+puede venir como `string` (§4.13).
+
+**Reintentos** (`programarReintento`): 30 s → 1 min → 2 min … techo 6 h; al llegar a 10
+intentos, 24 h. Un fallo solo escribe `last_error` + `proximo_intento`: **nunca rompe la
+venta**. Regla de "vencido":
+
+| `estado` | El worker lo toma cuando |
+| --- | --- |
+| `draft`, `signed`, `queued` | `proximo_intento IS NULL` (nunca intentado) **o** `≤ ahora` |
+| `sent` | `proximo_intento IS NOT NULL` **y** `≤ ahora` (evita sondear sin parar) |
+| `accepted`, `rejected` | nunca |
+
+**RFCE derivado del e-CF firmado.** `signed_xml` guarda **siempre el e-CF extendido**
+(E31/E32/E34) firmado; el RFCE se reconstruye y firma en cada envío leyendo `Emisor`,
+`Comprador`, `Totales` e `IdDoc` del propio XML firmado. Razón: así el resumen y el
+comprobante coinciden **por construcción**, aunque cambien los Ajustes entre firmar y
+transmitir, y no hace falta migrar el esquema. La firma RSA-PKCS#1v1.5 es determinista
+(§2.1), por lo que el resultado es reproducible. El RFCE se comprueba contra `rfce-32.xsd`
+**también al firmar**, para no dejar en cola un comprobante que no se podrá transmitir.
+
+**`CodigoModificacion`** (XSD `CodigoModificacionType`, citado en §5.10):
+
+| Situación | Código | Literal del XSD |
+| --- | --- | --- |
+| Anulación de la venta (`sale.status='voided'`) | `1` | "Anula el NCF modificado" |
+| Devolución (`SaleReturn` con `credit_note_ncf = doc.encf`) | `3` | "Corrige montos del NCF modificado" |
+
+Además, en una devolución las líneas de la NC son **solo lo devuelto** y el descuento global
+que ya se prorrateó al reembolso viaja en `<MontoDescuento>`; así los totales de la NC
+cuadran con `SaleReturn.total_refunded`.
+
+**Tags omitidos a propósito** (§1.2): `TablaTelefonoEmisor` se excluye si el teléfono no
+admite `\d{3}-\d{3}-\d{4}` (XSD `TelefonoValidationType`) — es opcional (`minOccurs="0"`).
+`Municipio`, `Provincia`, `ActividadEconomica`, `NombreComercial` y `TablaFormasPago` (34)
+no existen en los Ajustes actuales o no aplica el tipo, y el XSD los marca `minOccurs="0"`.
+
+### 4.16 `<FechaHoraFirma>`: zona horaria **GMT-4** — *resuelto*
+
+> **[FE]** → Formato Comprobante Fiscal Electrónico (e-CF) V1.0 → sección **G. FECHA Y HORA
+> DE LA FIRMA DIGITAL**, campo 1 `<FechaHoraFirma>`:
+> "Fecha y hora en formato dd-MM-AAAA HH:mm:ss; Zona horaria GMT -4" (Largo Max 19,
+> Tipo ALFA NUM, Pág. 57 de 87).
+
+Es una zona **fija**, no la local de la máquina: `formatoFechaHora()` resta 4 h a la marca
+de tiempo y lee los campos UTC, así que el valor es idéntico en cualquier equipo.
+Cubierto por `src/main/modules/ecf/dgii/endpoints.test.ts`.
+
+Esto **cierra el pendiente 5.2**.
+
+### 4.17 Códigos de obligatoriedad del Formato — qué tags se pueden omitir
+
+> **[FE]** → *2. Detalle por sección* → "Códigos de Obligatoriedad":
+> "**0: No corresponde.** Significa que el dato no debe ir en un determinado documento.
+> **1: Dato obligatorio.** El dato siempre debe estar en el documento, independiente de las
+> características de la transacción. **2: Dato condicional.** El dato no es obligatorio en
+> todos los documentos, pero pasa a serlo en determinadas operaciones si se cumple una
+> determinada condición. […] **3: Opcional.** El dato es opcional." (Pág. 4 de 87)
+
+Regla de implementación: un código **0** no se emite jamás, un **1** el validador lo exige,
+un **2** solo si la condición se cumple y un **3** se emite si tenemos el dato y es válido.
+Esto es lo que respalda las omisiones de §4.15 (`TablaTelefonoEmisor`, `Municipio`,
+`Provincia`, `ActividadEconomica`, `NombreComercial`, `TablaFormasPago` en el 34), siempre
+que el XSD además los marque `minOccurs="0"`.
+
+Ejemplos en la tabla de *Información de referencia* (mismo documento): `CodigoModificacion`
+= **2 (condicional)** en 31 y 32 y **1 (obligatorio)** en 33 y 34; `RazonModificacion` =
+**3 (opcional)** en 33 y 34 (Largo 90, ALFA, validación "a) Sin validación").
+
 
 ---
 
 ## 5. PENDIENTES DE CONFIRMACIÓN CON LA DGII
 
-Nada de esto está resuelto en el código. Cada punto está aislado en su propio módulo con un
-parámetro/constante para poder cambiarlo en un solo lugar cuando la DGII lo confirme.
+Nada de esto está **pendiente de que cambie el código por una decisión nuestra**: cada punto
+está aislado en su propio módulo con un parámetro/constante para poder cambiarlo en un solo
+lugar cuando la DGII lo confirme. El único ya resuelto con cita literal es **5.2** (→ §4.16).
 
 ### 5.1 Código de seguridad: algoritmo y codificación del "hash"
 
@@ -472,14 +573,15 @@ o *un hash aplicado sobre él*.
 > **ALFA NUM**, más los ejemplos oficiales `dcp79q` y `uabnyh` (mezcla de letras y números)
 > — los mismos ejemplos que aparecen en las URL de timbre de **[SDG]** (§3.2 y §3.3).
 
-### 5.2 Zona horaria de `<FechaHoraFirma>`
+### 5.2 Zona horaria de `<FechaHoraFirma>` — ✅ **RESUELTO → §4.16**
 
-**Qué dice la DGII:** el formato (`dd-MM-yyyy HH:mm:ss`, máx. 19 caracteres).
-**Qué no dice:** la zona horaria.
+**Resuelto el 2026-09-30** con **[FE]** → sección *G. FECHA Y HORA DE LA FIRMA DIGITAL*:
+"Fecha y hora en formato dd-MM-AAAA HH:mm:ss; **Zona horaria GMT -4**". `formatoFechaHora()`
+ya emite en GMT-4 fijo (no la zona local) y hay tests que lo verifican. Ver §4.16.
 
-**Estado:** `formatoFechaHora()` usa la zona **local** de la máquina. Pendiente confirmar si
-debe emitirse en hora de República Dominicana (`America/Santo_Domingo`) — relevante si el POS
-corre en UTC o en otra zona.
+*Se conserva el texto original del pendiente:* "el formato (`dd-MM-yyyy HH:mm:ss`, máx. 19
+caracteres). **Qué no dice:** la zona horaria. **Estado:** `formatoFechaHora()` usa la zona
+**local** de la máquina."
 
 ### 5.3 Caracteres reservados: tabla vs. ejemplo oficial
 
@@ -583,6 +685,37 @@ elegido (`testecf` / `certecf` / `ecf`) y exige `HTTP 200` con `<SemillaModel>` 
 
 **Pendiente:** confirmar en pre-certificación si el servicio sigue publicado y cómo se solicita
 la API key.
+
+### 5.10 `CodigoModificacion` de una **devolución**: ¿3 o 1?
+
+**Qué dice la DGII** (**[FE]** → área *INFORMACIÓN DE REFERENCIA*, campo 4
+`<CodigoModificacion>`, enumeración literal de la columna):
+
+> `1` "Anula el NCF modificado" · `2` "Corrige Texto del NCF modificado" ·
+> `3` "Corrige montos del NCF modificado" · `4` "Reemplazo NCF emitido en contingencia" ·
+> `5` "Referencia Factura de Consumo Electrónica."
+>
+> Validación: "a), b) y c) solo aplican para Nota de Crédito o Débito Electrónica."
+> Condicional a que el código de modificación sea igual a 4 (para `RazonModificacion`).
+
+Y la nota al pie de esa misma tabla (nota 80, Pág. 57 de 87):
+
+> "Códigos de modificación 1, 2 y 3 aplican solo cuando se trate de la emisión de una nota
+> de crédito o débito electrónica, según corresponda."
+
+La obligatoriedad de `CodigoModificacion` para el tipo **34** es **1 = dato obligatorio**
+(ver §4.17); `RazonModificacion` es **3 = opcional** en 33 y 34.
+
+**Qué no dice:** si una **devolución total** (que anula de hecho la factura original) debe
+reportarse con `1` "Anula el NCF modificado" en lugar de `3` "Corrige montos". Tampoco qué
+código corresponde a una **devolución parcial** cuando el e-NCF original sigue vigente.
+
+**Estado en el código:** `services/emision.ts` → anulación de venta = `1`, devolución = `3`,
+detectando la devolución por `SaleReturn.credit_note_ncf = doc.encf`. Cada caso está en su
+propio `if` con su literal del XSD comentado; cambiarlo es una línea.
+
+**Pendiente:** confirmar en pre-certificación (con una devolución real) qué código espera la
+DGII y si exige alguna redacción concreta en `RazonModificacion`.
 
 
 ---

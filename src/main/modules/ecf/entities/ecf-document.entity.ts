@@ -78,7 +78,10 @@ export class EcfDocument {
     @Column({ length: 6, nullable: true })
     codigo_seguridad?: string;
 
-    /** XML final, ya firmado. Es lo que se envía y se conserva como respaldo. */
+    /** XML final, ya firmado. Es lo que se envía y se conserva como respaldo.
+     *  Para `via = 'rfce'` guarda el e-CF extendido (E32) firmado, como exige
+     *  la DGII; el resumen RFCE se deriva de él en cada envío (ver
+     *  `services/emision.ts`). */
     @Column({ type: "text", nullable: true })
     signed_xml?: string;
 
@@ -87,17 +90,17 @@ export class EcfDocument {
 
     /** Código de validación DGII (0-4), null mientras no responda. */
     @Column({ type: "integer", nullable: true })
-    dgii_code?: number;
+    dgii_code?: number | null;
 
-    @Column({ nullable: true })
-    dgii_estado?: string;
+    @Column({ type: "varchar", nullable: true })
+    dgii_estado?: string | null;
 
     @Column({ type: "text", nullable: true })
-    dgii_mensajes?: string;
+    dgii_mensajes?: string | null;
 
     /** Último error local o de red (firma, XSD, envío). */
     @Column({ type: "text", nullable: true })
-    last_error?: string;
+    last_error?: string | null;
 
     @Column({ default: 0 })
     intentos!: number;

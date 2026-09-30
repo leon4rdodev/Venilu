@@ -19,6 +19,7 @@ import { registerAuditHandlers } from '@main/modules/audit/audit.ipc';
 import { registerLicenseHandlers } from '@main/shared/ipc/license.ipc';
 import { registerFiscalHandlers } from '@main/modules/fiscal/fiscal.ipc';
 import { registerEcfHandlers } from '@main/modules/ecf/ecf.ipc';
+import { iniciarWorkerEcf } from '@main/modules/ecf/services/worker';
 import { registerSuppliersHandlers } from '@main/modules/suppliers/suppliers.ipc';
 import { licenseService } from '@main/shared/services/license.service';
 import { SettingsService } from '@main/modules/settings/services/settings.service';
@@ -141,6 +142,9 @@ async function initialize() {
         registerLicenseHandlers();
         registerFiscalHandlers();
         registerEcfHandlers();
+        // Worker de emisión e-CF: firma, transmite y consulta en segundo plano
+        // (backoff por comprobante; ver modules/ecf/services/worker.ts).
+        iniciarWorkerEcf();
         registerSuppliersHandlers();
 
         // 5. Create the browser window and wire the auto-updater ONCE

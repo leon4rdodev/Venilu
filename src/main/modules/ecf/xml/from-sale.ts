@@ -143,6 +143,22 @@ function hay(valor: string | undefined): string | undefined {
 }
 
 /**
+ * Normaliza el teléfono al único formato que admite el XSD
+ * (`TelefonoValidationType` = `\d{3}-\d{3}-\d{4}`) o devuelve `undefined`.
+ *
+ * `TablaTelefonoEmisor` es **opcional** (`minOccurs="0"` en `ecf-3X.xsd`), así
+ * que un teléfono que no puedas formatear se excluye en vez de romper el
+ * comprobante — y la DGII exige excluir lo que no se use:
+ *   "Todo tag que no vaya a ser utilizado debe excluirse del e-CF."
+ *   — Descripción Técnica, "Restricciones de Contenido y/o Caracteres".
+ */
+function telefonoEmisor(telefono: string | undefined): string | undefined {
+    const digitos = (telefono ?? '').replace(/\D/g, '');
+    if (digitos.length !== 10) return undefined;
+    return `${digitos.slice(0, 3)}-${digitos.slice(3, 6)}-${digitos.slice(6)}`;
+}
+
+/**
  * `IndicadorFacturacion` de la línea (XSD `IndicadorFacturacionType`,
  * comentarios literales):
  *
@@ -291,6 +307,7 @@ export function mapearVenta(v: VentaEcf): VentaEcfMapeada {
     }
 
     // ── Emisor ────────────────────────────────────────────────────────────
+    const telefono = telefonoEmisor(v.emisor.telefono);
     const emisor: EcfRawNode = {
         RNCEmisor: v.emisor.rnc,
         RazonSocialEmisor: v.emisor.razonSocial,
@@ -298,7 +315,9 @@ export function mapearVenta(v: VentaEcf): VentaEcfMapeada {
         DireccionEmisor: v.emisor.direccion,
         ...(hay(v.emisor.municipio) ? { Municipio: v.emisor.municipio } : {}),
         ...(hay(v.emisor.provincia) ? { Provincia: v.emisor.provincia } : {}),
-        TablaTelefonoEmisor: { TelefonoEmisor: v.emisor.telefono },
+        // `TablaTelefonoEmisor` es opcional (minOccurs=0): si el teléfono no
+        // admite el formato del XSD se EXCLUYE — la DGII prohíbe los tags vacíos.
+        ...(telefono ? { TablaTelefonoEmisor: { TelefonoEmisor: telefono } } : {}),
         ...(hay(v.emisor.correo) ? { CorreoEmisor: v.emisor.correo } : {}),
         ...(hay(v.emisor.actividadEconomica)
             ? { ActividadEconomica: v.emisor.actividadEconomica }

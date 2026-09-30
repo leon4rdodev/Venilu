@@ -9,6 +9,11 @@ import { Setting } from '@main/modules/settings/entities/setting.entity';
 
 import { ecfService, EcfConfigView } from '@main/modules/ecf/services/ecf.service';
 import {
+    consultarDocumento,
+    emitirDocumento,
+    procesarPendientes,
+} from '@main/modules/ecf/services/emision';
+import {
     estatusServicios,
     probarAmbiente,
     autenticar,
@@ -120,6 +125,47 @@ export function registerEcfHandlers() {
         try {
             requirePermission('ecf:view');
             return { success: true, data: await ecfService.stats() };
+        } catch (err: any) {
+            return { success: false, message: err.message };
+        }
+    });
+
+    // ── Emisión / consulta (Fase 3) ───────────────────────────────────────
+
+    /** Firma (si hace falta) y transmite UN comprobante. */
+    ipcMain.handle('ecf:emit', async (_event, id) => {
+        try {
+            requirePermission('ecf:emit');
+            const doc = await emitirDocumento(String(id ?? ''));
+            auditService.log('ecf:emit', doc.encf, `estado=${doc.estado} via=${doc.via}`);
+            // `obtener` devuelve la fila ya guardada por la emisión.
+            return { success: true, data: await ecfService.obtener(doc.id) };
+        } catch (err: any) {
+            return { success: false, message: err.message };
+        }
+    });
+
+    /**
+     * Firma y transmite todo lo pendiente vencido (el mismo camino que usa el
+     * worker). Responde con un resumen; los detalles quedan en `last_error`.
+     */
+    ipcMain.handle('ecf:emit-pending', async () => {
+        try {
+            requirePermission('ecf:emit');
+            const resumen = await procesarPendientes(50);
+            auditService.log('ecf:emit-pending', 'lote', JSON.stringify(resumen));
+            return { success: true, data: resumen };
+        } catch (err: any) {
+            return { success: false, message: err.message };
+        }
+    });
+
+    /** Consulta el estado de un comprobante ya transmitido. */
+    ipcMain.handle('ecf:refresh', async (_event, id) => {
+        try {
+            requirePermission('ecf:view');
+            const doc = await consultarDocumento(String(id ?? ''));
+            return { success: true, data: await ecfService.obtener(doc.id) };
         } catch (err: any) {
             return { success: false, message: err.message };
         }
