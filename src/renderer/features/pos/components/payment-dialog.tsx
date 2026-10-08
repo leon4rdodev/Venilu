@@ -16,6 +16,7 @@ import { CustomerDialog } from "@renderer/features/customers/components/customer
 import { usePermission } from "@renderer/features/auth/hooks/use-permission"
 import { PERMISSIONS } from "@shared/permissions"
 import type { FiscalData } from "../hooks/use-cart"
+import { initAudioContext, POSSounds, playSound } from "../utils/sounds"
 
 type NcfChoice = "none" | "B02" | "B01"
 
@@ -361,6 +362,14 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
       )
 
       if (result.success) {
+        // Play sale complete sound
+        initAudioContext();
+        playSound(POSSounds.saleComplete, settings, 'saleComplete');
+        // Also play cash register sound for cash payments
+        if (paymentMethod === 'cash') {
+          playSound(POSSounds.cashRegister, settings, 'saleComplete');
+        }
+
         setConfirmedDetails(currentDetails)
         setSaleId(result.saleId)
         setIssuedNcf(result.ncf)

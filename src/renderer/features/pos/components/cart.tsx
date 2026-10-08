@@ -1,4 +1,4 @@
-import { CreditCard, ShoppingBag, Trash2, Lock, Pause, PauseCircle, User2, X } from "lucide-react";
+import { CreditCard, ShoppingBag, Trash2, Lock, Pause, PauseCircle, User2, X, Zap, CheckCircle2 } from "lucide-react";
 import { CartItem, CartItemType } from "./cart-item";
 import { PaymentDialog } from "./payment-dialog";
 import { ParkedSalesDialog } from "./parked-sales-dialog";
@@ -11,6 +11,7 @@ import { PaymentMethod, Customer } from "@shared/types/models";
 import { usePermission } from "@renderer/features/auth/hooks/use-permission";
 import { cn } from "@lib/utils";
 import type { ParkedSale, FiscalData } from "../hooks/use-cart";
+import { initAudioContext, POSSounds, playSound } from "../utils/sounds";
 
 interface CartProps {
   cart: CartItemType[];
@@ -60,6 +61,10 @@ export default function Cart({
   const total = Math.max(0, subtotal - discountAmount);
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  // Quick sale settings
+  const quickSaleEnabled = Boolean(settings?.quick_sale_enabled);
+  const quickSalePaymentMethod = (settings?.quick_sale_payment_method as PaymentMethod) || 'transfer';
+
   // Desglose de ITBIS (incluido en los precios) — solo con facturación activa.
   // Espeja el cálculo del backend: exentos en 0 y descuento prorrateado.
   const fiscalEnabled = !!settings?.fiscal_enabled;
@@ -69,6 +74,56 @@ export default function Cart({
   );
   const discountFactor = subtotal > 0 ? total / subtotal : 1;
   const itbisIncluded = round2(taxedAmount * discountFactor * itbisRate / (100 + itbisRate));
+
+  // Handle quick sale - process sale directly without payment dialog
+  const handleQuickSale = async () => {
+    if (cart.length === 0) return;
+    
+    // For credit sales, we still need a customer
+    if (quickSalePaymentMethod === 'credit' && !selectedCustomer) {
+      // Open payment dialog to select customer
+      onPaymentDialogOpenChange(true);
+      return;
+    }
+
+    // Determine amount paid and change based on payment method
+    let amountPaid = 0;
+    let changeGiven = 0;
+    
+    if (quickSalePaymentMethod === 'cash') {
+      // Exact amount - no change
+      amountPaid = total;
+      changeGiven = 0;
+    } else if (quickSalePaymentMethod === 'credit') {
+      // Credit sale - no amount paid
+      amountPaid = 0;
+      changeGiven = 0;
+    } else {
+      // Transfer or card - full amount paid
+      amountPaid = total;
+      changeGiven = 0;
+    }
+
+    // No fiscal data for quick sale (can be added later if needed)
+    const result = await onProcessSale(quickSalePaymentMethod, amountPaid, changeGiven);
+    
+    // Play sound on success
+    if (result.success) {
+      initAudioContext();
+      playSound(POSSounds.saleComplete, settings, 'saleComplete');
+      if (quickSalePaymentMethod === 'cash') {
+        playSound(POSSounds.cashRegister, settings, 'saleComplete');
+      }
+    }
+    
+    return result;
+  };
+
+  // Determine button behavior
+  const isQuickSaleMode = quickSaleEnabled && cart.length > 0;
+  const buttonText = isQuickSaleMode ? "Completar Venta" : "Proceder al Pago";
+  const buttonIcon = isQuickSaleMode ? CheckCircle2 : CreditCard;
+  const buttonOnClick = isQuickSaleMode ? handleQuickSale : () => onPaymentDialogOpenChange(true);
 
   return (
     <div className="w-96">
@@ -270,11 +325,11 @@ export default function Cart({
           <Button
             className="w-full h-11 text-base font-semibold gap-2"
             disabled={cart.length === 0}
-            onClick={() => onPaymentDialogOpenChange(true)}
+            onClick={buttonOnClick}
             title={cart.length === 0 ? "Agrega productos para cobrar" : undefined}
           >
-            <CreditCard className="h-5 w-5" strokeWidth={1.75} />
-            Proceder al Pago
+            <buttonIcon className="h-5 w-5" strokeWidth={1.75} />
+            {buttonText}
             <kbd className="ml-1 rounded-md border border-primary-foreground/30 px-1.5 py-0.5 text-[10px] font-mono font-medium leading-none opacity-80">
               F2
             </kbd>

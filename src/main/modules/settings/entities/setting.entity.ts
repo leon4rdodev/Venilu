@@ -77,5 +77,35 @@ export class Setting {
      */
     @Column({ nullable: true })
     license_last_seen_at?: string;
-}
+
+    /** Habilita el modo de "Venta rápida" en el POS: salta el diálogo de pago y completa la venta directamente. */
+    @Column({ default: false })
+    quick_sale_enabled!: boolean;
+
+    /** Método de pago por defecto para la venta rápida. */
+    @Column({ default: 'transfer' })
+    quick_sale_payment_method!: 'cash' | 'card' | 'transfer';
+
+    /** Sonidos en el POS */
+    @Column({ default: true })
+    sound_enabled!: boolean;
+
+    /** Volumen global de sonidos (0.0 - 1.0) */
+    @Column("real", { default: 0.5 })
+    sound_volume!: number;
+
+    /** Sonido al agregar producto al carrito */
+    @Column({ default: true })
+    sound_add_product!: boolean;
+
+    /** Sonido al completar venta */
+    @Column({ default: true })
+    sound_sale_complete!: boolean;
+
+    /**
+     * Trial anchor (ISO date) — set once on first boot. Lives in the DB so
+     * wiping a file can't reset the trial. NOT client-editable.
+     */
+    @Column({ nullable: true })
+    trial_started_at?: string;
 

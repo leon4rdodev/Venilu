@@ -248,6 +248,24 @@ export interface Setting {
   ui_scale?: number;
   /** Trial anchor (ISO) — set once at first boot; not client-editable. */
   trial_started_at?: string | null;
+
+  /** Habilita el modo de "Venta rápida" en el POS: salta el diálogo de pago y completa la venta directamente. */
+  quick_sale_enabled?: boolean;
+
+  /** Método de pago por defecto para la venta rápida. */
+  quick_sale_payment_method?: 'cash' | 'card' | 'transfer';
+
+  /** Sonidos en el POS */
+  sound_enabled?: boolean;
+
+  /** Volumen global de sonidos (0.0 - 1.0) */
+  sound_volume?: number;
+
+  /** Sonido al agregar producto al carrito */
+  sound_add_product?: boolean;
+
+  /** Sonido al completar venta */
+  sound_sale_complete?: boolean;
 }
 
 /** Licensing status served by license:status (see main/shared/services/license.service). */

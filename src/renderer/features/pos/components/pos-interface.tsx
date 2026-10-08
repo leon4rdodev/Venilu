@@ -14,6 +14,8 @@ import { useShift } from "../hooks/use-shift";
 import { useBarcodeScanner } from "../hooks/use-barcode-scanner";
 import { useCategories } from "@renderer/features/settings";
 import { PaymentMethod, Product } from "@shared/types/models";
+import { useSettings } from "@renderer/features/settings";
+import { initAudioContext, POSSounds, playSound } from "../utils/sounds";
 
 export function POSInterface() {
   const [showSalesHistory, setShowSalesHistory] = useState(false);
@@ -34,12 +36,25 @@ export function POSInterface() {
   const { activeShift } = useShift();
   const { categories } = useCategories();
   const { products, pagination, isLoading, loadMore, refresh } = usePOSProducts(search, categoryId);
+  const { settings } = useSettings();
   const {
     cart, addToCart, updateQuantity, setQuantity, removeFromCart, clearCart,
     handleProcessSale, discountAmount, setDiscountAmount,
     selectedCustomer, setSelectedCustomer,
     parkedSales, parkSale, resumeParkedSale, removeParkedSale,
   } = useCart();
+
+  // Wrap addToCart to play sound when product is added
+  const addToCartWithSound = useCallback((product: Product) => {
+    const added = addToCart(product);
+    if (added) {
+      initAudioContext();
+      playSound(POSSounds.addProduct, settings, 'addProduct');
+      // Also play scan sound for barcode scanner
+      playSound(POSSounds.scan, settings, 'addProduct');
+    }
+    return added;
+  }, [addToCart, settings]);
 
   const categoryOptions = useMemo(
     () => [{ id: "all", name: "Todas" }, ...categories.map((c) => ({ id: c.id.toString(), name: c.name }))],
@@ -72,7 +87,7 @@ export function POSInterface() {
       };
 
       if (result.success && result.data) {
-        const added = addToCart(result.data);
+        const added = addToCartWithSound(result.data);
         if (added) {
           toast.success("Producto escaneado", { description: `${result.data.name} agregado al carrito.` });
         }
@@ -152,7 +167,7 @@ export function POSInterface() {
                 hasMore={pagination.hasNextPage}
                 onLoadMore={loadMore}
                 onSubmitCode={handleCodeLookup}
-                onAddToCart={addToCart}
+                onAddToCart={addToCartWithSound}
                 showSalesHistory={showSalesHistory}
                 setShowSalesHistory={setShowSalesHistory}
                 onAddExpense={() => setShowAddExpenseDialog(true)}

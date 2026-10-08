@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   SunMoon,
   Users,
+  Zap,
 } from "lucide-react";
 import { BusinessSettings } from "./business-settings";
 import { FiscalSettings } from "./fiscal-settings";
@@ -21,6 +22,7 @@ import { PrinterSettings } from "./printer-settings";
 import { BackupSettings } from "./backup-settings";
 import { ActivitySettings } from "./activity-settings";
 import { AboutSettings } from "./about-settings";
+import { POSSettings } from "./pos-settings";
 import { PageHeader } from "@renderer/shared/components/page-header";
 import { usePermissions } from "@renderer/features/auth/hooks/use-permission";
 import { cn } from "@lib/utils";
@@ -28,6 +30,7 @@ import { cn } from "@lib/utils";
 type SectionId =
   | "business"
   | "fiscal"
+  | "pos"
   | "appearance"
   | "users"
   | "roles"
@@ -58,6 +61,13 @@ const SECTIONS: Section[] = [
     description: "Comprobantes fiscales (NCF), ITBIS y secuencias de la DGII",
     icon: Landmark,
     content: () => <FiscalSettings />,
+  },
+  {
+    id: "pos",
+    label: "Punto de Venta",
+    description: "Comportamiento del carrito, venta rápida y atajos",
+    icon: Zap,
+    content: () => <POSSettings />,
   },
   {
     id: "appearance",
@@ -144,6 +154,7 @@ export function SettingsInterface() {
     const allowed: Record<SectionId, boolean> = {
       business: perms["settings:view"],
       fiscal: perms["settings:view"],
+      pos: perms["settings:view"],
       appearance: true,
       users: perms["users:view"],
       roles: perms["users:roles"],
