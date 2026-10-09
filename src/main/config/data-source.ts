@@ -31,6 +31,7 @@ import { ProductBarcodesAndArchive1757050000000 } from "@main/migrations/1757050
 import { ProductUnit1757150000000 } from "@main/migrations/1757150000000-ProductUnit";
 import { ShiftCapital1757250000000 } from "@main/migrations/1757250000000-ShiftCapital";
 import { UIScale1757350000000 } from "@main/migrations/1757350000000-UIScale";
+import { POSQuickSaleAndSounds1757450000000 } from "@main/migrations/1757450000000-POSQuickSaleAndSounds";
 import { ProductBarcode } from "@main/modules/products/entities/product-barcode.entity";
 import { Supplier } from "@main/modules/suppliers/entities/supplier.entity";
 import { Purchase, PurchaseItem } from "@main/modules/suppliers/entities/purchase.entity";
@@ -71,7 +72,7 @@ export const AppDataSource = new DataSource({
         PurchaseItem,
         SupplierPayment,
     ],
-    migrations: [InitialSchema1756150000000, DebtPaymentRefunds1756250000000, LicenseTrial1756350000000, FiscalNcf1756450000000, SaleReturns1756550000000, ProductVariants1756650000000, SaleVoidedAt1756750000000, Suppliers1756850000000, LicenseClockGuard1756950000000, ProductBarcodesAndArchive1757050000000, ProductUnit1757150000000, ShiftCapital1757250000000, UIScale1757350000000],
+    migrations: [InitialSchema1756150000000, DebtPaymentRefunds1756250000000, LicenseTrial1756350000000, FiscalNcf1756450000000, SaleReturns1756550000000, ProductVariants1756650000000, SaleVoidedAt1756750000000, Suppliers1756850000000, LicenseClockGuard1756950000000, ProductBarcodesAndArchive1757050000000, ProductUnit1757150000000, ShiftCapital1757250000000, UIScale1757350000000, POSQuickSaleAndSounds1757450000000],
     migrationsTableName: "migrations",
     subscribers: [],
 });
