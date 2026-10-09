@@ -101,11 +101,4 @@ export class Setting {
     /** Sonido al completar venta */
     @Column({ default: true })
     sound_sale_complete!: boolean;
-
-    /**
-     * Trial anchor (ISO date) — set once on first boot. Lives in the DB so
-     * wiping a file can't reset the trial. NOT client-editable.
-     */
-    @Column({ nullable: true })
-    trial_started_at?: string;
-
+}

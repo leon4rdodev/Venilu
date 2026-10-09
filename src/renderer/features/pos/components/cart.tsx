@@ -1,4 +1,4 @@
-import { CreditCard, ShoppingBag, Trash2, Lock, Pause, PauseCircle, User2, X, Zap, CheckCircle2 } from "lucide-react";
+import { CreditCard, ShoppingBag, Trash2, Lock, Pause, PauseCircle, User2, X, CheckCircle2 } from "lucide-react";
 import { CartItem, CartItemType } from "./cart-item";
 import { PaymentDialog } from "./payment-dialog";
 import { ParkedSalesDialog } from "./parked-sales-dialog";
@@ -122,7 +122,7 @@ export default function Cart({
   // Determine button behavior
   const isQuickSaleMode = quickSaleEnabled && cart.length > 0;
   const buttonText = isQuickSaleMode ? "Completar Venta" : "Proceder al Pago";
-  const buttonIcon = isQuickSaleMode ? CheckCircle2 : CreditCard;
+  const ButtonIcon = isQuickSaleMode ? CheckCircle2 : CreditCard;
   const buttonOnClick = isQuickSaleMode ? handleQuickSale : () => onPaymentDialogOpenChange(true);
 
   return (
@@ -328,7 +328,7 @@ export default function Cart({
             onClick={buttonOnClick}
             title={cart.length === 0 ? "Agrega productos para cobrar" : undefined}
           >
-            <buttonIcon className="h-5 w-5" strokeWidth={1.75} />
+            <ButtonIcon className="h-5 w-5" strokeWidth={1.75} />
             {buttonText}
             <kbd className="ml-1 rounded-md border border-primary-foreground/30 px-1.5 py-0.5 text-[10px] font-mono font-medium leading-none opacity-80">
               F2

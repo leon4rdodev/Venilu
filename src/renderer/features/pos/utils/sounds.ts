@@ -32,7 +32,7 @@ function playTone(
 
     const frequencies = Array.isArray(frequency) ? frequency : [frequency];
 
-    frequencies.forEach((freq, index) => {
+    frequencies.forEach((freq) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
@@ -60,11 +60,6 @@ function playTone(
     // Fail silently - sound is non-critical
     console.debug('Sound playback failed:', error);
   }
-}
-
-/** Play a chord (multiple frequencies simultaneously) */
-function playChord(frequencies: number[], duration: number, volume: number = 0.3, type: OscillatorType = 'sine') {
-  playTone(frequencies, duration, type, volume);
 }
 
 /** Sound definitions */

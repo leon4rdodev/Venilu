@@ -3,7 +3,7 @@ import { Label } from "@components/ui/label";
 import { Button } from "@components/ui/button";
 import { Switch } from "@components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select";
-import { CreditCard, Banknote, ArrowRightLeft, Zap, Shield, Volume2, VolumeX, Music, Speaker } from "lucide-react";
+import { CreditCard, Banknote, ArrowRightLeft, Zap, Shield, Volume2, Music, Speaker } from "lucide-react";
 import { toast } from "sonner";
 import { useSettings } from "../hooks/use-settings";
 import { WidgetHeader } from "@renderer/shared/components/widget-header";
@@ -133,7 +133,7 @@ export function POSSettings() {
           </Label>
           <Select
             value={quickSalePaymentMethod}
-            onValueChange={setQuickSalePaymentMethod}
+            onValueChange={(value) => setQuickSalePaymentMethod(value as 'cash' | 'card' | 'transfer')}
             disabled={isSaving || !quickSaleEnabled}
           >
             <SelectTrigger id="quick-sale-payment-method" className="h-9 w-full max-w-xs" aria-describedby="quick-sale-method-hint">
