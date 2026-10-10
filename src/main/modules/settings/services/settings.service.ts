@@ -36,9 +36,9 @@ export class SettingsService {
      * paper_size is validated against the supported sizes.
      */
     private sanitize(settingsData: Partial<SettingEntity>): Partial<SettingEntity> {
-        const clean: any = {};
+        const clean: Partial<SettingEntity> = {};
         for (const field of SettingsService.EDITABLE_FIELDS) {
-            const value = (settingsData as any)[field];
+            const value = settingsData[field];
             if (value === undefined) continue;
             if (value !== null && typeof value !== 'string') {
                 throw new Error(`Campo de configuración inválido: ${field}`);
@@ -60,17 +60,17 @@ export class SettingsService {
         }
 
         // Non-string editable fields are handled explicitly below
-        const autoPrint = (settingsData as any).auto_print_receipt;
+        const autoPrint = settingsData.auto_print_receipt;
         if (autoPrint !== undefined) {
             clean.auto_print_receipt = Boolean(autoPrint);
         }
 
-        const fiscalEnabled = (settingsData as any).fiscal_enabled;
+        const fiscalEnabled = settingsData.fiscal_enabled;
         if (fiscalEnabled !== undefined) {
             clean.fiscal_enabled = Boolean(fiscalEnabled);
         }
 
-        const itbisRate = (settingsData as any).itbis_rate;
+        const itbisRate = settingsData.itbis_rate;
         if (itbisRate !== undefined) {
             const rate = Number(itbisRate);
             if (!Number.isFinite(rate) || rate < 0 || rate > 30) {
@@ -79,7 +79,7 @@ export class SettingsService {
             clean.itbis_rate = Math.round(rate * 100) / 100;
         }
 
-        const retention = (settingsData as any).auto_backup_retention;
+        const retention = settingsData.auto_backup_retention;
         if (retention !== undefined) {
             const n = Number(retention);
             if (!Number.isInteger(n) || n < 1 || n > 30) {
@@ -88,13 +88,50 @@ export class SettingsService {
             clean.auto_backup_retention = n;
         }
 
-        const uiScale = (settingsData as any).ui_scale;
+        const uiScale = settingsData.ui_scale;
         if (uiScale !== undefined) {
             const scale = Number(uiScale);
             if (!Number.isFinite(scale) || scale < 0.75 || scale > 1.5) {
                 throw new Error("La escala de interfaz debe estar entre 75% y 150%");
             }
             clean.ui_scale = Math.round(scale * 100) / 100;
+        }
+
+        const quickSaleEnabled = settingsData.quick_sale_enabled;
+        if (quickSaleEnabled !== undefined) {
+            clean.quick_sale_enabled = Boolean(quickSaleEnabled);
+        }
+
+        const quickSaleMethod = settingsData.quick_sale_payment_method;
+        if (quickSaleMethod !== undefined) {
+            if (!['cash', 'card', 'transfer'].includes(quickSaleMethod)) {
+                throw new Error("Método de pago para Venta Rápida inválido");
+            }
+            clean.quick_sale_payment_method = quickSaleMethod;
+        }
+
+        const soundEnabled = settingsData.sound_enabled;
+        if (soundEnabled !== undefined) {
+            clean.sound_enabled = Boolean(soundEnabled);
+        }
+
+        const soundVolume = settingsData.sound_volume;
+        if (soundVolume !== undefined) {
+            const volume = Number(soundVolume);
+            if (!Number.isFinite(volume) || volume < 0 || volume > 1) {
+                throw new Error("El volumen de sonidos debe estar entre 0 y 1");
+            }
+            clean.sound_volume = Math.round(volume * 100) / 100;
+        }
+
+        const soundAddProduct = settingsData.sound_add_product;
+        if (soundAddProduct !== undefined) {
+            clean.sound_add_product = Boolean(soundAddProduct);
+        }
+
+        const soundSaleComplete = settingsData.sound_sale_complete;
+        if (soundSaleComplete !== undefined) {
+            clean.sound_sale_complete = Boolean(soundSaleComplete);
         }
         return clean;
     }

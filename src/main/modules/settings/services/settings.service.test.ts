@@ -72,6 +72,40 @@ describe('SettingsService', () => {
     expect(settings.logo_filename).toBe('passwd');
   });
 
+  it('persists quick sale settings', async () => {
+    await service.update({ quick_sale_enabled: true, quick_sale_payment_method: 'cash' });
+    const settings = await service.get();
+    expect(settings.quick_sale_enabled).toBe(true);
+    expect(settings.quick_sale_payment_method).toBe('cash');
+
+    await service.update({ quick_sale_enabled: false });
+    expect((await service.get()).quick_sale_enabled).toBe(false);
+  });
+
+  it('rejects invalid quick_sale_payment_method', async () => {
+    await expect(service.update({ quick_sale_payment_method: 'crypto' } as never)).rejects.toThrow();
+  });
+
+  it('persists POS sound settings and clamps volume', async () => {
+    await service.update({
+      sound_enabled: true,
+      sound_volume: 0.8,
+      sound_add_product: false,
+      sound_sale_complete: false,
+    });
+    const settings = await service.get();
+    expect(settings.sound_enabled).toBe(true);
+    expect(Number(settings.sound_volume)).toBe(0.8);
+    expect(settings.sound_add_product).toBe(false);
+    expect(settings.sound_sale_complete).toBe(false);
+  });
+
+  it('rejects sound_volume outside 0–1 and non-numeric values', async () => {
+    await expect(service.update({ sound_volume: 1.5 } as never)).rejects.toThrow();
+    await expect(service.update({ sound_volume: -0.1 } as never)).rejects.toThrow();
+    await expect(service.update({ sound_volume: 'alto' } as never)).rejects.toThrow();
+  });
+
   it('truncates receipt_footer to 300 chars', async () => {
     await service.update({ receipt_footer: 'x'.repeat(500) });
     const settings = await service.get();
