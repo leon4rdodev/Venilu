@@ -19,7 +19,7 @@ interface PrinterInfo {
   description?: string;
   status?: number;
   isDefault?: boolean;
-  options?: Record<string, any>;
+  options?: Record<string, unknown>;
 }
 
 export function PrinterSettings() {
@@ -56,9 +56,11 @@ export function PrinterSettings() {
     settingsRef.current = settings;
   });
 
-  // Load printers on mount
+  // Load printers on mount (solo una vez: loadPrinters se
+  // recrea en cada render y no conviene re-detectar).
   useEffect(() => {
     loadPrinters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadPrinters = async () => {

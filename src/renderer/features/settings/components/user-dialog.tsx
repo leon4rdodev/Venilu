@@ -9,6 +9,7 @@ import { capitalizeWords, cn } from '@lib/utils';
 import { toast } from 'sonner';
 import { useUser } from '@renderer/features/auth';
 import { User, UserRole, Role } from '@shared/types/models';
+import { IPCResponse } from '@shared/types/ipc';
 import { ipc } from '@lib/ipc';
 
 type LocalUser = User;
@@ -44,9 +45,10 @@ export function UserDialog({ user, isOpen, onClose, onSave }: UserDialogProps) {
 
   useEffect(() => {
     if (isOpen) {
-      ipc.invoke('roles:list').then((res: any) => {
-        if (res.success && res.data) {
-          setRoles(res.data);
+      ipc.invoke('roles:list').then((res) => {
+        const response = res as IPCResponse<Role[]>;
+        if (response.success && response.data) {
+          setRoles(response.data);
         }
       });
     }

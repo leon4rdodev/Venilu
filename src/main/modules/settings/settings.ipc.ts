@@ -22,14 +22,19 @@ function getAppVersion(): string {
   return app.getVersion();
 }
 
+/** Mensaje de error seguro desde un catch (el valor lanzado puede no ser un Error). */
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 export function registerSettingsHandlers() {
   ipcMain.handle('settings:get', async () => {
     try {
       // settings:get is public — needed on the login page for business branding
       const settings = await settingsService.get();
       return { success: true, data: settings };
-    } catch (err: any) {
-      return { success: false, message: err.message };
+    } catch (err) {
+      return { success: false, message: errorMessage(err) };
     }
   });
 
@@ -44,8 +49,8 @@ export function registerSettingsHandlers() {
         auditService.log('settings:update', undefined, fields.join(', '), { fields });
       }
       return { success: true, message: 'Configuración actualizada.' };
-    } catch (err: any) {
-      return { success: false, message: err.message };
+    } catch (err) {
+      return { success: false, message: errorMessage(err) };
     }
   });
 
@@ -63,8 +68,8 @@ export function registerSettingsHandlers() {
           arch: process.arch,
         },
       };
-    } catch (err: any) {
-      return { success: false, message: err.message };
+    } catch (err) {
+      return { success: false, message: errorMessage(err) };
     }
   });
 
@@ -80,8 +85,8 @@ export function registerSettingsHandlers() {
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.setZoomFactor(factor);
       return { success: true };
-    } catch (err: any) {
-      return { success: false, message: err.message };
+    } catch (err) {
+      return { success: false, message: errorMessage(err) };
     }
   });
 
@@ -107,9 +112,9 @@ export function registerSettingsHandlers() {
       fs.writeFileSync(filePath, buffer);
 
       return { success: true, fileName: uniqueFileName };
-    } catch (err: any) {
+    } catch (err) {
       console.error('[settings.ipc] upload-logo:', err);
-      return { success: false, message: err.message };
+      return { success: false, message: errorMessage(err) };
     }
   });
 
@@ -132,8 +137,8 @@ export function registerSettingsHandlers() {
       const fileData = `data:image/${ext};base64,${buffer.toString('base64')}`;
 
       return { success: true, fileData };
-    } catch (err: any) {
-      return { success: false, message: err.message };
+    } catch (err) {
+      return { success: false, message: errorMessage(err) };
     }
   });
 
@@ -150,8 +155,8 @@ export function registerSettingsHandlers() {
 
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       return { success: true };
-    } catch (err: any) {
-      return { success: false, message: err.message };
+    } catch (err) {
+      return { success: false, message: errorMessage(err) };
     }
   });
 }
