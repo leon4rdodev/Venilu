@@ -38,8 +38,11 @@ export function PrinterSettings() {
   // El mensaje del ticket mantiene estado local mientras se
   // escribe (guardado con debounce) y se re-sincroniza cuando
   // llegan ajustes nuevos: ajuste durante el render.
+  // syncedSettings arranca vacío a propósito: así, al remontar
+  // con la caché caliente, la primera render con datos sí carga
+  // el mensaje guardado.
   const [receiptFooter, setReceiptFooter] = useState('');
-  const [syncedSettings, setSyncedSettings] = useState(settings);
+  const [syncedSettings, setSyncedSettings] = useState<typeof settings>();
   if (settings && settings !== syncedSettings) {
     setSyncedSettings(settings);
     setReceiptFooter(settings.receipt_footer || '');

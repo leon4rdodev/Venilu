@@ -27,8 +27,10 @@ export function POSSettings() {
   // El volumen sí necesita estado local mientras se arrastra el
   // control (el guardado va con debounce) y se re-sincroniza cuando
   // llegan ajustes nuevos: ajuste durante el render, no en un effect.
+  // syncedSettings arranca vacío a propósito: así, al remontar con
+  // la caché caliente, la primera render con datos sí sincroniza.
   const [soundVolume, setSoundVolume] = useState(0.5);
-  const [syncedSettings, setSyncedSettings] = useState(settings);
+  const [syncedSettings, setSyncedSettings] = useState<typeof settings>();
   if (settings && settings !== syncedSettings) {
     setSyncedSettings(settings);
     setSoundVolume(settings.sound_volume ?? 0.5);

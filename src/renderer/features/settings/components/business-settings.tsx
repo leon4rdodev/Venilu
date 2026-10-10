@@ -35,7 +35,10 @@ export function BusinessSettings() {
   // Re-sincroniza el formulario cuando llegan ajustes nuevos
   // (p. ej. tras guardar el logotipo): ajuste durante el
   // render, el patrón recomendado en vez de setState en un effect.
-  const [syncedSettings, setSyncedSettings] = useState(settings);
+  // syncedSettings arranca vacío a propósito: así, al remontar
+  // con la caché caliente, la primera render con datos sí carga
+  // los valores guardados en el formulario.
+  const [syncedSettings, setSyncedSettings] = useState<typeof settings>();
   if (settings && settings !== syncedSettings) {
     setSyncedSettings(settings);
     setFormData((prev) => {
