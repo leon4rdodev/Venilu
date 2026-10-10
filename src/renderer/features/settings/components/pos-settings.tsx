@@ -155,6 +155,26 @@ export function POSSettings() {
           </p>
         </div>
 
+        {/* Información adicional */}
+        <div className="rounded-lg border border-border p-4 bg-muted/30">
+          <div className="flex items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+              <Shield className="h-4 w-4 text-primary" strokeWidth={1.75} aria-hidden="true" />
+            </div>
+            <div className="text-sm text-muted-foreground space-y-1">
+              <p className="font-medium text-foreground">Cómo funciona la Venta Rápida:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>El botón del carrito cambia de "Proceder al Pago" a "Completar Venta"</li>
+                <li>Al pulsar, la venta se procesa inmediatamente con el método configurado</li>
+                <li>No se abre el diálogo de pago ni se solicita monto recibido</li>
+                <li>Para efectivo: se registra como monto exacto (sin cambio)</li>
+                <li>Para transferencia/tarjeta: se marca como pagado directamente</li>
+                <li>El recibo se imprime automáticamente si está habilitado en Impresora</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         {/* Sonidos */}
         <div className="space-y-4 rounded-lg border border-border p-4 bg-muted/30">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -270,26 +290,6 @@ export function POSSettings() {
                 <Volume2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
                 Probar sonido
               </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Información adicional */}
-        <div className="rounded-lg border border-border p-4 bg-muted/30">
-          <div className="flex items-start gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <Shield className="h-4 w-4 text-primary" strokeWidth={1.75} aria-hidden="true" />
-            </div>
-            <div className="text-sm text-muted-foreground space-y-1">
-              <p className="font-medium text-foreground">Cómo funciona la Venta Rápida:</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>El botón del carrito cambia de "Proceder al Pago" a "Completar Venta"</li>
-                <li>Al pulsar, la venta se procesa inmediatamente con el método configurado</li>
-                <li>No se abre el diálogo de pago ni se solicita monto recibido</li>
-                <li>Para efectivo: se registra como monto exacto (sin cambio)</li>
-                <li>Para transferencia/tarjeta: se marca como pagado directamente</li>
-                <li>El recibo se imprime automáticamente si está habilitado en Impresora</li>
-              </ul>
             </div>
           </div>
         </div>
