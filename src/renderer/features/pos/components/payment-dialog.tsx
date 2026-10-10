@@ -4,7 +4,7 @@ import { Button } from "@components/ui/button"
 import { Input } from "@components/ui/input"
 import { Skeleton } from "@components/ui/skeleton"
 import { Label } from "@components/ui/label"
-import { CreditCard, Banknote, ArrowRightLeft, Printer, CheckCircle2, HandCoins, User2, Search, X, AlertCircle, ReceiptText, Loader2 } from "lucide-react"
+import { CreditCard, Banknote, ArrowRightLeft, Printer, CheckCircle2, HandCoins, User2, UserPlus, Search, X, AlertCircle, ReceiptText, Loader2 } from "lucide-react"
 import { formatCurrency, getCurrencySymbol } from "@lib/currency"
 import { cn } from "@lib/utils"
 import { toast } from "sonner"
@@ -67,18 +67,26 @@ function InlineCustomerSelector({ selectedCustomer, onSelectCustomer }: { select
     }
   }
 
-  const createButton = canCreate ? (
-    <button
-      type="button"
-      onClick={() => setCreateOpen(true)}
-      title="Crear cliente nuevo"
-      aria-label="Crear cliente nuevo"
-      className="h-9 shrink-0 flex items-center gap-0.5 px-2.5 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-    >
-      <User2 className="h-4 w-4" strokeWidth={1.75} />
-      <span className="text-sm font-semibold leading-none">+</span>
-    </button>
-  ) : null
+  // Botón "Crear cliente": junto al input de búsqueda
+  // mide h-9 (como el input); junto al botón "Sin
+  // cliente asignado" se estira a su altura con
+  // self-stretch, para no quedar flotando.
+  const createButton = (heightClass: string) =>
+    canCreate ? (
+      <button
+        type="button"
+        onClick={() => setCreateOpen(true)}
+        title="Crear cliente nuevo"
+        aria-label="Crear cliente nuevo"
+        className={cn(
+          "shrink-0 flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-[1px] focus-visible:ring-ring",
+          heightClass,
+        )}
+      >
+        <UserPlus className="h-4 w-4" strokeWidth={1.75} />
+        <span className="text-xs font-semibold leading-none">Nuevo</span>
+      </button>
+    ) : null
 
   const createDialog = canCreate ? (
     <CustomerDialog open={createOpen} onOpenChange={setCreateOpen} customer={null} onSave={handleCreateCustomer} />
@@ -158,7 +166,7 @@ function InlineCustomerSelector({ selectedCustomer, onSelectCustomer }: { select
               className="h-9 pl-9 text-sm bg-background"
             />
           </div>
-          {createButton}
+          {createButton("h-9")}
         </div>
         <div className="max-h-36 overflow-y-auto">
           {loading ? (
@@ -233,7 +241,7 @@ function InlineCustomerSelector({ selectedCustomer, onSelectCustomer }: { select
           <p className="text-xs text-muted-foreground">Toca para buscar y asignar un cliente</p>
         </div>
       </button>
-      {createButton}
+      {createButton("self-stretch")}
       {createDialog}
     </div>
   )
