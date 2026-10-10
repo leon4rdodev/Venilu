@@ -335,3 +335,21 @@ button:disabled,
 [data-theme-switching] *::after {
   transition: none !important;
 }
+
+/* === Sonner toast stacking ===
+   Sonner apila los toasts anteriores forzando su altura a la
+   del frontal y aplicando una escala negativa (flip). Como el
+   Toaster de la app usa unstyled (estilos propios), el contenido
+   de los toasts de atrás sigue visible: al salir uno encima de
+   otro se ven encogidos y con el contenido espejado. Se anula
+   el flip y se oculta el contenido de los toasts detrás del
+   frontal (igual que en el modo con estilo): solo asoma el borde
+   de la tarjeta, y al pasar el cursor se expande normalmente.
+   data-y-position='top' corresponde a position="top-center". */
+[data-sonner-toaster][data-y-position='top'] [data-sonner-toast][data-expanded='false'][data-front='false'] {
+  --y: translateY(calc(var(--lift-amount) * var(--toasts-before)));
+}
+
+[data-sonner-toaster][data-y-position='top'] [data-sonner-toast][data-expanded='false'][data-front='false'] > * {
+  opacity: 0;
+}
