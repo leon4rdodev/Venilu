@@ -161,11 +161,11 @@ export function BusinessSettings() {
               <div className="flex flex-col items-center gap-3">
                 <div className="relative group w-full flex justify-center">
                   {logoPreview ? (
-                    <div className="relative">
+                    <div className="relative w-full">
                       <img
                         src={logoPreview}
                         alt="Logo del negocio"
-                        className="w-48 h-48 object-contain rounded-lg border border-border bg-muted"
+                        className="w-full aspect-square object-contain rounded-lg border border-border bg-muted"
                       />
                       <Button
                         type="button"
@@ -185,7 +185,7 @@ export function BusinessSettings() {
                       type="button"
                       aria-label="Cargar logo"
                       disabled={isUploadingLogo}
-                      className="w-48 h-48 rounded-lg border border-dashed border-border bg-muted/50 flex flex-col items-center justify-center gap-2 hover:border-foreground/30 hover:bg-muted transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      className="w-full aspect-square rounded-lg border border-dashed border-border bg-muted/50 flex flex-col items-center justify-center gap-2 hover:border-foreground/30 hover:bg-muted transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                       onClick={() => fileInputRef.current?.click()}
                     >
                       <ImageIcon className="h-10 w-10 text-muted-foreground/40" strokeWidth={1.5} aria-hidden="true" />
