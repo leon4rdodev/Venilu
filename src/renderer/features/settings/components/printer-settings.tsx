@@ -202,7 +202,7 @@ export function PrinterSettings() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
-              <Label htmlFor="printer-name" className="text-sm">Impresora</Label>
+              <Label htmlFor="printer-name" className="flex h-7 items-center text-sm">Impresora</Label>
               <Button
                 type="button"
                 size="sm"
@@ -256,7 +256,7 @@ export function PrinterSettings() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="paper-size" className="text-sm">Tamaño de Papel</Label>
+            <Label htmlFor="paper-size" className="flex h-7 items-center text-sm">Tamaño de Papel</Label>
             <Select
               value={paperSize}
               onValueChange={(value) => persist({ paper_size: value })}
