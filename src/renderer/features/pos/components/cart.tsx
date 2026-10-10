@@ -13,6 +13,12 @@ import { cn } from "@lib/utils";
 import type { ParkedSale, FiscalData } from "../hooks/use-cart";
 import { initAudioContext, POSSounds, playSound } from "../utils/sounds";
 import { notifyQuickSaleSuccess } from "../utils/sale-notifications";
+import { printTicket } from "../utils/print-ticket";
+
+/** Retraso antes de la impresión automática en la venta
+ *  rápida: el toast de la venta se lee primero y el
+ *  de impresión llega ~3s después. */
+const QUICK_SALE_PRINT_DELAY_MS = 3000;
 
 interface CartProps {
   cart: CartItemType[];
@@ -119,6 +125,15 @@ export default function Cart({
       // pago ya sale el modal de éxito con los detalles (un toast
       // ahí sería redundante).
       notifyQuickSaleSuccess(result, quickSalePaymentMethod, selectedCustomer?.name);
+      // Impresión automática (Ajustes → Impresora): fuego y
+      // olvido con un retraso de 3s — el toast de la venta
+      // se lee primero y el de impresión llega después.
+      if (settings?.auto_print_receipt && result.saleId) {
+        const saleId = result.saleId;
+        setTimeout(() => {
+          void printTicket(saleId);
+        }, QUICK_SALE_PRINT_DELAY_MS);
+      }
     }
     
     return result;

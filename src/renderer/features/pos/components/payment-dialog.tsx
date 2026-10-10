@@ -17,6 +17,7 @@ import { usePermission } from "@renderer/features/auth/hooks/use-permission"
 import { PERMISSIONS } from "@shared/permissions"
 import type { FiscalData } from "../hooks/use-cart"
 import { initAudioContext, POSSounds, playSound } from "../utils/sounds"
+import { printTicket } from "../utils/print-ticket"
 
 type NcfChoice = "none" | "B02" | "B01"
 
@@ -389,34 +390,17 @@ export function PaymentDialog({ open, onOpenChange, subtotal, discountAmount, to
     }
   }
 
-  const printTicket = async (id: string) => {
-    if (!window.ipcRenderer) {
-      toast.error("Error al imprimir", { description: "Sistema de impresión no disponible" })
-      return
-    }
-
-    try {
-      setIsPrinting(true)
-      const result = await window.ipcRenderer.invoke("print-receipt", { saleId: id }) as { success: boolean; message?: string }
-
-      if (result.success) {
-        toast.success("Ticket impreso correctamente")
-      } else {
-        toast.error("Error al imprimir", { description: result.message || "No se pudo imprimir el ticket" })
-      }
-    } catch (_error) {
-      toast.error("Error al imprimir")
-    } finally {
-      setIsPrinting(false)
-    }
-  }
-
   const handlePrintTicket = async () => {
     if (!saleId) {
       toast.error("Error al imprimir", { description: "Sistema de impresión no disponible" })
       return
     }
-    await printTicket(saleId)
+    setIsPrinting(true)
+    try {
+      await printTicket(saleId)
+    } finally {
+      setIsPrinting(false)
+    }
   }
 
   return (
