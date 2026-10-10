@@ -119,8 +119,8 @@ export function POSSettings() {
               aria-describedby="quick-sale-hint"
             />
           </div>
-          <p id="quick-sale-hint" className="text-xs text-muted-foreground ml-6">
-            Atajo: F2 seguirá funcionando para abrir el pago (o completar venta directa si está activo).
+          <p id="quick-sale-hint" className="text-xs text-muted-foreground">
+            Atajo: F2 abre el modal de pago con más detalles por si quieres cambiar algo de esta venta (cliente, comprobante fiscal, método de pago, monto recibido, etc.) en vez de completarla directamente.
           </p>
         </div>
 
