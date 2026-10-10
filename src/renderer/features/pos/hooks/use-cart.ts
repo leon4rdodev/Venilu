@@ -256,12 +256,6 @@ export function useCart() {
 
         if (result.success) {
           const isCredit = paymentMethod === 'credit';
-          const ncfSuffix = result.ncf ? ` · NCF ${result.ncf}` : "";
-          toast.success(isCredit ? "Venta a crédito registrada" : "Venta exitosa", {
-            description: isCredit
-              ? `Venta #${result.saleId} registrada a crédito para ${selectedCustomer?.name}.${ncfSuffix}`
-              : `Venta #${result.saleId} procesada correctamente.${ncfSuffix}`,
-          });
           addSaleToShift({
             total_amount: totalAmount,
             payment_method: paymentMethod,

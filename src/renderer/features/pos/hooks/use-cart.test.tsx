@@ -240,7 +240,8 @@ describe("useCart · handleProcessSale", () => {
     expect(res).toEqual({ success: true, saleId: "S9" });
     expect(onSuccess).toHaveBeenCalled();
     expect(result.current.cart).toHaveLength(0);
-    expect(h.toastSuccess).toHaveBeenCalled();
+    // El toast de éxito lo emite la UI (venta rápida), no el hook.
+    expect(h.toastSuccess).not.toHaveBeenCalled();
   });
 
   it("sends fiscal data when provided and returns the issued NCF", async () => {
@@ -267,10 +268,6 @@ describe("useCart · handleProcessSale", () => {
       })
     );
     expect(res).toEqual({ success: true, saleId: "S10", ncf: "B0100000042" });
-    expect(h.toastSuccess).toHaveBeenCalledWith(
-      "Venta exitosa",
-      expect.objectContaining({ description: expect.stringContaining("NCF B0100000042") })
-    );
   });
 
   it("omits fiscal from saleData when not provided", async () => {

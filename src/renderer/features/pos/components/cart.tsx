@@ -12,6 +12,7 @@ import { usePermission } from "@renderer/features/auth/hooks/use-permission";
 import { cn } from "@lib/utils";
 import type { ParkedSale, FiscalData } from "../hooks/use-cart";
 import { initAudioContext, POSSounds, playSound } from "../utils/sounds";
+import { notifyQuickSaleSuccess } from "../utils/sale-notifications";
 
 interface CartProps {
   cart: CartItemType[];
@@ -114,6 +115,10 @@ export default function Cart({
       if (quickSalePaymentMethod === 'cash') {
         playSound(POSSounds.cashRegister, settings, 'saleComplete');
       }
+      // Notificación propia de la venta rápida: desde el modal de
+      // pago ya sale el modal de éxito con los detalles (un toast
+      // ahí sería redundante).
+      notifyQuickSaleSuccess(result, quickSalePaymentMethod, selectedCustomer?.name);
     }
     
     return result;
