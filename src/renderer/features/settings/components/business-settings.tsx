@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
 import { Button } from "@components/ui/button";
@@ -6,6 +6,7 @@ import { Upload, X, Image as ImageIcon, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { useSettings } from "../hooks/use-settings";
 import { useLogoUpload } from "../hooks/use-logo-upload";
+import { useDebouncedCallback } from "../hooks/use-debounced-callback";
 import { Skeleton } from "@components/ui/skeleton";
 import { WidgetHeader } from "@renderer/shared/components/widget-header";
 import { formatPhoneNumber, formatRNC } from "@lib/formatters";
@@ -30,47 +31,74 @@ export function BusinessSettings() {
     business_tax_id: "",
     currency: "DOP",
   });
-  const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    if (settings) {
-      setFormData({
+  // Re-sincroniza el formulario cuando llegan ajustes nuevos
+  // (p. ej. tras guardar el logotipo): ajuste durante el
+  // render, el patrón recomendado en vez de setState en un effect.
+  const [syncedSettings, setSyncedSettings] = useState(settings);
+  if (settings && settings !== syncedSettings) {
+    setSyncedSettings(settings);
+    setFormData((prev) => {
+      const next = {
         business_name: settings.business_name || "",
         business_address: settings.business_address || "",
         business_phone: settings.business_phone || "",
         business_email: settings.business_email || "",
         business_tax_id: settings.business_tax_id || "",
         currency: settings.currency || "DOP",
-      });
-      if (settings.logo_filename) {
-        loadLogo(settings.logo_filename);
-      }
+      };
+      const unchanged = (Object.keys(next) as (keyof typeof next)[]).every(
+        (key) => next[key] === prev[key],
+      );
+      return unchanged ? prev : next;
+    });
+  }
+
+  // Vista previa del logotipo: se carga cuando cambia el nombre
+  // guardado (seguimiento por ref para no repetir la carga).
+  const loadedLogoRef = useRef<string | null>(null);
+  useEffect(() => {
+    const name = settings?.logo_filename ?? null;
+    if (name && name !== loadedLogoRef.current) {
+      loadedLogoRef.current = name;
+      loadLogo(name);
     }
   }, [settings, loadLogo]);
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleSave = async () => {
-    if (!formData.business_name.trim()) {
-      toast.error("Campo requerido", { description: "El nombre del negocio es obligatorio" });
+  // El logotipo se persiste apenas se carga o se quita: el archivo ya
+  // se subió por su vía, aquí solo se registra el nombre en los ajustes.
+  const logoLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!settings) return;
+    if (!logoLoadedRef.current) {
+      logoLoadedRef.current = true;
       return;
     }
-    setIsSaving(true);
-    try {
-      const result = await updateSettings({ ...formData, logo_filename: logoFile });
+    if (logoFile === (settings.logo_filename ?? null)) return;
+    void updateSettings({ logo_filename: logoFile }).then((result) => {
+      if (!result.success) {
+        toast.error("Error al guardar el logotipo", { description: result.message });
+      }
+    });
+  }, [logoFile, settings, updateSettings]);
+
+  // Auto-guardado con debounce: persiste ~600ms después de dejar de
+  // escribir, sin esperar a un botón.
+  const debouncedSave = useDebouncedCallback((data: typeof formData) => {
+    if (!data.business_name.trim()) return; // obligatorio: no persistir vacío
+    void updateSettings(data).then((result) => {
       if (result.success) {
-        toast.success("Configuración guardada");
-        window.dispatchEvent(new CustomEvent('currency-updated', { detail: formData.currency }));
+        window.dispatchEvent(new CustomEvent('currency-updated', { detail: data.currency }));
       } else {
         toast.error("Error al guardar", { description: result.message });
       }
-    } catch {
-      toast.error("Error al guardar configuración");
-    } finally {
-      setIsSaving(false);
-    }
+    });
+  }, 600);
+
+  const handleInputChange = (field: string, value: string) => {
+    const next = { ...formData, [field]: value };
+    setFormData(next);
+    debouncedSave(next);
   };
 
   if (isLoading) {
@@ -153,7 +181,7 @@ export function BusinessSettings() {
                     <button
                       type="button"
                       aria-label="Cargar logo"
-                      disabled={isUploadingLogo || isSaving}
+                      disabled={isUploadingLogo}
                       className="w-48 h-48 rounded-lg border border-dashed border-border bg-muted/50 flex flex-col items-center justify-center gap-2 hover:border-foreground/30 hover:bg-muted transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                       onClick={() => fileInputRef.current?.click()}
                     >
@@ -177,7 +205,7 @@ export function BusinessSettings() {
                   variant="outline"
                   className="h-8 text-xs px-4 w-full"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploadingLogo || isSaving}
+                  disabled={isUploadingLogo}
                 >
                   {isUploadingLogo ? (
                     "Subiendo…"
@@ -216,9 +244,11 @@ export function BusinessSettings() {
                   onChange={(e) => handleInputChange("business_name", e.target.value)}
                   aria-required="true"
                   autoComplete="organization"
-                  disabled={isSaving}
                   className="h-9"
                 />
+                {!formData.business_name.trim() && (
+                  <p className="text-xs text-destructive">El nombre del negocio es obligatorio</p>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -230,7 +260,6 @@ export function BusinessSettings() {
                   value={formData.business_tax_id}
                   onChange={(e) => handleInputChange("business_tax_id", formatRNC(e.target.value))}
                   aria-describedby="tax-id-hint"
-                  disabled={isSaving}
                   className="h-9 font-mono tabular-nums"
                 />
                 <p id="tax-id-hint" className="text-xs text-muted-foreground">
@@ -248,7 +277,6 @@ export function BusinessSettings() {
                   placeholder="(809) 555-1234"
                   value={formData.business_phone}
                   onChange={(e) => handleInputChange("business_phone", formatPhoneNumber(e.target.value))}
-                  disabled={isSaving}
                   className="h-9 tabular-nums"
                 />
               </div>
@@ -261,7 +289,6 @@ export function BusinessSettings() {
                   placeholder="Ej: Calle Principal #123"
                   value={formData.business_address}
                   onChange={(e) => handleInputChange("business_address", e.target.value)}
-                  disabled={isSaving}
                   className="h-9"
                 />
               </div>
@@ -278,25 +305,14 @@ export function BusinessSettings() {
                   placeholder="info@minegocio.com"
                   value={formData.business_email}
                   onChange={(e) => handleInputChange("business_email", e.target.value)}
-                  disabled={isSaving}
                   className="h-9"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-4 pt-1">
-              <p className="text-xs text-muted-foreground">
-                Los cambios se aplican al guardar.
-              </p>
-              <Button
-                type="button"
-                onClick={handleSave}
-                disabled={isSaving || isUploadingLogo}
-                className="h-9 px-6 shrink-0"
-              >
-                {isSaving ? "Guardando…" : "Guardar Cambios"}
-              </Button>
-            </div>
+            <p className="text-xs text-muted-foreground pt-1">
+              Los cambios se guardan automáticamente mientras escribes.
+            </p>
           </div>
 
         </div>

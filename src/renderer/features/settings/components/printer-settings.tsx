@@ -1,6 +1,6 @@
 
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select"
 import { Label } from "@components/ui/label"
 import { Button } from "@components/ui/button"
@@ -9,6 +9,7 @@ import { Switch } from "@components/ui/switch"
 import { RefreshCw, Printer } from "lucide-react"
 import { toast } from "sonner"
 import { useSettings } from "../hooks/use-settings"
+import { useDebouncedCallback } from "../hooks/use-debounced-callback"
 import { Skeleton } from "@components/ui/skeleton"
 import { WidgetHeader } from "@renderer/shared/components/widget-header"
 
@@ -24,23 +25,33 @@ interface PrinterInfo {
 export function PrinterSettings() {
   const { settings, isLoading, updateSettings } = useSettings();
   const [printers, setPrinters] = useState<PrinterInfo[]>([]);
-  const [selectedPrinter, setSelectedPrinter] = useState<string>('');
-  const [paperSize, setPaperSize] = useState<string>('80mm');
-  const [receiptFooter, setReceiptFooter] = useState<string>('');
-  const [autoPrint, setAutoPrint] = useState<boolean>(false);
   const [isLoadingPrinters, setIsLoadingPrinters] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
 
-  // Load settings
+  // Impresora, tamaño de papel e impresión automática se
+  // gobiernan por la caché de ajustes: updateSettings aplica
+  // el cambio optimista al instante, sin estado local.
+  const selectedPrinter = settings?.printer_name || '';
+  const paperSize = settings?.paper_size || '80mm';
+  const autoPrint = Boolean(settings?.auto_print_receipt);
+
+  // El mensaje del ticket mantiene estado local mientras se
+  // escribe (guardado con debounce) y se re-sincroniza cuando
+  // llegan ajustes nuevos: ajuste durante el render.
+  const [receiptFooter, setReceiptFooter] = useState('');
+  const [syncedSettings, setSyncedSettings] = useState(settings);
+  if (settings && settings !== syncedSettings) {
+    setSyncedSettings(settings);
+    setReceiptFooter(settings.receipt_footer || '');
+  }
+
+  // La detección de impresoras tarda ≥600ms: se lee la
+  // configuración actual por ref para no usar el valor
+  // obsoleto del closure del montaje.
+  const settingsRef = useRef(settings);
   useEffect(() => {
-    if (settings) {
-      setSelectedPrinter(settings.printer_name || '');
-      setPaperSize(settings.paper_size || '80mm');
-      setReceiptFooter(settings.receipt_footer || '');
-      setAutoPrint(Boolean(settings.auto_print_receipt));
-    }
-  }, [settings]);
+    settingsRef.current = settings;
+  });
 
   // Load printers on mount
   useEffect(() => {
@@ -70,11 +81,12 @@ export function PrinterSettings() {
       if (result.success && result.printers) {
         setPrinters(result.printers);
 
-        // If no printer selected, select the default one
-        if (!selectedPrinter && result.printers.length > 0) {
+        // Si no hay impresora configurada, se usa la
+        // predeterminada del sistema (y se guarda).
+        if (!settingsRef.current?.printer_name && result.printers.length > 0) {
           const defaultPrinter = result.printers.find(p => p.isDefault);
           if (defaultPrinter) {
-            setSelectedPrinter(defaultPrinter.name);
+            persist({ printer_name: defaultPrinter.name });
           }
         }
       } else {
@@ -90,33 +102,20 @@ export function PrinterSettings() {
     }
   };
 
-  const handleSave = async () => {
-    setIsSaving(true);
-
-    try {
-      const result = await updateSettings({
-        printer_name: selectedPrinter || null,
-        paper_size: paperSize,
-        receipt_footer: receiptFooter.trim() || null,
-        auto_print_receipt: autoPrint
-      });
-
-      if (result.success) {
-        toast.success('Configuración guardada', {
-          description: 'La configuración de impresión se guardó correctamente'
-        });
-      } else {
-        toast.error('Error al guardar', {
-          description: result.message
-        });
+  // Auto-guardado: cada control persiste al cambiar (el hook aplica
+  // el cambio optimista en la caché, así que la UI responde al instante).
+  const persist = (patch: Parameters<typeof updateSettings>[0]) => {
+    void updateSettings(patch).then((result) => {
+      if (!result.success) {
+        toast.error('Error al guardar', { description: result.message });
       }
-    } catch (error) {
-      console.error('Error saving printer settings:', error);
-      toast.error('Error al guardar configuración');
-    } finally {
-      setIsSaving(false);
-    }
+    });
   };
+
+  // El mensaje del ticket se guarda tras dejar de escribir.
+  const debouncedSaveFooter = useDebouncedCallback((footer: string) => {
+    persist({ receipt_footer: footer.trim() || null });
+  }, 600);
 
   const handleTestPrint = async () => {
     if (!selectedPrinter) {
@@ -204,7 +203,7 @@ export function PrinterSettings() {
                 size="sm"
                 variant="ghost"
                 onClick={loadPrinters}
-                disabled={isLoadingPrinters || isSaving}
+                disabled={isLoadingPrinters}
                 aria-label="Volver a detectar impresoras"
                 title="Volver a detectar impresoras"
                 className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
@@ -219,8 +218,8 @@ export function PrinterSettings() {
             </div>
             <Select
               value={selectedPrinter}
-              onValueChange={setSelectedPrinter}
-              disabled={isLoadingPrinters || isSaving}
+              onValueChange={(value) => persist({ printer_name: value || null })}
+              disabled={isLoadingPrinters}
             >
               <SelectTrigger
                 id="printer-name"
@@ -255,8 +254,7 @@ export function PrinterSettings() {
             <Label htmlFor="paper-size" className="text-sm">Tamaño de Papel</Label>
             <Select
               value={paperSize}
-              onValueChange={setPaperSize}
-              disabled={isSaving}
+              onValueChange={(value) => persist({ paper_size: value })}
             >
               <SelectTrigger id="paper-size" className="h-9 w-full" aria-describedby="paper-size-hint">
                 <SelectValue />
@@ -277,11 +275,13 @@ export function PrinterSettings() {
           <Textarea
             id="receipt-footer"
             value={receiptFooter}
-            onChange={(e) => setReceiptFooter(e.target.value)}
+            onChange={(e) => {
+              setReceiptFooter(e.target.value);
+              debouncedSaveFooter(e.target.value);
+            }}
             maxLength={300}
             rows={3}
             placeholder="Gracias por su compra…"
-            disabled={isSaving}
             aria-describedby="receipt-footer-hint"
             className="rounded-lg resize-none"
           />
@@ -305,30 +305,24 @@ export function PrinterSettings() {
           <Switch
             id="auto-print"
             checked={autoPrint}
-            onCheckedChange={setAutoPrint}
-            disabled={isSaving}
+            onCheckedChange={(checked) => persist({ auto_print_receipt: checked })}
             aria-describedby="auto-print-hint"
           />
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+          <p className="text-xs text-muted-foreground">
+            Los cambios se guardan automáticamente.
+          </p>
           <Button
             type="button"
             variant="outline"
             onClick={handleTestPrint}
-            disabled={!selectedPrinter || isTesting || isSaving}
+            disabled={!selectedPrinter || isTesting}
             title={!selectedPrinter ? "Selecciona una impresora para probar" : undefined}
           >
             <Printer className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             {isTesting ? 'Imprimiendo…' : 'Imprimir prueba'}
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving || isTesting}
-            className="px-6"
-          >
-            {isSaving ? 'Guardando…' : 'Guardar Cambios'}
           </Button>
         </div>
       </div>

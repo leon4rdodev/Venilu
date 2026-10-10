@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Label } from "@components/ui/label";
 import { Button } from "@components/ui/button";
 import { Switch } from "@components/ui/switch";
@@ -6,58 +6,49 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CreditCard, Banknote, ArrowRightLeft, Zap, Shield, Volume2, Music, Speaker } from "lucide-react";
 import { toast } from "sonner";
 import { useSettings } from "../hooks/use-settings";
+import { useDebouncedCallback } from "../hooks/use-debounced-callback";
 import { WidgetHeader } from "@renderer/shared/components/widget-header";
 import { Skeleton } from "@components/ui/skeleton";
 import { initAudioContext, POSSounds } from "@renderer/features/pos/utils/sounds";
 
 export function POSSettings() {
   const { settings, isLoading, updateSettings } = useSettings();
-  const [isSaving, setIsSaving] = useState(false);
-  const [quickSaleEnabled, setQuickSaleEnabled] = useState(false);
-  const [quickSalePaymentMethod, setQuickSalePaymentMethod] = useState<'cash' | 'card' | 'transfer'>('transfer');
 
-  // Sound settings
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  // Controles gobernados por la caché de ajustes: updateSettings
+  // aplica el cambio optimista al instante, así que no hace falta
+  // estado local ni sincronizarlo desde un effect.
+  const quickSaleEnabled = Boolean(settings?.quick_sale_enabled);
+  const quickSalePaymentMethod =
+    (settings?.quick_sale_payment_method as 'cash' | 'card' | 'transfer') || 'transfer';
+  const soundEnabled = Boolean(settings?.sound_enabled ?? true);
+  const soundAddProduct = Boolean(settings?.sound_add_product ?? true);
+  const soundSaleComplete = Boolean(settings?.sound_sale_complete ?? true);
+
+  // El volumen sí necesita estado local mientras se arrastra el
+  // control (el guardado va con debounce) y se re-sincroniza cuando
+  // llegan ajustes nuevos: ajuste durante el render, no en un effect.
   const [soundVolume, setSoundVolume] = useState(0.5);
-  const [soundAddProduct, setSoundAddProduct] = useState(true);
-  const [soundSaleComplete, setSoundSaleComplete] = useState(true);
+  const [syncedSettings, setSyncedSettings] = useState(settings);
+  if (settings && settings !== syncedSettings) {
+    setSyncedSettings(settings);
+    setSoundVolume(settings.sound_volume ?? 0.5);
+  }
 
-  useEffect(() => {
-    if (settings) {
-      setQuickSaleEnabled(Boolean(settings.quick_sale_enabled));
-      setQuickSalePaymentMethod((settings.quick_sale_payment_method as 'cash' | 'card' | 'transfer') || 'transfer');
-      setSoundEnabled(Boolean(settings.sound_enabled ?? true));
-      setSoundVolume(settings.sound_volume ?? 0.5);
-      setSoundAddProduct(Boolean(settings.sound_add_product ?? true));
-      setSoundSaleComplete(Boolean(settings.sound_sale_complete ?? true));
-    }
-  }, [settings]);
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      const result = await updateSettings({
-        quick_sale_enabled: quickSaleEnabled,
-        quick_sale_payment_method: quickSalePaymentMethod,
-        sound_enabled: soundEnabled,
-        sound_volume: soundVolume,
-        sound_add_product: soundAddProduct,
-        sound_sale_complete: soundSaleComplete,
-      });
-
-      if (result.success) {
-        toast.success("Configuración guardada", {
-          description: "Los ajustes del punto de venta se guardaron correctamente",
-        });
-      } else {
+  // Auto-guardado: cada control persiste al cambiar. El hook ya aplica
+  // el cambio optimista en la caché, así que la UI responde al instante
+  // y la escritura en DB va por detrás (con revert + toast si falla).
+  const persist = (patch: Parameters<typeof updateSettings>[0]) => {
+    void updateSettings(patch).then((result) => {
+      if (!result.success) {
         toast.error("Error al guardar", { description: result.message });
       }
-    } catch {
-      toast.error("Error al guardar configuración");
-    } finally {
-      setIsSaving(false);
-    }
+    });
   };
+
+  // El volumen se guarda tras dejar de arrastrar el control.
+  const debouncedSaveVolume = useDebouncedCallback((volume: number) => {
+    persist({ sound_volume: volume });
+  }, 400);
 
   const paymentMethods = [
     { id: 'transfer' as const, label: 'Transferencia', icon: ArrowRightLeft, desc: 'Procesa como pago por transferencia (recomendado para velocidad)' },
@@ -114,8 +105,7 @@ export function POSSettings() {
             <Switch
               id="quick-sale-enabled"
               checked={quickSaleEnabled}
-              onCheckedChange={setQuickSaleEnabled}
-              disabled={isSaving}
+              onCheckedChange={(checked) => persist({ quick_sale_enabled: checked })}
               aria-describedby="quick-sale-hint"
             />
           </div>
@@ -133,8 +123,10 @@ export function POSSettings() {
           </Label>
           <Select
             value={quickSalePaymentMethod}
-            onValueChange={(value) => setQuickSalePaymentMethod(value as 'cash' | 'card' | 'transfer')}
-            disabled={isSaving || !quickSaleEnabled}
+            onValueChange={(value) =>
+              persist({ quick_sale_payment_method: value as 'cash' | 'card' | 'transfer' })
+            }
+            disabled={!quickSaleEnabled}
           >
             <SelectTrigger id="quick-sale-payment-method" className="h-9 w-full max-w-xs" aria-describedby="quick-sale-method-hint">
               <SelectValue placeholder="Selecciona un método" />
@@ -193,8 +185,7 @@ export function POSSettings() {
             <Switch
               id="sound-enabled"
               checked={soundEnabled}
-              onCheckedChange={setSoundEnabled}
-              disabled={isSaving}
+              onCheckedChange={(checked) => persist({ sound_enabled: checked })}
             />
           </div>
 
@@ -211,8 +202,12 @@ export function POSSettings() {
                 max="1"
                 step="0.1"
                 value={soundVolume}
-                onChange={(e) => setSoundVolume(parseFloat(e.target.value))}
-                disabled={isSaving || !soundEnabled}
+                onChange={(e) => {
+                  const volume = parseFloat(e.target.value);
+                  setSoundVolume(volume);
+                  debouncedSaveVolume(volume);
+                }}
+                disabled={!soundEnabled}
                 className="flex-1 h-2 bg-muted rounded-lg appearance-none accent-primary"
                 aria-label="Volumen de sonidos"
               />
@@ -238,8 +233,8 @@ export function POSSettings() {
                 <Switch
                   id="sound-add-product"
                   checked={soundAddProduct}
-                  onCheckedChange={setSoundAddProduct}
-                  disabled={isSaving || !soundEnabled}
+                  onCheckedChange={(checked) => persist({ sound_add_product: checked })}
+                  disabled={!soundEnabled}
                 />
               </div>
               <Button
@@ -250,7 +245,7 @@ export function POSSettings() {
                   initAudioContext();
                   POSSounds.addProduct(soundVolume);
                 }}
-                disabled={isSaving || !soundEnabled || !soundAddProduct}
+                disabled={!soundEnabled || !soundAddProduct}
                 className="w-full justify-start gap-2"
               >
                 <Volume2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
@@ -272,8 +267,8 @@ export function POSSettings() {
                 <Switch
                   id="sound-sale-complete"
                   checked={soundSaleComplete}
-                  onCheckedChange={setSoundSaleComplete}
-                  disabled={isSaving || !soundEnabled}
+                  onCheckedChange={(checked) => persist({ sound_sale_complete: checked })}
+                  disabled={!soundEnabled}
                 />
               </div>
               <Button
@@ -284,7 +279,7 @@ export function POSSettings() {
                   initAudioContext();
                   POSSounds.saleComplete(soundVolume);
                 }}
-                disabled={isSaving || !soundEnabled || !soundSaleComplete}
+                disabled={!soundEnabled || !soundSaleComplete}
                 className="w-full justify-start gap-2"
               >
                 <Volume2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
@@ -294,16 +289,9 @@ export function POSSettings() {
           </div>
         </div>
 
-        <div className="flex justify-end pt-1">
-          <Button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving}
-            className="h-9 px-6 shrink-0"
-          >
-            {isSaving ? "Guardando…" : "Guardar Cambios"}
-          </Button>
-        </div>
+        <p className="text-xs text-muted-foreground pt-1">
+          Los cambios se guardan automáticamente.
+        </p>
       </div>
     </div>
   );
