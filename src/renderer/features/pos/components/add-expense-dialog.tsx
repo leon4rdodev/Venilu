@@ -86,11 +86,19 @@ export function AddExpenseDialog({ isOpen, onClose, onSuccess }: AddExpenseDialo
     try {
       if (!window.ipcRenderer) throw new Error("IPC Renderer no disponible");
 
+      interface ShiftExpense {
+        id: number;
+        shiftId: number;
+        amount: number;
+        reason: string;
+        createdAt: string;
+      }
+
       const result = await window.ipcRenderer.invoke('shifts:add-expense', {
         shiftId: activeShift.id,
         amount: amountValue,
         reason: reason.trim()
-      }) as { success: boolean; data?: any; message?: string };
+      }) as { success: boolean; data?: ShiftExpense; message?: string };
 
       if (result.success) {
         toast.success(`Salida de ${formatCurrency(amountValue)} registrada`);
