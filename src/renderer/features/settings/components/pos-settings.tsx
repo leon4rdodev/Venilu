@@ -142,20 +142,16 @@ export function POSSettings() {
             <SelectContent>
               {paymentMethods.map((method) => (
                 <SelectItem key={method.id} value={method.id}>
-                  <div className="flex items-center gap-2">
-                    <method.icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                    <div className="flex flex-col">
-                      <span>{method.label}</span>
-                      <span className="text-xs text-muted-foreground">{method.desc}</span>
-                    </div>
-                  </div>
+                  <method.icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                  <span>{method.label}</span>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <p id="quick-sale-method-hint" className="text-xs text-muted-foreground">
-            Este método se usará automáticamente al completar una venta rápida.
-            Para "Efectivo (monto exacto)" se asume que el cliente paga el total exacto sin vuelto.
+            {paymentMethods.find((m) => m.id === quickSalePaymentMethod)?.desc}. Este método se usará
+            automáticamente al completar una venta rápida. Para "Efectivo (monto exacto)" se asume que el
+            cliente paga el total exacto sin vuelto.
           </p>
         </div>
 
