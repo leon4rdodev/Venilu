@@ -3,6 +3,7 @@
  * Generado por: node scripts/gen-xsd.mjs
  */
 import {
+  ANECF_XSD,
   ECF_31_XSD,
   ECF_32_XSD,
   ECF_34_XSD,
@@ -18,6 +19,12 @@ export interface SchemaEntry {
   /** sha256 del archivo original, para verificar procedencia. */
   sha256: string;
 }
+
+export const ANECF: SchemaEntry = {
+  file: "anecf.xsd",
+  xsd: ANECF_XSD,
+  sha256: "af2e6a16c2900dfa55264d6ebec58ccbbbb25c1eb9821ee18ccc44fc142d0e78",
+};
 
 export const ECF_31: SchemaEntry = {
   file: "ecf-31.xsd",
@@ -50,6 +57,7 @@ export const SEMILLA: SchemaEntry = {
 };
 
 export const SCHEMAS = {
+  "anecf": ANECF,
   "ecf-31": ECF_31,
   "ecf-32": ECF_32,
   "ecf-34": ECF_34,

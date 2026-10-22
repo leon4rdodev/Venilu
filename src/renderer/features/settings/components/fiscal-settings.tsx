@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  Ban,
   Info,
   Landmark,
   Pencil,
@@ -10,6 +11,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { EcfSettings } from "./ecf-settings";
+import { AnularRangoDialog, AnulacionesCard, type SecuenciaAnulable } from "./anulacion-ecf";
 import { Button, buttonVariants } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
@@ -620,6 +622,8 @@ function SequencesCard({
   const [editingSequence, setEditingSequence] = useState<SequenceStatus | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SequenceStatus | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [anularTarget, setAnularTarget] = useState<SecuenciaAnulable | null>(null);
+  const puedeAnular = usePermissions("ecf:config")["ecf:config"];
 
   // Sin secuencia activa de un tipo no se puede emitir ese e-CF.
   const activa = (tipo: NcfType) =>
@@ -803,6 +807,23 @@ function SequencesCard({
                               <Pencil className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                               Editar
                             </Button>
+                            {puedeAnular && !esSerieB(seq.type) && seq.remaining > 0 && (
+                              <Button
+                                variant="outline"
+                                size="icon-sm"
+                                aria-label={`Anular e-NCF no usados de la secuencia ${seq.type}`}
+                                title="Anular ante la DGII los números no usados"
+                                onClick={() =>
+                                  setAnularTarget({
+                                    type: seq.type as SecuenciaAnulable["type"],
+                                    next_number: seq.next_number,
+                                    to_number: seq.to_number,
+                                  })
+                                }
+                              >
+                                <Ban className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="icon-sm"
@@ -838,6 +859,13 @@ function SequencesCard({
         onOpenChange={setDialogOpen}
         sequence={editingSequence}
         onSaved={onRefetch}
+      />
+
+      <AnularRangoDialog
+        secuencia={anularTarget}
+        onOpenChange={(open) => {
+          if (!open) setAnularTarget(null);
+        }}
       />
 
       {/* Confirmación de eliminación */}
@@ -986,6 +1014,7 @@ export function FiscalSettings() {
           void queryClient.invalidateQueries({ queryKey: ["ncf-sequences"] });
         }}
       />
+      <AnulacionesCard />
       {/* Certificado, ambiente y conexión con la DGII: mismo bloque de pantalla. */}
       <EcfSettings />
     </div>

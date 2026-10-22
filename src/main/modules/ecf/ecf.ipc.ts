@@ -9,6 +9,7 @@ import { Setting } from '@main/modules/settings/entities/setting.entity';
 
 import { ecfService, EcfConfigView } from '@main/modules/ecf/services/ecf.service';
 import { contingenciaService } from '@main/modules/ecf/services/contingencia';
+import { anulacionService } from '@main/modules/ecf/services/anulacion';
 import {
     consultarDocumento,
     emitirDocumento,
@@ -216,6 +217,42 @@ export function registerEcfHandlers() {
             const r = await contingenciaService.generarReemplazos();
             auditService.log('ecf:contingencia:reemplazos', 'lote', JSON.stringify(r));
             return { success: true, data: r };
+        } catch (err: any) {
+            return { success: false, message: err.message };
+        }
+    });
+
+    // ── Anulación de e-NCF no utilizados (ANECF, §4.20) ─────────────────────
+
+    ipcMain.handle('ecf:anulaciones:list', async () => {
+        try {
+            requirePermission(['ecf:view', 'settings:view']);
+            return { success: true, data: await anulacionService.listar() };
+        } catch (err: any) {
+            return { success: false, message: err.message };
+        }
+    });
+
+    ipcMain.handle('ecf:anular', async (_event, { tipo, desde, hasta } = {}) => {
+        try {
+            const user = requirePermission('ecf:config');
+            const a = await anulacionService.anular(
+                { tipo: String(tipo) as '31' | '32' | '34', desde: Number(desde), hasta: Number(hasta) },
+                user.username,
+            );
+            auditService.log('ecf:anular', a.id, `${a.desde}–${a.hasta} (${a.cantidad}) → ${a.estado}`);
+            return { success: true, data: a };
+        } catch (err: any) {
+            return { success: false, message: err.message };
+        }
+    });
+
+    ipcMain.handle('ecf:anulacion:reenviar', async (_event, { id } = {}) => {
+        try {
+            requirePermission('ecf:config');
+            const a = await anulacionService.enviar(String(id ?? ''));
+            auditService.log('ecf:anulacion:reenviar', a.id, a.estado);
+            return { success: true, data: a };
         } catch (err: any) {
             return { success: false, message: err.message };
         }

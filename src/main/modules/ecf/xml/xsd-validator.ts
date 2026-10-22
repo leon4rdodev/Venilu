@@ -289,6 +289,10 @@ export function validateSemilla(xml: string, options: ValidateOptions = {}): Val
     return validateAgainstSchema(xml, 'semilla', options);
 }
 
+export function validateAnecf(xml: string, options: ValidateOptions = {}): ValidationResult {
+    return validateAgainstSchema(xml, 'anecf', options);
+}
+
 export function formatIssues(result: ValidationResult): string {
     return result.issues.map((i) => `  ${i.path}: ${i.message}`).join('\n');
 }

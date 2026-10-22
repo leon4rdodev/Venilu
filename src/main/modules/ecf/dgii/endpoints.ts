@@ -69,6 +69,19 @@ export const CONSULTAS = {
 } as const;
 
 /**
+ * Anulación de e-NCF no utilizados (formato ANECF).
+ *
+ * "Servicio web responsable de recibir y anular los rangos de secuencias no
+ *  utilizados (e-NCF)…" — Descripción Técnica Servicios DGII, "Anulación de
+ *  e-NCF". La DGII publica `testecf` y `ecf` (no `certecf`); se usa el mismo
+ *  patrón `{ambiente}` que en el resto de servicios.
+ */
+export const ANULACION = {
+    /** POST multipart (`xml`) — responde `{ rnc, codigo, nombre, mensajes[] }`. */
+    rangos: (a: Ambiente) => `${HOST_ECF}/${a}/anulacionrangos/api/operaciones/anularrango`,
+} as const;
+
+/**
  * Timbre (consulta del QR de la Representación Impresa).
  *
  * "Tener en cuenta a la hora de realizar la representación impresa de los e-CF,

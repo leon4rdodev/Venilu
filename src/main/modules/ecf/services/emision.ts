@@ -135,7 +135,7 @@ async function registrarFallo(id: string, err: unknown): Promise<Error> {
 
 /* ── Contexto (certificado + emisor) ────────────────────────────────────── */
 
-interface Contexto {
+export interface Contexto {
     cert: CertificadoDigital;
     ambiente: Ambiente;
     settings: Setting;
@@ -145,7 +145,8 @@ function soloDigitos(valor: string | undefined | null): string {
     return (valor ?? "").replace(/\D/g, "");
 }
 
-async function contexto(): Promise<Contexto> {
+/** Certificado, ambiente y ajustes para firmar (también lo usa la anulación ANECF). */
+export async function contexto(): Promise<Contexto> {
     const cfg = await ecfService.obtenerConfig();
     if (!cfg.cert_path) {
         throw new Error("No hay certificado digital (.p12) configurado en Ajustes → Fiscal.");
