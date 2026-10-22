@@ -42,10 +42,12 @@ Base: `https://www.dgii.gov.do/cicloContribuyente/facturacion/comprobantesFiscal
 | `schemas/ecf-34.xsd` | `e-CF 34 v.1.0.xsd` | `6c62ebabdea9a6f6d62ae85d9e1c2eb788f44f3f0b61945fe116700c4eaac2da` |
 | `schemas/rfce-32.xsd` | `RFCE 32 v.1.0.xsd` | `6aad535875661b05eef072963295202fc94b3b320b257791feb8d3c39a5f8ee6` |
 | `schemas/semilla.xsd` | `Semilla v.1.0.xsd` | `bebef2033c930a30c8cef45b513db00403423125a7f3f48e100a73e3e355f67e` |
+| `schemas/anecf.xsd` | `ANECF v.1.0.xsd` (añadido 2026-10-21) | `af2e6a16c2900dfa55264d6ebec58ccbbbb25c1eb9821ee18ccc44fc142d0e78` |
 
 XSD publicados por la DGII pero **no** incorporados aún (mismo directorio):
 `e-CF 33`, `e-CF 41`, `e-CF 43`, `e-CF 44`, `e-CF 45`, `e-CF 46`, `e-CF 47`,
-`ARECF v1.0.xsd`, `ANECF v.1.0.xsd`, `ACECF v.1.0.xsd`.
+`ARECF v1.0.xsd`, `ACECF v.1.0.xsd` (acuse de recibo y aprobación comercial: solo los usa un
+**receptor** electrónico, ver REQUISITOS §6.1).
 
 ### Regeneración de los archivos embebidos
 
@@ -78,12 +80,13 @@ y verificados por SHA-256 contra la copia local en `/tmp/opencode/`.
 | --- | --- | --- | --- |
 | `desc-servicios-dgii.pdf` | Descripción Técnica **Servicios DGII** (bitácora hasta 02-01-2026) | `Documentacin%20sobre%20eCF/Informe%20y%20Descripci%C3%B3n%20T%C3%A9cnica/Descripcion%20Tecnica%20Servicios%20DGII.pdf` | `85a601ffe4af67ad2220e52d669bc673fc8affe02feb464bf04dabd4fe2f67ce` |
 | `desc-emisores.pdf` | Descripción Técnica **Emisores Electrónicos** | `Documentacin%20sobre%20eCF/Informe%20y%20Descripci%C3%B3n%20T%C3%A9cnica/Descripcion%20Tecnica%20Emisores%20Electronicos.pdf` | `d532598461fc65bb731d37b32d57af83763649921a91aeb9d5c93359834e41a1` |
-| `informe-tecnico.pdf` | Informe Técnico e-CF v1.0 | `Documentacin%20sobre%20eCF/Informe%20y%20Descripci%C3%B3n%20T%C3%A9cnica/Informe%20T%C3%A9cnico%20e-CF%20v1.0.pdf` | `0f1c5dcad895ea81297c5a0a211ea4ce78b56f3ad211dfcfc12cfc729f05b1ff` |
+| `informe-tecnico.pdf` | Informe Técnico e-CF v1.0 — **edición marzo 2026** (contingencia según Decreto 587-24) | `Documentacin%20sobre%20eCF/Informe%20y%20Descripci%C3%B3n%20T%C3%A9cnica/Informe%20T%C3%A9cnico%20e-CF%20v1.0.pdf` | `76d9d8c7d3c0988cbfe7891479fed490682f2761ecda7931a1c34cecd408129e` (2026-10-21; antes `0f1c5dca…`, ver §3.4) |
 | `ri-modelos.pdf` | Modelos ilustrativos de Representación Impresa | `Documentacin%20sobre%20eCF/Informe%20y%20Descripci%C3%B3n%20T%C3%A9cnica/Representaci%C3%B3n%20Impresa%20(Modelos%20ilustrativos).pdf` | `3f8da8532607d691c1930ccbac097a2ab92743788bd8543ab9d712606748ccb1` |
 | `formato-ecf.pdf` | Formato Comprobante Fiscal Electrónico (e-CF) V1.0 (oct-2025) | `Documentacin%20sobre%20eCF/Formatos%20XML/Formato%20Comprobante%20Fiscal%20Electr%C3%B3nico%20(e-CF)%20V1.0.pdf` | `c811c91a9e6a61a65d0637920cea51ef474160d7cd7bc7087fbf895597e17d5a` |
+| `formato-anecf.pdf` | Formato Anulación de e-NCF v1.0 (bitácora 24-05-2022) | `Documentacin%20sobre%20eCF/Formatos%20XML/Formato%20Anulaci%C3%B3n%20de%20e-NCF%20v1.0.pdf` | `a4f58709c05c3d149d45f7ef90e8a4e646af10a048ac590bc20038182547567f` |
 | `formato-rfce.pdf` | Formato Resumen Factura de Consumo Electrónica v1.0 | `Documentacin%20sobre%20eCF/Formatos%20XML/Formato%20Resumen%20Factura%20Consumo%20Electr%C3%B3nica%20v1.0.pdf` | `24f650b527a37fb6a8deb2d985c14dade1db6be62113fa47d2bd0c066565e0e8` |
 | `firmado-ecf.pdf` | Firmado de Comprobantes Fiscales Electrónicos (e-CF) | `Documentacin%20sobre%20eCF/Instructivos%20sobre%20Facturaci%C3%B3n%20Electr%C3%B3nica/Firmado%20de%20e-CF.pdf` | `bb32bb04c170ac3e954166414dae583b28c4e3314578acdd532d15119d04b98e` |
-| `contingencia.pdf` | Instructivo de Contingencia FE | `Documentacin%20sobre%20eCF/Instructivos%20sobre%20Facturaci%C3%B3n%20Electr%C3%B3nica/Instructivo-Contingencia-FE.pdf` | `46a41222c1723b75012c1565cae919119dafd69438d5021c8d81f65be16bf708` |
+| `contingencia.pdf` | Instructivo de Contingencia FE | `Documentacin%20sobre%20eCF/Instructivos%20sobre%20Facturaci%C3%B3n%20Electr%C3%B3nica/Instructivo-Contingencia-FE.pdf` | `46a41222c1723b75012c1565cae919119dafd69438d5021c8d81f65be16bf708` — **2026-10-21: la URL ya no existe** (redirige a "página no encontrada"); la regla vigente está en el Informe Técnico §19 |
 | `facturador-gratuito.pdf` | Instructivo Facturador Gratuito de FE v2.0 (jul-2026) | `Documentacin%20sobre%20eCF/Instructivos%20sobre%20Facturaci%C3%B3n%20Electr%C3%B3nica/Instructivo-Facturador-Gratuito-de-FE.pdf` | `692520bf207eb7869e958d75bc70bb8d7de858fc65fdb3723f8a8e9be02cf28a` |
 | `proceso-emisor.pdf` | Proceso de Certificación para ser Emisor Electrónico | `Documentacin%20sobre%20eCF/Documentaciones%20Proceso%20de%20Certificaci%C3%B3n%20FE/Proceso%20de%20Certificacion%20para%20ser%20Emisor%20Electronico.pdf` | `1e4e53bde9f87dc9f0852e36b2e8819379e5444ed9a31501c9a8c7c321cbe6c1` |
 | `proceso-psfe.pdf` | Proceso de Certificación Emisor Electrónico con PSFE Certificado | `Documentacin%20sobre%20eCF/Documentaciones%20Proceso%20de%20Certificaci%C3%B3n%20FE/Proceso-Certificacion-EmisorElectronico-Proveedor-Servicios-FECertificado.pdf` | `74f2a6542d6a1ec9183d67dba9765d8d6d688206d64f3b0ad9192ef6982a7c3c` |
@@ -174,6 +177,15 @@ conexión: usa el GET de la semilla, que no exige credencial. Ver §5.9 de `REQU
 
 ---
 
+
+### 3.4 El Informe Técnico se reeditó en marzo de 2026 (mismo nombre de archivo)
+
+El 2026-10-21 el PDF publicado en la misma URL ya no coincide con el hash de §2 anterior
+(`0f1c5dca…`). La nueva edición dice en su bitácora "Se actualiza la Operación en
+Contingencia según Decreto 587-24" y cierra con "Marzo 2026". Su §19 sustituye al
+*Instructivo de Contingencia FE*, cuya URL ya no existe. Las reglas de la Fase 4
+(REQUISITOS §4.18–§4.19) citan esta edición.
+
 ## 4. Dependencias de npm (solo las que la documentación oficial exige o nombra)
 
 | Paquete | Versión | Justificación |
@@ -182,6 +194,8 @@ conexión: usa el GET de la semilla, que no exige credencial. Ver §5.9 de `REQU
 | `node-forge` | 1.4.0 | Lectura/empaquetado del `.p12`. Es la librería usada en el **ejemplo oficial** de `Firmado de e-CF.pdf`. |
 | `xml-crypto` | 6.3.2 | XMLDSig (RSA-SHA256 + SHA256). Implementa `xmldsig-core2`, que es la "URL de referencias" citada por `Firmado de e-CF.pdf`. |
 | `@types/node-forge` | dev | Tipos. |
+| `qrcode` | 1.5.4 | Genera el código QR de la Representación Impresa como SVG (Informe Técnico §18.2.3). Solo dibuja el QR: la URL la arma `dgii/qr.ts`. |
+| `@types/qrcode` | dev | Tipos. |
 
 No se agregó ninguna otra dependencia para este módulo.
 

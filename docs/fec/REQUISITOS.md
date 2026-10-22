@@ -12,12 +12,14 @@ Procedencia y hash de cada fuente: [`FUENTES.md`](FUENTES.md).
 > **[SDG]** `Descripcion Tecnica Servicios DGII.pdf`
 > **[SEM]** `Descripcion Tecnica Emisores Electronicos.pdf`
 > **[FIR]** `Firmado de e-CF.pdf`
-> **[IT]**  `Informe Técnico e-CF v1.0.pdf`
+> **[IT]**  `Informe Técnico e-CF v1.0.pdf` — edición de **marzo 2026** desde la Fase 4 (FUENTES §3.4)
+> **[RI]**  `Representación Impresa (Modelos ilustrativos).pdf`
+> **[AN]**  `Formato Anulación de e-NCF v1.0.pdf`
 > **[FE]**  `Formato Comprobante Fiscal Electrónico (e-CF) V1.0.pdf`
 > **[FR]**  `Formato Resumen Factura Consumo Electrónica v1.0.pdf`
 > **[FAQ]** `Preguntas Técnicas e-CF.pdf`
 > **[FG]**  `Instructivo-Facturador-Gratuito-de-FE.pdf`
-> **[CT]**  `Instructivo-Contingencia-FE.pdf`
+> **[CT]**  `Instructivo-Contingencia-FE.pdf` — *retirado; sustituido por [IT] §19 (FUENTES §3.4)*
 > **[GU]**  `Guia-Basica-Proveedor-de-Servicios-de-Facturacion-Electronica.pdf`
 > **[A06]** `Aviso 06-26 — Extensión del plazo de implementación de facturación electrónica`
 > **[DT5]** `Descripcion Tecnica de Facturacion Electronica v1.5 (Mayo 2023)` — *documento
@@ -96,6 +98,29 @@ Código: `src/main/modules/ecf/dgii/endpoints.ts`.
 
 Los tipos numéricos se redondean al `fractionDigits` que declara el propio XSD (2 en la
 mayoría de los campos monetarios). Los strings pasan sin modificar.
+
+**ITBIS incluido en el precio** (`from-sale.ts`). El ITBIS de cada tasa se calcula como
+*monto con impuesto − base* y no como *base × tasa*, para que `<MontoTotal>` sea exactamente
+lo cobrado (antes podía salir un centavo menos). La diferencia frente a *base × tasa* es de
+0.01 como mucho, dentro de la tolerancia publicada:
+
+> **[IT]** §12 *Regla de tolerancia. Cuadratura*: "se admite como regla de tolerancia para
+> cada línea de la sección Detalle de Bienes o Servicios, una diferencia de ± 1 unidad del
+> valor del precio por la cantidad de ítems en cada línea de esta sección. A su vez, se define
+> una tolerancia global sobre el monto total del e-CF, que será equivalente al total de
+> líneas […] Si la diferencia de los montos supera la tolerancia, el e-CF será aceptado
+> condicional."
+
+### 1.6.1 Descuento por línea: `<DescuentoMonto>` + `<TablaSubDescuento>`
+
+> **[FE]** campo 26 `<DescuentoMonto>`: "Totaliza todos los subdescuentos otorgados al ítem en
+> montos. Condicional a que exista Monto Subdescuento." · campos 27–29
+> `<TablaSubDescuento>`/`<TipoSubDescuento>` (`"$"` o `"%"`)/`<MontoSubDescuento>` · campo 39
+> `<MontoItem>`: "(Precio Unitario del ítem * Cantidad) – Monto Descuento + Monto Recargo".
+
+Hasta la Fase 3 el descuento prorrateado se emitía como `<MontoDescuentoItem>`, que **no
+existe** en el XSD: el serializador lo descartaba en silencio y `MontoItem` no cuadraba con
+*Precio × Cantidad*. Corregido en la Fase 4 (`from-sale.ts`, con prueba).
 
 ### 1.7 Valores fuera del esquema
 
@@ -370,7 +395,8 @@ autorización.
 
 Las ventas antiguas con NCF de papel se conservan en la base para lectura e impresión de
 recibos históricos (`src/shared/ncf.ts` acepta `B01/B02/B04` **solo** para etiquetarlas), pero
-el sistema ya no los emite.
+el sistema ya no los emite **salvo durante una contingencia por imposibilidad técnica**
+(§4.19), con secuencias B nuevas que se registran en Ajustes → Fiscal.
 
 ### 4.12 `FechaVencimientoSecuencia` obligatoria en el e-CF 31
 
@@ -535,6 +561,96 @@ Ejemplos en la tabla de *Información de referencia* (mismo documento): `CodigoM
 = **2 (condicional)** en 31 y 32 y **1 (obligatorio)** en 33 y 34; `RazonModificacion` =
 **3 (opcional)** en 33 y 34 (Largo 90, ALFA, validación "a) Sin validación").
 
+
+### 4.18 Representación Impresa (RI) — Fase 4
+
+Implementado en `ecf/ri/representacion-impresa.ts` (datos), `ecf/ri/ri.service.ts` (firma y
+transmisión al imprimir) y `shared/services/printer.service.ts` (HTML del ticket).
+
+> **[IT]** §18: "Existen especificaciones mínimas, con carácter de obligatoriedad, que deben
+> presentarse en una Representación Impresa (RI) de e-CF […] si la RI corresponde a un e-CF
+> que no ha sido recibido por la DGII o se encuentre en estado de rechazado, la misma no podrá
+> ser usada para fines de sustentar crédito fiscal."
+
+| Regla | Cita | Cómo se cumple |
+| --- | --- | --- |
+| Tipo de e-CF **en palabras**, e-NCF, Fecha Vencimiento (no en 32 ni 34), e-NCF Modificado y Código de Modificación en palabras | [IT] §18.2.1-A y nota 43 | Leídos del XML firmado; `NOMBRE_TIPO_ECF`, `NOMBRE_CODIGO_MODIFICACION` |
+| Nombre Comercial, Razón Social, RNC, Dirección, Municipio, Provincia, Fecha de Emisión | [IT] §18.2.1-B | Ajustes → Fiscal → *Datos del emisor* (catálogo `ProvinciaMunicipioType` del XSD, `scripts/gen-ubicaciones.mjs`) |
+| Razón social y RNC del cliente | [IT] §18.2.1-C | `<Comprador>` |
+| Cantidad, "E" a la izquierda de cada ítem exento, Descripción, Precio, Descuento, Valor | [IT] §18.2.2 y nota 46 | `IndicadorFacturacion = 4` → **E** |
+| Subtotal Gravado, Subtotal Exento, Total ITBIS, Total | [IT] §18.2.2 | `<Totales>` |
+| QR ≥ 22 × 22 mm con margen de 3 mm; Código de Seguridad y Fecha de Firma Digital debajo | [IT] §18.2.3 | QR SVG de 25 mm + 3 mm de margen, centrado como el modelo [RI] 2.3 (papel continuo) |
+| QR de consumo < RD$250,000 → `consultatimbrefc` con 4 parámetros | [IT] §18.2.3 | `urlTimbrePara` (§3) |
+
+**Firma al imprimir.** El ticket se imprime justo después de la venta, pero el worker firma
+cada 30 s. Por eso `prepararRI` firma en el momento (sin red, `firmarDocumento`) y espera la
+transmisión hasta 5 s. Si el certificado falla, el ticket sale sin QR y el cajero ve un aviso.
+
+**Ventas con descuento y modelo de ITBIS incluido.** El modelo [RI] 1.2 "incluyendo el ITBIS
+en el campo 'Valor'" corresponde a `IndicadorMontoGravado = 1` (precios con ITBIS): no se
+imprime ITBIS por línea, sí el total.
+
+**Pendiente de certificación:** la regla "distancia mínima de dos (2) centímetros desde el
+borde de la hoja hasta el lugar donde inicia el código QR" ([IT] §18.2.3) está pensada para
+hoja carta; en papel de 58/80 mm el QR va centrado como en el modelo [RI] 2.3. Se valida en el
+**Paso 6** de la certificación ("Validación de la Representación Impresa", `proceso-emisor.pdf`).
+
+### 4.19 Contingencia — Fase 4
+
+> **[IT]** §19 (edición marzo 2026): "la contingencia comprende situaciones que impiden la
+> emisión y/o el envío de los Comprobantes Fiscales Electrónicos (e-CF) a la DGII. La
+> contingencia puede presentarse por: falta de conectividad del emisor, imposibilidad técnica
+> para emitir e-CF o indisponibilidad de los servicios de la DGII."
+
+**1. Falta de conectividad** ([IT] §19.1): "Generar los e-CF sin conexión a Internet […]
+Entregar al receptor la representación impresa del e-CF, incluyendo de forma visible la
+siguiente leyenda: 'e-CF emitido en modalidad de Contingencia, el cual podrá ser consultado
+para su validez fiscal, partir de las setenta y dos (72) horas'. Enviar los e-CF pendientes a
+la DGII una vez restablecida la conexión, en un plazo no mayor de setenta y dos (72) horas."
+
+- La leyenda se imprime cuando el e-CF no llegó a la DGII en los 5 s de espera
+  (`LEYENDA_CONTINGENCIA`). Al texto del Informe le falta la "a" de "a partir"; el modelo
+  [RI] 4.1 sí la trae, y se imprime así.
+- `ecf:stats` cuenta `por_vencer` (> 48 h sin transmitir) y `fuera_de_plazo` (> 72 h); la
+  pantalla de Facturación Electrónica los muestra como avisos.
+
+**2. Imposibilidad técnica** ([IT] §19.2): "el contribuyente deberá disponer de secuencias
+autorizadas de Comprobantes Fiscales No Electrónicos […] Emitir y entregar al receptor
+comprobantes fiscales no electrónicos […] Esta contingencia no podrá exceder de quince (15)
+días calendario." Al terminar: "Cada e-CF de reemplazo deberá identificar el comprobante no
+electrónico correspondiente en la sección Información de Referencia" con `NCFModificado` (el
+B), `FechaNCFModificado` y `CodigoModificacion` **4**. "Los e-CF de reemplazo se enviarán
+únicamente a la DGII y no deberán remitirse al receptor."
+
+- Tabla `ecf_contingencias` (períodos). Mientras haya uno abierto,
+  `fiscalService.assignComprobante` numera con B01/B02/B04 y no crea e-CF.
+- Al cerrarlo, `contingenciaService.generarReemplazos` crea un e-CF por cada NCF B emitido
+  **dentro** de un período cerrado (las ventas B históricas no cuentan) y el worker los firma y
+  envía. Es idempotente y se puede reintentar.
+- El XSD de 31 y 32 admite `<InformacionReferencia>` (`minOccurs="0"`); `from-sale.ts` solo la
+  emite en esos tipos con código 4.
+- Entrada y salida se registran **además** en la Oficina Virtual (Facturación Electrónica →
+  Contingencia FE): la app lo recuerda, no lo puede hacer.
+
+**3. Indisponibilidad de la DGII** ([IT] §19.3): "Continuar generando los e-CF […] Remitir
+los e-CF almacenados una vez restablecidos los servicios" → ya es el comportamiento del worker.
+
+### 4.20 Anulación de e-NCF no utilizados (ANECF) — Fase 4
+
+> **[AN]** §1: "El contribuyente podrá anular secuencias autorizadas de comprobantes fiscales
+> electrónicos, si la factura emitida no ha sido enviada a la DGII ni al receptor o si la
+> secuencia no ha sido utilizada […] Si la factura fue enviada a la DGII y/o al receptor, el
+> contribuyente anulará la secuencia emitiendo una Nota de Crédito Electrónica."
+
+> **[SDG]** → *Anulación de e-NCF*: `POST https://ecf.dgii.gov.do/{ambiente}/anulacionrangos/api/operaciones/anularrango`,
+> multipart `xml`, `Authorization: bearer`; respuesta `{ rnc, codigo, nombre, mensajes[] }`.
+
+- `xml/build-anecf.ts` contra el XSD oficial `ANECF v.1.0.xsd`: estructura del e-NCF (serie
+  E–Z salvo P), mismo tipo y serie en ambos extremos, `desde ≤ hasta`, `NoLinea` secuencial,
+  cantidades por línea y total. Reproduce el ejemplo del Anexo I (84 e-NCF).
+- `services/anulacion.ts`: solo números **nunca asignados** (≥ próximo de la secuencia), sin
+  solaparse con otra anulación. El rango se bloquea localmente antes de la red; la numeración
+  lo salta. `clasificarAnulacion` usa los mensajes publicados en VALIDACIONES.
 
 ---
 
@@ -718,9 +834,38 @@ propio `if` con su literal del XSD comentado; cambiarlo es una línea.
 DGII y si exige alguna redacción concreta en `RazonModificacion`.
 
 
+### 5.11 Pendientes nuevos de la Fase 4
+
+- **ANECF — `codigo` de la respuesta y nombre del archivo.** [SDG] publica la forma de la
+  respuesta pero no los valores de `codigo`; el estado se decide por los mensajes publicados.
+  El nombre del archivo multipart no está en la tabla de nombres de [SEM]: se usa
+  `RNC + e-NCF desde`. La URL de `certecf` tampoco está publicada (solo `testecf` y `ecf`).
+- **Reemplazo de una Factura de Consumo < RD$250,000.** Va por RFCE, y el XSD del RFCE no tiene
+  `<InformacionReferencia>`: la DGII solo recibe el resumen, sin el código 4. El e-CF
+  extendido (que sí la lleva) se conserva firmado. Confirmar en certificación.
+- **Nota de Crédito de reemplazo.** Un E34 tiene una sola `<InformacionReferencia>`: en el
+  reemplazo apunta al B04 (código 4), no a la factura original.
+- **Equivalencia B ↔ e-CF en la contingencia** (31↔B01, 32↔B02, 34↔B04): misma suposición
+  que §5.7; [IT] §19.2.3 solo dice "tipo equivalente".
+- **QR a 2 cm del borde en papel térmico**: ver §4.18.
+
 ---
 
 ## 6. Requisitos de la certificación PSFE (aún no implementados)
+
+### 6.1 Servicios que todo emisor electrónico debe publicar en internet
+
+> `proceso-emisor.pdf`, Paso 1: "d) URL Recepción: se deberá indicar la dirección donde se
+> encontrará el servicio web que […] e) URL Aprobación: se deberá indicar dirección donde se
+> encontrará el servicio web que recibirá las Aprobaciones o Rechazos Comerciales […] f) URL
+> Autenticación". Pasos 8–11: la DGII prueba esos servicios enviando e-CF y aprobaciones.
+> [SEM] → *Estándar como Receptor Electrónico* → *Creación de Servicios*.
+
+**No se puede hacer dentro de una app de escritorio:** son servicios web HTTPS públicos que
+deben responder a la DGII y a otros emisores las 24 horas (formatos ARECF y ACECF). Necesitan
+un servidor aparte (propio de Venilu como proveedor o de cada negocio), dominio y certificado
+TLS. Es una decisión de infraestructura ligada a §5.5.
+
 
 > **[GU]** → *Requisitos de autorización para ser Proveedor de Servicios de FE*:
 > - "Estar incorporado y activo en el Registro Nacional de Contribuyentes (RNC)."
