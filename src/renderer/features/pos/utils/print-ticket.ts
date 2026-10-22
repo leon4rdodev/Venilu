@@ -17,10 +17,18 @@ export async function printTicket(saleId: string): Promise<boolean> {
   try {
     const result = (await window.ipcRenderer.invoke("print-receipt", {
       saleId,
-    })) as { success: boolean; message?: string };
+    })) as { success: boolean; message?: string; aviso?: string | null };
 
     if (result.success) {
-      toast.success("Ticket impreso correctamente");
+      if (result.aviso) {
+        // El ticket salió, pero el comprobante electrónico no quedó completo.
+        toast.warning("Ticket impreso con advertencia fiscal", {
+          description: result.aviso,
+          duration: 10_000,
+        });
+      } else {
+        toast.success("Ticket impreso correctamente");
+      }
       return true;
     }
     toast.error("Error al imprimir", {

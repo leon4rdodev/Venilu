@@ -26,9 +26,10 @@ interface NcfInfo {
 }
 
 const INFO: Record<NcfTipo, NcfInfo> = {
-    '31': { corto: 'Crédito Fiscal (31)', completo: 'FACTURA DE CRÉDITO FISCAL' },
-    '32': { corto: 'Consumo (32)', completo: 'FACTURA DE CONSUMO' },
-    '34': { corto: 'Nota de Crédito (34)', completo: 'NOTA DE CRÉDITO' },
+    // Denominación del tipo "en palabras" (Informe Técnico §18.2.1-A).
+    '31': { corto: 'Crédito Fiscal (31)', completo: 'FACTURA DE CRÉDITO FISCAL ELECTRÓNICA' },
+    '32': { corto: 'Consumo (32)', completo: 'FACTURA DE CONSUMO ELECTRÓNICA' },
+    '34': { corto: 'Nota de Crédito (34)', completo: 'NOTA DE CRÉDITO ELECTRÓNICA' },
     B01: { corto: 'Crédito Fiscal (B01)', completo: 'FACTURA DE CRÉDITO FISCAL' },
     B02: { corto: 'Consumo (B02)', completo: 'FACTURA DE CONSUMO' },
     B04: { corto: 'Nota de Crédito (B04)', completo: 'NOTA DE CRÉDITO' },

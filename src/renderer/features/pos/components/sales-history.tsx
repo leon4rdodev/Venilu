@@ -175,9 +175,12 @@ export function SalesHistory({ setShowSalesHistory }: SalesHistoryProps) {
       })) as {
         success: boolean;
         message?: string;
+        aviso?: string | null;
       };
 
-      if (result.success) {
+      if (result.success && result.aviso) {
+        toast.warning("Ticket impreso con advertencia fiscal", { description: result.aviso, duration: 10_000 });
+      } else if (result.success) {
         toast.success("Ticket impreso", { description: `Venta #${sale.id}` });
       } else {
         toast.error("Error al imprimir", {

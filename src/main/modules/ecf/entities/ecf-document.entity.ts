@@ -85,6 +85,19 @@ export class EcfDocument {
     @Column({ type: "text", nullable: true })
     signed_xml?: string;
 
+    /**
+     * e-CF de **reemplazo** de un comprobante no electrónico emitido durante
+     * una contingencia por imposibilidad técnica (Informe Técnico §19.2.3):
+     * el NCF serie B que reemplaza. Viaja en `<InformacionReferencia>` con
+     * `CodigoModificacion` 4 "Reemplazo NCF emitido en contingencia".
+     */
+    @Column({ type: "varchar", length: 19, nullable: true })
+    ncf_reemplazado?: string | null;
+
+    /** `dd-MM-yyyy` — fecha de emisión del NCF reemplazado. */
+    @Column({ type: "varchar", length: 10, nullable: true })
+    fecha_ncf_reemplazado?: string | null;
+
     @Column({ nullable: true })
     track_id?: string;
 

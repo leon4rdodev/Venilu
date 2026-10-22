@@ -27,8 +27,19 @@ export function registerPrinterHandlers() {
   ipcMain.handle('print-receipt', async (_event, { saleId }) => {
     try {
       requirePermission('pos:access');
-      await printerService.printReceipt(saleId);
-      return { success: true };
+      // `aviso`: el ticket salió, pero su e-CF no quedó completo (sin firma o
+      // rechazado) — el renderer lo muestra al cajero.
+      return await printerService.printReceipt(saleId);
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  });
+
+  /** Representación Impresa de un e-CF (factura o Nota de Crédito). */
+  ipcMain.handle('ecf:print', async (_event, { id } = {}) => {
+    try {
+      requirePermission('ecf:view');
+      return await printerService.printEcf(String(id ?? ''));
     } catch (err: any) {
       return { success: false, message: err.message };
     }

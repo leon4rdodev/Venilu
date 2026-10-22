@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ReceiptText, RefreshCw, Send, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { Printer, ReceiptText, RefreshCw, Send, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import {
   Table,
@@ -71,8 +71,10 @@ export interface AccionesTabla {
   /** `undefined` si el usuario no tiene el permiso `ecf:emit`. */
   onEmitir?: (id: string) => void;
   onConsultar?: (id: string) => void;
+  onImprimir?: (id: string) => void;
   emitando: boolean;
   consultando: boolean;
+  imprimiendo?: boolean;
 }
 
 function Detalle({ doc, open, onOpenChange, acciones }: {
@@ -113,6 +115,14 @@ function Detalle({ doc, open, onOpenChange, acciones }: {
           <Campo titulo="Fecha de emisión">
             <span className="tabular-nums">{doc.fecha_emision ?? '—'}</span>
           </Campo>
+          {doc.ncf_reemplazado && (
+            <Campo titulo="Reemplaza (contingencia)">
+              <span className="font-mono tabular-nums">
+                {doc.ncf_reemplazado}
+                {doc.fecha_ncf_reemplazado ? ` · ${doc.fecha_ncf_reemplazado}` : ''}
+              </span>
+            </Campo>
+          )}
           {doc.nombre_comprador && <Campo titulo="Comprador">{doc.nombre_comprador}</Campo>}
           {doc.rnc_comprador && (
             <Campo titulo="RNC/Cédula">
@@ -178,8 +188,23 @@ function Detalle({ doc, open, onOpenChange, acciones }: {
         )}
 
         {(PENDIENTES.includes(doc.estado) && acciones.onEmitir) ||
-        (doc.estado === 'sent' && acciones.onConsultar) ? (
+        (doc.estado === 'sent' && acciones.onConsultar) ||
+        acciones.onImprimir ? (
           <div className="flex flex-wrap justify-end gap-2">
+            {acciones.onImprimir && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => acciones.onImprimir?.(doc.id)}
+                disabled={acciones.imprimiendo}
+                title={doc.ncf_reemplazado
+                  ? 'Reemplazo de contingencia: va solo a la DGII, no se entrega al cliente'
+                  : undefined}
+              >
+                <Printer className="h-4 w-4" aria-hidden="true" />
+                {acciones.imprimiendo ? 'Imprimiendo…' : 'Imprimir'}
+              </Button>
+            )}
             {PENDIENTES.includes(doc.estado) && acciones.onEmitir && (
               <Button
                 size="sm"

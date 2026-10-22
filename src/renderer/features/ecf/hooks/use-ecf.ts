@@ -99,3 +99,26 @@ export function useEcfEmitPending() {
     onSettled: () => refrescar(qc),
   });
 }
+
+/** Imprime la Representación Impresa de un e-CF (factura o Nota de Crédito). */
+export function useEcfPrint() {
+  const qc = useQueryClient();
+  return useMutation<{ aviso?: string | null }, Error, string>({
+    mutationFn: async (id) => {
+      const res = (await window.ipcRenderer.invoke('ecf:print', { id })) as {
+        success: boolean;
+        message?: string;
+        aviso?: string | null;
+      };
+      if (!res.success) throw new Error(res.message ?? 'No se pudo imprimir.');
+      return { aviso: res.aviso };
+    },
+    onSuccess: ({ aviso }) => {
+      if (aviso) toast.warning('Comprobante impreso con advertencia', { description: aviso, duration: 10_000 });
+      else toast.success('Comprobante impreso');
+    },
+    onError: (err) => toast.error('No se pudo imprimir', { description: err.message }),
+    // Imprimir puede firmar un borrador: refrescar el estado.
+    onSettled: () => refrescar(qc),
+  });
+}

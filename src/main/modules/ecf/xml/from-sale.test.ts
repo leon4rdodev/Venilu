@@ -168,3 +168,87 @@ describe('mapearVenta — Factura de Consumo en condiciones reales', () => {
         expect(mapearVenta(venta(sinComprador)).via).toBe('rfce');
     });
 });
+
+describe('mapearVenta — descuento por línea (Formato e-CF, campos 26–29 y 39)', () => {
+    const conDescuento = () =>
+        venta({
+            lineas: [
+                { nombre: 'Café', cantidad: 2, precioUnitario: 118, montoLinea: 236, exento: false },
+                { nombre: 'Pan', cantidad: 1, precioUnitario: 64, montoLinea: 64, exento: true },
+            ],
+            descuentoGlobal: 30,
+        });
+
+    it('emite <DescuentoMonto> con su <TablaSubDescuento> y valida contra el XSD', () => {
+        const xml = xmlDe(conDescuento());
+        expect(xml).toContain('<DescuentoMonto>');
+        expect(xml).toContain('<TipoSubDescuento>$</TipoSubDescuento>');
+        expect(xml).not.toContain('MontoDescuentoItem');
+    });
+
+    it('MontoItem = Precio × Cantidad − DescuentoMonto en cada línea', () => {
+        const items = mapearVenta(conDescuento()).detallesItems.Item as Array<Record<string, number>>;
+        for (const it of items) {
+            const esperado = Math.round((it.PrecioUnitarioItem * it.CantidadItem - (it.DescuentoMonto ?? 0)) * 100) / 100;
+            expect(it.MontoItem).toBeCloseTo(esperado, 2);
+        }
+        const totalDescuento = items.reduce((s, it) => s + (it.DescuentoMonto ?? 0), 0);
+        expect(totalDescuento).toBeCloseTo(30, 2);
+    });
+});
+
+describe('mapearVenta — reemplazo de contingencia (código 4)', () => {
+    const referencia = {
+        encfModificado: 'B0200000123',
+        fechaModificado: '01-10-2026',
+        codigoModificacion: 4,
+    };
+
+    it('una factura 32 de reemplazo lleva InformacionReferencia y valida', () => {
+        const xml = xmlDe(venta({ referencia }));
+        expect(xml).toContain('<NCFModificado>B0200000123</NCFModificado>');
+        expect(xml).toContain('<CodigoModificacion>4</CodigoModificacion>');
+    });
+
+    it('una factura 31 de reemplazo también valida contra su XSD', () => {
+        const xml = xmlDe(
+            venta({
+                tipo: 31,
+                encf: 'E310000000001',
+                vencimientoSecuencia: '31-12-2027',
+                compradorRnc: '131880738',
+                compradorNombre: 'Empresa SRL',
+                referencia: { ...referencia, encfModificado: 'B0100000045' },
+            })
+        );
+        expect(xml).toContain('<NCFModificado>B0100000045</NCFModificado>');
+    });
+
+    it('rechaza otros códigos de modificación fuera de la Nota de Crédito', () => {
+        expect(() => mapearVenta(venta({ referencia: { ...referencia, codigoModificacion: 1 } }))).toThrow(
+            /reemplazo de contingencia/
+        );
+    });
+});
+
+describe('mapearVenta — el MontoTotal es lo cobrado', () => {
+    it('no pierde centavos al separar el ITBIS incluido en el precio', () => {
+        const v = venta({
+            tipo: 31,
+            encf: 'E310000000045',
+            vencimientoSecuencia: '31-12-2027',
+            compradorRnc: '131880738',
+            lineas: [
+                { nombre: 'Café', cantidad: 2, precioUnitario: 295, montoLinea: 590, exento: false },
+                { nombre: 'Huevos', cantidad: 1, precioUnitario: 260, montoLinea: 260, exento: true },
+            ],
+            descuentoGlobal: 50,
+        });
+        const t = mapearVenta(v).totales as Record<string, number | string>;
+        expect(t.MontoTotal).toBe('800.00');
+        expect(Number(t.MontoGravadoTotal) + Number(t.MontoExento) + Number(t.TotalITBIS)).toBeCloseTo(800, 2);
+        // ITBIS dentro de la tolerancia de cuadratura frente a base × tasa.
+        expect(Math.abs(Number(t.TotalITBIS1) - Number(t.MontoGravadoI1) * 0.18)).toBeLessThanOrEqual(0.01);
+        xmlDe(v);
+    });
+});

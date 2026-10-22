@@ -6,6 +6,7 @@ import {
   useEcfDocuments,
   useEcfEmit,
   useEcfEmitPending,
+  useEcfPrint,
   useEcfRefresh,
   useEcfStats,
 } from '../hooks/use-ecf';
@@ -24,6 +25,7 @@ export function EcfInterface() {
   const emitir = useEcfEmit();
   const emitirPendientes = useEcfEmitPending();
   const consultar = useEcfRefresh();
+  const imprimir = useEcfPrint();
 
   const s = stats.data?.data;
   const pendientes = (s?.draft ?? 0) + (s?.signed ?? 0) + (s?.queued ?? 0);
@@ -70,8 +72,10 @@ export function EcfInterface() {
         acciones={{
           onEmitir: puedeEmitir ? (id) => emitir.mutate(id) : undefined,
           onConsultar: (id) => consultar.mutate(id),
+          onImprimir: (id) => imprimir.mutate(id),
           emitando: emitir.isPending,
           consultando: consultar.isPending,
+          imprimiendo: imprimir.isPending,
         }}
       />
     </div>

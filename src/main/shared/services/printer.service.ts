@@ -4,7 +4,27 @@ import path from 'path';
 import { SalesService } from '../../modules/sales/services/sales.service';
 import { SettingsService } from '../../modules/settings/services/settings.service';
 import { formatQty, unitDef } from '@shared/units';
-import { ncfCompleto } from '@shared/ncf';
+import { ncfCompleto, esElectronico } from '@shared/ncf';
+import QRCode from 'qrcode';
+import { AppDataSource } from '@main/config/data-source';
+import { EcfDocument } from '../../modules/ecf/entities/ecf-document.entity';
+import { LEYENDA_CONTINGENCIA, type DatosRI } from '../../modules/ecf/ri/representacion-impresa';
+import { ecfDeVenta, prepararRI } from '../../modules/ecf/ri/ri.service';
+
+/** Resultado de imprimir: `aviso` explica si el e-CF no quedó completo. */
+export interface ResultadoImpresion {
+    success: boolean;
+    message: string;
+    aviso?: string | null;
+}
+
+/**
+ * QR del timbre como SVG. Informe Técnico §18.2.3: "tamaño mínimo de 22 x 22
+ * mm, con un margen de 3mm en los lados" — el CSS lo imprime a 25 mm.
+ */
+async function qrSvg(url: string): Promise<string> {
+    return QRCode.toString(url, { type: 'svg', margin: 0, errorCorrectionLevel: 'M' });
+}
 // import { UsersService } from '../../modules/users/services/users.service';
 
 const salesService = new SalesService();
@@ -78,6 +98,8 @@ export class PrinterService {
             itbisAmount,
             // _shiftId // unused but kept for compatibility
         } = data;
+        // Representación Impresa del e-CF (null en ventas sin comprobante).
+        const { ri, qr, contingencia } = data as { ri?: DatosRI | null; qr?: string | null; contingencia?: boolean };
 
         const {
             business_name,
@@ -88,10 +110,13 @@ export class PrinterService {
             logo_filename
         } = settings;
         
-        const bName = business_name || 'Mi Negocio';
-        const bAddress = business_address || '';
+        // Con e-CF, el encabezado del emisor sale del XML firmado (§18.2.1-B).
+        const bName = ri ? (ri.emisor.nombreComercial || ri.emisor.razonSocial) : (business_name || 'Mi Negocio');
+        const bRazonSocial = ri && ri.emisor.nombreComercial ? ri.emisor.razonSocial : '';
+        const bAddress = ri ? ri.emisor.direccion : (business_address || '');
+        const bUbicacion = ri ? [ri.emisor.municipio, ri.emisor.provincia].filter(Boolean).join(', ') : '';
         const bPhone = business_phone || '';
-        const bTaxId = business_tax_id || '';
+        const bTaxId = ri ? ri.emisor.rnc : (business_tax_id || '');
         const paperWidth = paper_size || '80mm';
         const is58mm = paperWidth === '58mm';
         
@@ -144,6 +169,47 @@ export class PrinterService {
             </tr>
         `;
         }).join('');
+
+        // ── Representación Impresa del e-CF (Informe Técnico §18) ──────────
+        const money = (v: string | null | undefined) => formatCurrency(Number(v ?? 0));
+        const riItemsHTML = ri ? ri.lineas.map((l) => `
+            <tr>
+                <td class="qty">${esc(l.cantidad)}</td>
+                <td class="desc">${l.exento ? '<b>E</b> ' : ''}${esc(l.descripcion)}
+                    <div class="sub">@ ${money(l.precio)}${l.descuento ? ` · Desc. -${money(l.descuento)}` : ''}</div>
+                </td>
+                <td class="price">${money(l.valor)}</td>
+            </tr>`).join('') : '';
+
+        const riHeaderHTML = ri ? `
+    <div class="ecf-head">
+        <div class="ecf-tipo">${esc(ri.tipoNombre)}</div>
+        <div>e-NCF: <b>${esc(ri.encf)}</b></div>
+        ${ri.fechaVencimiento ? `<div>Fecha Vencimiento: ${esc(ri.fechaVencimiento)}</div>` : ''}
+        ${ri.ncfModificado ? `<div>${ri.tipo === 34 ? 'e-NCF Modificado' : 'NCF Reemplazado'}: ${esc(ri.ncfModificado)}</div>` : ''}
+        ${ri.codigoModificacionNombre ? `<div>Código de Modificación: ${esc(ri.codigoModificacionNombre)}</div>` : ''}
+        <div>Fecha Emisión: ${esc(ri.fechaEmision)}</div>
+    </div>
+    ${ri.comprador.rnc || ri.comprador.nombre ? `
+    <div class="ticket-info">
+        ${ri.comprador.nombre ? `<div class="ticket-row"><span>Razón Social Cliente:</span><span>${esc(ri.comprador.nombre)}</span></div>` : ''}
+        ${ri.comprador.rnc ? `<div class="ticket-row"><span>RNC Cliente:</span><span>${esc(ri.comprador.rnc)}</span></div>` : ''}
+    </div>` : ''}
+    <div class="divider"></div>` : '';
+
+        const riTotalsHTML = ri ? `
+        ${ri.totales.gravado ? `<div class="total-row"><span>Subtotal Gravado</span><span>${money(ri.totales.gravado)}</span></div>` : ''}
+        ${ri.totales.exento ? `<div class="total-row"><span>Subtotal Exento</span><span>${money(ri.totales.exento)}</span></div>` : ''}
+        ${ri.totales.itbis ? `<div class="total-row"><span>Total ITBIS</span><span>${money(ri.totales.itbis)}</span></div>` : ''}
+        <div class="total-row final"><span>TOTAL</span><span>${money(ri.totales.total)}</span></div>` : '';
+
+        const riQrHTML = ri ? `
+    <div class="ecf-qr">
+        ${qr ? `<div class="qr-box">${qr}</div>` : ''}
+        <div>Código de Seguridad: <b>${esc(ri.codigoSeguridad)}</b></div>
+        <div>Fecha de Firma Digital: ${esc(ri.fechaFirma)}</div>
+    </div>
+    ${contingencia ? `<div class="ecf-contingencia">${esc(LEYENDA_CONTINGENCIA)}</div>` : ''}` : '';
 
         return `<!DOCTYPE html>
 <html>
@@ -262,6 +328,45 @@ export class PrinterService {
             margin-bottom: 5px;
             text-transform: uppercase;
         }
+        td .sub {
+            font-size: ${is58mm ? '8px' : '9px'};
+            color: #333;
+        }
+        .ecf-head {
+            text-align: center;
+            margin: 2px 0 6px;
+            font-size: ${is58mm ? '10px' : '11px'};
+        }
+        .ecf-tipo {
+            font-weight: 800;
+            font-size: ${is58mm ? '11px' : '12px'};
+            margin-bottom: 2px;
+        }
+        .ecf-qr {
+            text-align: center;
+            margin-top: 10px;
+            font-size: ${is58mm ? '9px' : '10px'};
+        }
+        .qr-box {
+            width: 25mm;
+            height: 25mm;
+            padding: 3mm;
+            margin: 0 auto 4px;
+            box-sizing: content-box;
+            background: #fff;
+        }
+        .qr-box svg {
+            width: 25mm;
+            height: 25mm;
+            display: block;
+        }
+        .ecf-contingencia {
+            margin-top: 8px;
+            font-size: ${is58mm ? '9px' : '10px'};
+            font-style: italic;
+            font-weight: 600;
+            text-align: center;
+        }
         .pos-brand {
             font-size: 8px;
             margin-top: 5px;
@@ -272,14 +377,18 @@ export class PrinterService {
     <div class="header">
         ${logoBase64 ? `<img src="${logoBase64}" class="logo-img" alt="Logo">` : ''}
         <div class="business-name">${esc(bName)}</div>
+        ${bRazonSocial ? `<div class="info-row">${esc(bRazonSocial)}</div>` : ''}
+        ${ri && bTaxId ? `<div class="info-row">RNC: ${esc(bTaxId)}</div>` : ''}
         ${bAddress ? `<div class="info-row">${esc(bAddress)}</div>` : ''}
+        ${bUbicacion ? `<div class="info-row">${esc(bUbicacion)}</div>` : ''}
         ${bPhone ? `<div class="info-row">Tel: ${esc(bPhone)}</div>` : ''}
-        ${bTaxId ? `<div class="info-row">RNC: ${esc(bTaxId)}</div>` : ''}
+        ${!ri && bTaxId ? `<div class="info-row">RNC: ${esc(bTaxId)}</div>` : ''}
     </div>
 
     <div class="divider"></div>
 
-    ${ncf ? `
+    ${riHeaderHTML}
+    ${ncf && !ri ? `
     <div style="text-align:center; font-weight:bold; margin: 2px 0 4px;">
         ${esc(ncfCompleto(ncfType))}<br>
         e-NCF: ${esc(ncf)}
@@ -293,10 +402,10 @@ export class PrinterService {
     ` : ''}
 
     <div class="ticket-info">
-        <div class="ticket-row">
+        ${saleId ? `<div class="ticket-row">
             <span>Ticket:</span>
-            <span style="font-weight: bold">#${saleId}</span>
-        </div>
+            <span style="font-weight: bold">#${esc(saleId)}</span>
+        </div>` : ''}
         <div class="ticket-row">
             <span>Fecha:</span>
             <span>${new Date(saleDate).toLocaleDateString('es-DO')} ${new Date(saleDate).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
@@ -314,16 +423,18 @@ export class PrinterService {
         <thead>
             <tr>
                 <th class="qty">CANT</th>
-                <th class="desc">DESCRIPCION</th>
-                <th class="price">TOTAL</th>
+                <th class="desc">DESCRIPCIÓN</th>
+                <th class="price">${ri ? 'VALOR' : 'TOTAL'}</th>
             </tr>
         </thead>
         <tbody>
-            ${itemsHTML}
+            ${ri ? riItemsHTML : itemsHTML}
         </tbody>
     </table>
 
     <div class="totals-section">
+        ${riTotalsHTML}
+        ${ri ? '' : `
         ${discountAmount > 0 ? `
         <div class="total-row">
             <span>Subtotal</span>
@@ -347,10 +458,10 @@ export class PrinterService {
         <div class="total-row final">
             <span>TOTAL</span>
             <span>${formatCurrency(total)}</span>
-        </div>
+        </div>`}
     </div>
 
-    <div class="payment-section">
+    ${paymentMethod ? `<div class="payment-section">
         <div class="ticket-row">
             <span>Forma de Pago:</span>
             <span style="font-weight: 600">${paymentMethodLabels[paymentMethod] || paymentMethod}</span>
@@ -365,7 +476,8 @@ export class PrinterService {
             <span>Cambio:</span>
             <span>${formatCurrency(changeGiven)}</span>
         </div>` : ''}
-    </div>
+    </div>` : ''}
+    ${riQrHTML}
 
     <div class="footer">
         <div class="thank-you">*** Gracias por su compra ***</div>
@@ -379,7 +491,7 @@ export class PrinterService {
 </html>`;
     }
 
-    async printReceipt(saleId: string) {
+    async printReceipt(saleId: string): Promise<ResultadoImpresion> {
         // Get sale details with relations
         const sale = await salesService.findOne(saleId);
         
@@ -412,11 +524,58 @@ export class PrinterService {
             itbisAmount: sale.itbis_amount,
         };
 
-        const html = this.generateReceiptHTML(receiptData, settings);
+        // e-CF: Representación Impresa (firma en el momento y, si se puede,
+        // transmite; si no llega a la DGII, sale con la leyenda de contingencia).
+        let aviso: string | null = null;
+        let fiscal: { ri: DatosRI | null; qr: string | null; contingencia: boolean } = {
+            ri: null, qr: null, contingencia: false,
+        };
+        if (sale.ncf && esElectronico(sale.ncf_type)) {
+            const doc = await ecfDeVenta(sale.id, sale.ncf);
+            if (doc) {
+                const res = await prepararRI(doc, { transmitir: true });
+                aviso = res.aviso;
+                if (res.datos) {
+                    fiscal = { ri: res.datos, qr: await qrSvg(res.datos.urlQr), contingencia: res.contingencia };
+                }
+            }
+        }
+
+        const html = this.generateReceiptHTML({ ...receiptData, ...fiscal }, settings);
         const printerName = settings.printer_name || await this.getDefaultPrinter();
         const widthMicrons = settings.paper_size === '58mm' ? 58000 : 80000;
 
-        return await this.printHTML(html, printerName, widthMicrons);
+        const r = await this.printHTML(html, printerName, widthMicrons) as ResultadoImpresion;
+        return { ...r, aviso };
+    }
+
+    /**
+     * Representación Impresa de un e-CF cualquiera (factura o Nota de
+     * Crédito), desde la pantalla de Facturación Electrónica. No transmite:
+     * el estado lo lleva el worker.
+     */
+    async printEcf(ecfId: string): Promise<ResultadoImpresion> {
+        const doc = await AppDataSource.getRepository(EcfDocument).findOneBy({ id: ecfId });
+        if (!doc) return { success: false, message: 'Comprobante e-CF no encontrado' };
+
+        const res = await prepararRI(doc);
+        if (!res.datos) {
+            return { success: false, message: res.aviso ?? 'El comprobante no se puede imprimir todavía.' };
+        }
+
+        const settings = await settingsService.get();
+        const html = this.generateReceiptHTML({
+            saleId: doc.sale_id,
+            saleDate: doc.created_at,
+            items: [],
+            ri: res.datos,
+            qr: await qrSvg(res.datos.urlQr),
+            contingencia: res.contingencia,
+        }, settings);
+        const printerName = settings.printer_name || await this.getDefaultPrinter();
+        const widthMicrons = settings.paper_size === '58mm' ? 58000 : 80000;
+        const r = await this.printHTML(html, printerName, widthMicrons) as ResultadoImpresion;
+        return { ...r, aviso: res.aviso };
     }
 
     /** Prints a small test page so the user can verify the printer setup. */

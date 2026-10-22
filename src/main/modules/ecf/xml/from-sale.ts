@@ -237,7 +237,19 @@ export function mapearVenta(v: VentaEcf): VentaEcfMapeada {
             ...(hay(l.descripcion) ? { DescripcionItem: l.descripcion } : {}),
             CantidadItem: l.cantidad,
             PrecioUnitarioItem: l.precioUnitario,
-            ...(descuentoLinea > 0 ? { MontoDescuentoItem: descuentoLinea } : {}),
+            // Formato e-CF, campos 26–29: `<DescuentoMonto>` "Totaliza todos
+            // los subdescuentos otorgados al ítem" y es "Condicional a que
+            // exista Monto Subdescuento" → va con su `<TablaSubDescuento>`.
+            // Sin ellos, `MontoItem` (= Precio × Cantidad − Monto Descuento,
+            // campo 39) no cuadraría con el precio de la línea.
+            ...(descuentoLinea > 0
+                ? {
+                    DescuentoMonto: descuentoLinea,
+                    TablaSubDescuento: {
+                        SubDescuento: { TipoSubDescuento: '$', MontoSubDescuento: descuentoLinea },
+                    },
+                }
+                : {}),
             MontoItem: montoItem,
         };
     });
@@ -248,8 +260,13 @@ export function mapearVenta(v: VentaEcf): VentaEcfMapeada {
     const gravadoI3 = porIndicador[3]; // tasa 0 → dividir entre (1+0) no cambia nada
     const exento = round2(porIndicador[4]);
 
-    const itbis1 = round2(gravadoI1 * (v.tasaItbis === 18 ? tasa : 0.18));
-    const itbis2 = round2(gravadoI2 * 0.16);
+    // ITBIS = monto con impuesto − base, NO base × tasa: así
+    // MontoTotal = lo que se cobró, centavo por centavo (el ticket y la venta
+    // coinciden). La diferencia con base × tasa es ≤ 0.01 por tasa, dentro de
+    // la tolerancia de cuadratura de la DGII ("± 1 unidad" por línea —
+    // Informe Técnico §12; `docs/fec/REQUISITOS.md` §1.6).
+    const itbis1 = round2(porIndicador[1] - gravadoI1);
+    const itbis2 = round2(porIndicador[2] - gravadoI2);
     const itbis3 = 0;
 
     const gravadoTotal = round2(gravadoI1 + gravadoI2 + gravadoI3);
@@ -338,12 +355,20 @@ export function mapearVenta(v: VentaEcf): VentaEcfMapeada {
         Totales: totales,
     };
 
-    // ── InformacionReferencia (raíz, obligatorio en tipo 34) ───────────────
+    // ── InformacionReferencia (raíz) ───────────────────────────────────────
+    // Obligatoria en el tipo 34. En 31/32 solo aparece en el e-CF de
+    // REEMPLAZO de un NCF emitido en contingencia (código 4, Informe Técnico
+    // §19.2.3); el XSD de ambos tipos la admite (`minOccurs="0"`).
     const seccionesRaiz: Record<string, EcfRawNode | undefined> = {};
-    if (v.tipo === 34) {
-        if (!v.referencia) {
-            throw new Error('Un e-CF tipo 34 (Nota de Crédito) requiere InformacionReferencia.');
-        }
+    if (v.tipo === 34 && !v.referencia) {
+        throw new Error('Un e-CF tipo 34 (Nota de Crédito) requiere InformacionReferencia.');
+    }
+    if (v.tipo !== 34 && v.referencia && v.referencia.codigoModificacion !== 4) {
+        throw new Error(
+            `Una factura ${v.tipo} solo lleva InformacionReferencia como reemplazo de contingencia (código 4).`
+        );
+    }
+    if (v.referencia) {
         seccionesRaiz.InformacionReferencia = {
             NCFModificado: v.referencia.encfModificado,
             ...(hay(v.referencia.razonModificacion)

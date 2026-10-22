@@ -71,6 +71,30 @@ export class Setting {
     @Column({ nullable: true, type: 'text' })
     ecf_cert_password?: string;
 
+    /** Nombre comercial (si difiere de la razón social). Representación
+     *  Impresa §18.2.1-B y `<NombreComercial>` del e-CF. */
+    @Column({ nullable: true })
+    ecf_nombre_comercial?: string;
+
+    /** Código DGII (6 dígitos, `ProvinciaMunicipioType`) del municipio. */
+    @Column({ nullable: true, length: 6 })
+    ecf_municipio?: string;
+
+    /** Código DGII (6 dígitos, `ProvinciaMunicipioType`) de la provincia. */
+    @Column({ nullable: true, length: 6 })
+    ecf_provincia?: string;
+
+    /**
+     * Inicio de la contingencia por imposibilidad técnica (Informe Técnico
+     * §19.2). Mientras no sea `null`, las ventas con comprobante usan las
+     * secuencias NO electrónicas (B01/B02/B04). `null` = operación normal.
+     */
+    @Column({ type: 'datetime', nullable: true })
+    ecf_contingencia_desde?: Date | null;
+
+    @Column({ type: 'text', nullable: true })
+    ecf_contingencia_motivo?: string | null;
+
     /**
      * Escala de interfaz (zoom tipo navegador): 1 = 100%, 1.25 = 125%…
      * Se aplica vía webContents.setZoomFactor y se persiste para que la vista

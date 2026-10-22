@@ -195,9 +195,12 @@ export function TransactionDetailsDialog({
       const result = await window.ipcRenderer.invoke('print-receipt', { saleId: transaction.id }) as {
         success: boolean;
         message?: string;
+        aviso?: string | null;
       };
 
-      if (result.success) {
+      if (result.success && result.aviso) {
+        toast.warning('Ticket impreso con advertencia fiscal', { description: result.aviso, duration: 10_000 });
+      } else if (result.success) {
         toast.success('Ticket impreso', { description: `Venta #${transaction.id}` });
       } else {
         toast.error('Error al imprimir', { description: result.message || 'No se pudo imprimir' });

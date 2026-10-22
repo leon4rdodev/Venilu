@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BadgeCheck, FileKey2, PlugZap, RefreshCw, TriangleAlert } from "lucide-react";
+import { BadgeCheck, FileKey2, MapPin, PlugZap, RefreshCw, TriangleAlert } from "lucide-react";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
@@ -17,6 +17,7 @@ import { WidgetHeader } from "@renderer/shared/components/widget-header";
 import { usePermissions } from "@renderer/features/auth/hooks/use-permission";
 import { IPCResponse } from "@shared/types/ipc";
 import { cn } from "@lib/utils";
+import { municipiosDe, provincias } from "@shared/ubicaciones";
 
 // ─── Contrato IPC (espejo de main/modules/ecf) ───────────────────────────────
 
@@ -32,7 +33,12 @@ interface EcfConfig {
   ambiente: Ambiente;
   cert_path: string | null;
   has_password: boolean;
+  nombre_comercial: string | null;
+  provincia: string | null;
+  municipio: string | null;
 }
+
+const PROVINCIAS = provincias();
 
 interface EstadoCertificado {
   ruta: string;
@@ -111,6 +117,14 @@ export function EcfSettings() {
   const [probando, setProbando] = useState(false);
   const [resultado, setResultado] = useState<PruebaConexion | null>(null);
   const [guardando, setGuardando] = useState(false);
+
+  const [nombreComercial, setNombreComercial] = useState("");
+  useEffect(() => {
+    setNombreComercial(config?.data?.nombre_comercial ?? "");
+  }, [config?.data?.nombre_comercial]);
+  const provincia = config?.data?.provincia ?? "";
+  const municipio = config?.data?.municipio ?? "";
+  const municipios = useMemo(() => municipiosDe(provincia), [provincia]);
 
   const ruta = certPath ?? config?.data?.cert_path ?? "";
   const ambiente = config?.data?.ambiente ?? "testecf";
@@ -240,6 +254,80 @@ export function EcfSettings() {
                 En Producción los comprobantes emitidos tienen validez fiscal.
               </span>
             )}
+          </p>
+        </div>
+      </div>
+
+      {/* ── Datos del emisor (Representación Impresa) ─────────────────── */}
+      <div className="bg-card border border-border rounded-lg p-6">
+        <WidgetHeader
+          icon={MapPin}
+          title="Datos del emisor en el comprobante"
+          subtitle="La DGII exige mostrarlos en la factura impresa"
+        />
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="ecf-nombre-comercial">Nombre comercial</Label>
+            <div className="flex gap-2">
+              <Input
+                id="ecf-nombre-comercial"
+                value={nombreComercial}
+                maxLength={150}
+                onChange={(e) => setNombreComercial(e.target.value)}
+                placeholder="Si es distinto de la razón social (opcional)"
+                disabled={!canEdit || guardando}
+                className="bg-background"
+              />
+              <Button
+                variant="outline"
+                disabled={!canEdit || guardando || nombreComercial === (config?.data?.nombre_comercial ?? "")}
+                onClick={() => void guardar({ nombre_comercial: nombreComercial })}
+              >
+                Guardar
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Provincia</Label>
+            <Select
+              value={provincia || undefined}
+              disabled={!canEdit || guardando}
+              onValueChange={(v) => void guardar({ provincia: v, municipio: "" })}
+            >
+              <SelectTrigger className="bg-background w-full">
+                <SelectValue placeholder="Elegir provincia" />
+              </SelectTrigger>
+              <SelectContent>
+                {PROVINCIAS.map((p) => (
+                  <SelectItem key={p.codigo} value={p.codigo}>
+                    {p.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Municipio</Label>
+            <Select
+              value={municipio || undefined}
+              disabled={!canEdit || guardando || !provincia}
+              onValueChange={(v) => void guardar({ provincia, municipio: v })}
+            >
+              <SelectTrigger className="bg-background w-full">
+                <SelectValue placeholder={provincia ? "Elegir municipio" : "Primero la provincia"} />
+              </SelectTrigger>
+              <SelectContent>
+                {municipios.map((m) => (
+                  <SelectItem key={m.codigo} value={m.codigo}>
+                    {m.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-xs text-muted-foreground sm:col-span-2">
+            Razón social, RNC y dirección se toman de Ajustes → Negocio. Los códigos de
+            provincia y municipio son los del catálogo oficial de la DGII.
           </p>
         </div>
       </div>

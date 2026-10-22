@@ -190,6 +190,9 @@ function emisorDe(settings: Setting): EmisorEcf {
         direccion,
         telefono: (settings.business_phone ?? "").trim(),
         correo: (settings.business_email ?? "").trim(),
+        nombreComercial: (settings.ecf_nombre_comercial ?? "").trim() || undefined,
+        municipio: settings.ecf_municipio || undefined,
+        provincia: settings.ecf_provincia || undefined,
     };
 }
 
@@ -736,6 +739,23 @@ export async function emitirDocumento(id: string): Promise<EcfDocument> {
             if (doc.estado === "draft") doc = await firmarInterno(doc.id);
             if (doc.estado === "signed" || doc.estado === "queued") doc = await enviarInterno(doc.id);
             return doc;
+        } catch (err) {
+            throw await registrarFallo(id, err);
+        }
+    });
+}
+
+/**
+ * Solo firma (sin red). Para imprimir la Representación Impresa al momento de
+ * la venta: el código de seguridad y la fecha de firma salen de la firma, y
+ * firmar no necesita conexión (Informe Técnico §19.1: "Generar los e-CF sin
+ * conexión a Internet, en modalidad offline").
+ */
+export async function firmarDocumento(id: string): Promise<EcfDocument> {
+    return conBloqueo(id, async () => {
+        try {
+            const doc = await cargar(id);
+            return doc.estado === "draft" ? await firmarInterno(id) : doc;
         } catch (err) {
             throw await registrarFallo(id, err);
         }

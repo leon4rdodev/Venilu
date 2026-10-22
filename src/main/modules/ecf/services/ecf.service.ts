@@ -4,6 +4,7 @@ import { AppDataSource } from "@main/config/data-source";
 import { EcfDocument } from "@main/modules/ecf/entities/ecf-document.entity";
 import { Setting } from "@main/modules/settings/entities/setting.entity";
 import type { Ambiente } from "@main/modules/ecf/dgii/endpoints";
+import { esCodigoUbicacion, municipioEnProvincia } from "@shared/ubicaciones";
 
 /** Tope de la Factura de Consumo Electrónica que va por RFCE (< RD$250,000). */
 export const TOPE_RFCE = 250_000;
@@ -23,6 +24,8 @@ export interface EcfDocumentView {
     itbis_total: number;
     fecha_emision: string | null;
     codigo_seguridad: string | null;
+    ncf_reemplazado: string | null;
+    fecha_ncf_reemplazado: string | null;
     track_id: string | null;
     dgii_code: number | null;
     dgii_estado: string | null;
@@ -50,6 +53,11 @@ export interface EcfConfigView {
     cert_path: string | null;
     /** `true` si hay ruta y la contraseña guardada. No expone la contraseña. */
     has_password: boolean;
+    /** Datos del emisor que la Representación Impresa exige (§4.18). */
+    nombre_comercial: string | null;
+    /** Código DGII de 6 dígitos (`ProvinciaMunicipioType`). */
+    provincia: string | null;
+    municipio: string | null;
 }
 
 const ESTADOS = ["draft", "signed", "queued", "sent", "accepted", "rejected"] as const;
@@ -144,6 +152,8 @@ export class EcfService {
             itbis_total: num(r.itbis_total),
             fecha_emision: r.fecha_emision ?? null,
             codigo_seguridad: r.codigo_seguridad ?? null,
+            ncf_reemplazado: r.ncf_reemplazado ?? null,
+            fecha_ncf_reemplazado: r.fecha_ncf_reemplazado ?? null,
             track_id: r.track_id ?? null,
             dgii_code: r.dgii_code ?? null,
             dgii_estado: r.dgii_estado ?? null,
@@ -165,6 +175,9 @@ export class EcfService {
             ambiente: (s.ecf_ambiente as Ambiente) || "testecf",
             cert_path: s.ecf_cert_path ?? null,
             has_password: Boolean(s.ecf_cert_password),
+            nombre_comercial: s.ecf_nombre_comercial ?? null,
+            provincia: s.ecf_provincia ?? null,
+            municipio: s.ecf_municipio ?? null,
         };
     }
 
@@ -172,8 +185,30 @@ export class EcfService {
         ambiente?: string;
         cert_path?: string;
         cert_password?: string;
+        nombre_comercial?: string | null;
+        provincia?: string | null;
+        municipio?: string | null;
     }): Promise<EcfConfigView> {
         const s = await this.settings();
+
+        if (datos.nombre_comercial !== undefined) {
+            const nombre = String(datos.nombre_comercial ?? "").trim();
+            // XSD `AlfNum150Type` de <NombreComercial>.
+            if (nombre.length > 150) throw new Error("El nombre comercial admite hasta 150 caracteres.");
+            s.ecf_nombre_comercial = nombre || undefined;
+        }
+        if (datos.provincia !== undefined || datos.municipio !== undefined) {
+            const provincia = String(datos.provincia ?? s.ecf_provincia ?? "").trim();
+            const municipio = String(datos.municipio ?? s.ecf_municipio ?? "").trim();
+            if (provincia && !(esCodigoUbicacion(provincia) && provincia.endsWith("0000"))) {
+                throw new Error("Provincia inválida: elíjala de la lista oficial de la DGII.");
+            }
+            if (municipio && (!provincia || !municipioEnProvincia(municipio, provincia))) {
+                throw new Error("El municipio no pertenece a la provincia elegida.");
+            }
+            s.ecf_provincia = provincia || undefined;
+            s.ecf_municipio = municipio || undefined;
+        }
 
         if (datos.ambiente !== undefined) {
             if (!["testecf", "certecf", "ecf"].includes(datos.ambiente)) {

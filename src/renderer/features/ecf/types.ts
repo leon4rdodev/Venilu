@@ -35,6 +35,9 @@ export interface EcfDocument {
   itbis_total: number;
   fecha_emision: string | null;
   codigo_seguridad: string | null;
+  /** NCF serie B que este e-CF reemplaza (contingencia, código 4). */
+  ncf_reemplazado: string | null;
+  fecha_ncf_reemplazado: string | null;
   track_id: string | null;
   dgii_code: number | null;
   dgii_estado: string | null;
