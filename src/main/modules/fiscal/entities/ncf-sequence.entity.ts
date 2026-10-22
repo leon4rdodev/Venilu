@@ -1,13 +1,17 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from "typeorm";
 
 /**
- * Secuencias de NCF autorizadas por la DGII para el negocio.
- * Formato del comprobante emitido: <tipo><secuencia de 8 dígitos>
- * p. ej. B02 con next_number 143 → "B0200000143".
+ * Secuencias de e-NCF autorizadas por la DGII para el negocio.
  *
- *   B01 — Factura de Crédito Fiscal (cliente con RNC)
- *   B02 — Factura de Consumo (consumidor final)
- *   B04 — Nota de Crédito (anulaciones de ventas con NCF)
+ * Estructura oficial del e-NCF (13 posiciones alfanuméricas): la letra `E` es
+ * la serie, los dos dígitos siguientes identifican el tipo de e-CF y los
+ * últimos diez corresponden al secuencial.
+ *
+ *   31 — Factura de Crédito Fiscal Electrónica
+ *   32 — Factura de Consumo Electrónica
+ *   34 — Nota de Crédito Electrónica
+ *
+ * p. ej. tipo 32 con next_number 143 → "E320000000143".
  */
 @Entity("ncf_sequences")
 @Index("idx_ncf_sequences_type", ["type"])
@@ -16,9 +20,9 @@ export class NcfSequence {
     id!: string;
 
     @Column()
-    type!: 'B01' | 'B02' | 'B04';
+    type!: '31' | '32' | '34';
 
-    /** Inicio del rango autorizado (inclusive). */
+    /** Inicio del rango autorizado (inclusive): 10 dígitos secuenciales. */
     @Column("integer")
     from_number!: number;
 

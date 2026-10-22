@@ -171,8 +171,15 @@ export function registerSessionHandlers() {
   });
 
   /**
-   * Re-loads the current user from the DB (e.g. after editing your own account)
-   * and returns the sanitized user so the renderer can update its local copy.
+   * Re-loads the current user from the DB (e.g. after editing your own account
+   * or after the role gained new permissions) and returns the sanitized user so
+   * the renderer can update its local copy.
+   *
+   * `toSafeUser()` solo recorta `password`/`session_token` y **no** incluye
+   * `permissions`, que no es columna de `users` sino del rol: se aplana aquí con
+   * el mismo formato que `login-request`. Sin esto, el renderer que refrescaba
+   * la sesión perdía el array de permisos y sus controles quedaban apagados
+   * (p. ej. tras añadir `ecf:view|emit|config`).
    */
   ipcMain.handle('session:refresh', async () => {
     try {
@@ -184,7 +191,11 @@ export function registerSessionHandlers() {
         return { success: false, message: 'Usuario no encontrado.' };
       }
       await establishSession(user.id);
-      return { success: true, data: UsersService.toSafeUser(user) };
+      const safe = UsersService.toSafeUser(user);
+      return {
+        success: true,
+        data: { ...safe, permissions: user.role_entity?.permissions ?? [] },
+      };
     } catch (err: unknown) {
       return { success: false, message: err instanceof Error ? err.message : String(err) };
     }

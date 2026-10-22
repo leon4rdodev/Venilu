@@ -12,10 +12,12 @@ import { StockMovement } from "@main/modules/products/entities/stock-movement.en
 import { Setting as SettingEntity } from "@main/modules/settings/entities/setting.entity";
 import { SaleReturn, SaleReturnItem } from "@main/modules/sales/entities/sale-return.entity";
 import { fiscalService, itbisIncludedIn, isValidRncOrCedula, normalizeRnc } from "@main/modules/fiscal/services/fiscal.service";
+import { ecfService } from "@main/modules/ecf/services/ecf.service";
+import { formatoFecha } from "@main/modules/ecf/dgii/endpoints";
 import { getSessionUser } from "@main/shared/session";
 
 interface FiscalRequest {
-    ncfType: 'B01' | 'B02';
+    ncfType: '31' | '32';
     customerRnc?: string;
     customerName?: string;
 }
@@ -108,13 +110,13 @@ export class SalesService {
                     throw new Error("La facturación con comprobantes (NCF) no está activada. Actívala en Ajustes → Fiscal.");
                 }
                 const { ncfType } = saleData.fiscal;
-                if (ncfType !== 'B01' && ncfType !== 'B02') {
+                if (ncfType !== '31' && ncfType !== '32') {
                     throw new Error("Tipo de comprobante inválido");
                 }
-                if (ncfType === 'B01') {
+                if (ncfType === '31') {
                     const rnc = normalizeRnc(saleData.fiscal.customerRnc ?? '');
                     if (!isValidRncOrCedula(rnc)) {
-                        throw new Error("Una Factura de Crédito Fiscal (B01) requiere un RNC (9 dígitos) o cédula (11 dígitos) válidos del cliente.");
+                        throw new Error("Una Factura de Crédito Fiscal Electrónica (31) requiere un RNC (9 dígitos) o cédula (11 dígitos) válidos del cliente.");
                     }
                     fiscalRequest = {
                         ncfType,
@@ -294,6 +296,24 @@ export class SalesService {
             }
 
             const savedSale = await transactionalEntityManager.save(SaleEntity, sale);
+
+            // e-CF: se registra el comprobante con su e-NCF DENTRO de la misma
+            // transacción, así nunca queda un e-NCF sin documento ni un
+            // documento sin e-NCF. Estado inicial `draft`: el XML se construye
+            // y se firma después (ver services/ecf.service.ts).
+            if (savedSale.ncf && (savedSale.ncf_type === '31' || savedSale.ncf_type === '32')) {
+                await ecfService.registrarDraft(transactionalEntityManager, {
+                    sale_id: savedSale.id,
+                    tipo: savedSale.ncf_type === '31' ? 31 : 32,
+                    encf: savedSale.ncf!,
+                    rnc_emisor: normalizeRnc(settings?.business_tax_id ?? ''),
+                    rnc_comprador: savedSale.fiscal_customer_rnc,
+                    nombre_comprador: savedSale.fiscal_customer_name ?? savedSale.customer_name,
+                    monto_total: Number(savedSale.total_amount),
+                    itbis_total: Number(savedSale.itbis_amount ?? 0),
+                    fecha_emision: formatoFecha(new Date()),
+                });
+            }
 
             // Kardex: one movement per line, referencing the sale — commits or
             // rolls back together with the sale itself.
@@ -620,13 +640,25 @@ export class SalesService {
                 }
             }
 
-            // Nota de Crédito B04: obligatoria si la venta llevaba NCF —
-            // sin secuencia B04 disponible la anulación NO procede (así lo
-            // exige la trazabilidad fiscal).
+            // Nota de Crédito Electrónica (34): obligatoria si la venta llevaba
+            // e-NCF — sin secuencia 34 disponible la anulación NO procede (así
+            // lo exige la trazabilidad fiscal).
             if (sale.ncf && !sale.credit_note_ncf) {
                 const settings = await transactionalEntityManager.findOneBy(SettingEntity, { id: 1 });
                 if (settings?.fiscal_enabled) {
-                    sale.credit_note_ncf = await fiscalService.assignNcf(transactionalEntityManager, 'B04');
+                    const ncNcf = await fiscalService.assignNcf(transactionalEntityManager, '34');
+                    sale.credit_note_ncf = ncNcf;
+                    await ecfService.registrarDraft(transactionalEntityManager, {
+                        sale_id: sale.id,
+                        tipo: 34,
+                        encf: ncNcf,
+                        rnc_emisor: normalizeRnc(settings.business_tax_id ?? ''),
+                        rnc_comprador: sale.fiscal_customer_rnc,
+                        nombre_comprador: sale.fiscal_customer_name ?? sale.customer_name,
+                        monto_total: Number(sale.total_amount),
+                        itbis_total: Number(sale.itbis_amount ?? 0),
+                        fecha_emision: formatoFecha(new Date()),
+                    });
                 }
             }
 
@@ -644,7 +676,7 @@ export class SalesService {
      *   - repone stock (kardex tipo 'return')
      *   - reembolsa EN EFECTIVO desde el turno abierto de quien procesa
      *     (los reportes y el arqueo del turno restan lo devuelto)
-     *   - emite Nota de Crédito B04 si la venta original llevaba NCF
+     *   - emite Nota de Crédito Electrónica (34) si la venta original llevaba e-NCF
      * Ventas a crédito con deuda pendiente se ANULAN, no se devuelven.
      */
     async processReturn(
@@ -753,11 +785,22 @@ export class SalesService {
             }
             if (!returnId) throw new Error("No se pudo generar el id de la devolución");
 
-            // Nota de Crédito B04 obligatoria si la venta llevaba NCF
+            // Nota de Crédito Electrónica (34) obligatoria si la venta llevaba e-NCF
             let creditNoteNcf: string | undefined;
             const settings = await manager.findOneBy(SettingEntity, { id: 1 });
             if (sale.ncf && settings?.fiscal_enabled) {
-                creditNoteNcf = await fiscalService.assignNcf(manager, 'B04');
+                creditNoteNcf = await fiscalService.assignNcf(manager, '34');
+                await ecfService.registrarDraft(manager, {
+                    sale_id: sale.id,
+                    tipo: 34,
+                    encf: creditNoteNcf,
+                    rnc_emisor: normalizeRnc(settings.business_tax_id ?? ''),
+                    rnc_comprador: sale.fiscal_customer_rnc,
+                    nombre_comprador: sale.fiscal_customer_name ?? sale.customer_name,
+                    monto_total: totalRefunded,
+                    itbis_total: itbisRefunded,
+                    fecha_emision: formatoFecha(new Date()),
+                });
             }
 
             const saleReturn = manager.create(SaleReturn, {

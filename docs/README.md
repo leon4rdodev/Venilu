@@ -12,6 +12,8 @@ Esta carpeta contiene la documentacion tecnica y operativa de Venilu.
 6. [Seguridad y permisos](security.md)
 7. [Operacion y despliegue](operations.md)
 8. [Modulos](modules/README.md)
+9. Facturacion electronica (DGII): [Fuentes oficiales y hashes](fec/FUENTES.md) ·
+   [Requisitos implementados y pendientes](fec/REQUISITOS.md)
 
 ## Audiencia
 

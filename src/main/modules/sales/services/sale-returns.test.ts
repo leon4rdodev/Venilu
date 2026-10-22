@@ -120,30 +120,30 @@ describe('Devoluciones parciales', () => {
     ).rejects.toThrow(/Abre un turno/);
   });
 
-  it('venta con NCF: la devolución emite su propia B04 (y sin secuencia se bloquea)', async () => {
+  it('venta con e-NCF: la devolución emite su propia Nota de Crédito 34 (y sin secuencia se bloquea)', async () => {
     const { user, shift, product } = await setup();
     const settingsRepo = AppDataSource.getRepository(Setting);
     await settingsRepo.save(settingsRepo.create({ id: 1, business_name: 'T', paper_size: '80mm', fiscal_enabled: true, itbis_rate: 18 }));
     const fiscal = new FiscalService();
-    await fiscal.saveSequence({ type: 'B02', from_number: 1, to_number: 10 });
+    await fiscal.saveSequence({ type: '32', from_number: 1, to_number: 10 });
 
     const { saleId } = await sales.processSale(
-      { user_id: user.id, shift_id: shift.id, payment_method: 'cash', amount_paid: 1000, fiscal: { ncfType: 'B02' } },
+      { user_id: user.id, shift_id: shift.id, payment_method: 'cash', amount_paid: 1000, fiscal: { ncfType: '32' } },
       [{ product_id: product.id, quantity: 2 }],
     );
     const items = await sales.getSaleItems(saleId);
 
     await expect(
       sales.processReturn(saleId, [{ sale_item_id: items[0].id!, quantity: 1 }], user.id),
-    ).rejects.toThrow(/B04/);
+    ).rejects.toThrow(/34/);
 
-    await fiscal.saveSequence({ type: 'B04', from_number: 1, to_number: 10 });
+    await fiscal.saveSequence({ type: '34', from_number: 1, to_number: 10 });
     const r = await sales.processReturn(saleId, [{ sale_item_id: items[0].id!, quantity: 1 }], user.id);
-    expect(r.creditNoteNcf).toBe('B0400000001');
+    expect(r.creditNoteNcf).toBe('E340000000001');
 
     const stored = await sales.getSaleReturns(saleId);
     expect(stored).toHaveLength(1);
-    expect(stored[0].credit_note_ncf).toBe('B0400000001');
+    expect(stored[0].credit_note_ncf).toBe('E340000000001');
     expect(stored[0].items).toHaveLength(1);
   });
 });

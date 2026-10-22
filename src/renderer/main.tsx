@@ -24,6 +24,7 @@ import ReportsPage from '@pages/reports/page';
 import CustomersPage from '@pages/customers/page';
 import SuppliersPage from '@pages/suppliers/page';
 import SettingsPage from '@pages/settings/page';
+import EcfPage from '@pages/ecf/page';
 import OnboardingPage from '@pages/onboarding/page';
 
 import './index.css';
@@ -186,6 +187,11 @@ function AppRoutes() {
               <Route path="reports" element={
                 <PermissionGuard permission="reports:view_full">
                   <AnimatedPage><ReportsPage /></AnimatedPage>
+                </PermissionGuard>
+              } />
+              <Route path="ecf" element={
+                <PermissionGuard permission="ecf:view">
+                  <AnimatedPage><EcfPage /></AnimatedPage>
                 </PermissionGuard>
               } />
               <Route path="settings" element={

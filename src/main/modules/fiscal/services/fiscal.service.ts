@@ -3,17 +3,27 @@ import { EntityManager } from "typeorm";
 import { NcfSequence } from "@main/modules/fiscal/entities/ncf-sequence.entity";
 import { round2 } from "@shared/money";
 
-export type NcfType = 'B01' | 'B02' | 'B04';
+export type NcfType = '31' | '32' | '34';
 
 export const NCF_TYPE_LABELS: Record<NcfType, string> = {
-    B01: 'Factura de Crédito Fiscal',
-    B02: 'Factura de Consumo',
-    B04: 'Nota de Crédito',
+    '31': 'Factura de Crédito Fiscal Electrónica',
+    '32': 'Factura de Consumo Electrónica',
+    '34': 'Nota de Crédito Electrónica',
 };
 
-/** "B02" + 143 → "B0200000143" (tipo + secuencia de 8 dígitos). */
+/**
+ * e-NCF de 13 posiciones: `E` (serie) + 2 dígitos del tipo + 10 secuenciales.
+ *
+ * "La secuencia del comprobante fiscal electrónico dispone de una estructura
+ *  de trece (13) posiciones alfanuméricas. La letra E corresponde a la serie
+ *  del e-CF, los dos dígitos siguientes identifican el tipo de e-CF y los
+ *  últimos diez corresponden al secuencial."
+ *  — Informe Técnico e-CF, sección 7 (ver `docs/fec/REQUISITOS.md` §4.6).
+ *
+ * p. ej. tipo 32 con secuencia 143 → "E320000000143".
+ */
 export function formatNcf(type: NcfType, sequence: number): string {
-    return `${type}${String(sequence).padStart(8, '0')}`;
+    return `E${type}${String(sequence).padStart(10, '0')}`;
 }
 
 /** RNC (9 dígitos) o cédula (11 dígitos), solo números. */
@@ -56,9 +66,9 @@ export class FiscalService {
     }
 
     /**
-     * Asigna el próximo NCF del tipo dado DENTRO de la transacción de la venta:
-     * si la venta falla, el número no se consume. Lanza errores accionables en
-     * español cuando no hay secuencia utilizable.
+     * Asigna el próximo e-NCF del tipo dado DENTRO de la transacción de la
+     * venta: si la venta falla, el número no se consume. Lanza errores
+     * accionables en español cuando no hay secuencia utilizable.
      */
     async assignNcf(manager: EntityManager, type: NcfType): Promise<string> {
         const sequences = await manager.find(NcfSequence, {
@@ -70,12 +80,12 @@ export class FiscalService {
         if (!usable) {
             const label = NCF_TYPE_LABELS[type];
             if (sequences.length === 0) {
-                throw new Error(`No hay una secuencia de NCF ${type} (${label}) configurada. Configúrala en Ajustes → Fiscal.`);
+                throw new Error(`No hay una secuencia de e-NCF ${type} (${label}) configurada. Configúrala en Ajustes → Fiscal.`);
             }
             if (sequences.some(s => this.isExpired(s) && s.next_number <= s.to_number)) {
-                throw new Error(`La secuencia de NCF ${type} está VENCIDA. Solicita una nueva autorización a la DGII y actualízala en Ajustes → Fiscal.`);
+                throw new Error(`La secuencia de e-NCF ${type} está VENCIDA. Solicita una nueva autorización a la DGII y actualízala en Ajustes → Fiscal.`);
             }
-            throw new Error(`La secuencia de NCF ${type} se AGOTÓ. Solicita un nuevo rango a la DGII y regístralo en Ajustes → Fiscal.`);
+            throw new Error(`La secuencia de e-NCF ${type} se AGOTÓ. Solicita un nuevo rango a la DGII y regístralo en Ajustes → Fiscal.`);
         }
 
         const ncf = formatNcf(type, usable.next_number);
@@ -112,18 +122,23 @@ export class FiscalService {
         expires_at?: string | null;
         active?: boolean;
     }): Promise<NcfSequence> {
-        if (!['B01', 'B02', 'B04'].includes(data.type)) {
-            throw new Error('Tipo de NCF inválido');
+        if (!['31', '32', '34'].includes(data.type)) {
+            throw new Error('Tipo de e-CF inválido');
         }
         const from = Number(data.from_number);
         const to = Number(data.to_number);
-        if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to < from || to > 99_999_999) {
-            throw new Error('Rango de secuencia inválido (desde ≤ hasta, máximo 8 dígitos)');
+        if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to < from || to > 9_999_999_999) {
+            throw new Error('Rango de secuencia inválido (desde ≤ hasta, máximo 10 dígitos)');
         }
         let next = data.next_number === undefined ? from : Number(data.next_number);
         if (!Number.isInteger(next) || next < from) next = from;
         if (data.expires_at != null && data.expires_at !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(data.expires_at)) {
             throw new Error('La fecha de vencimiento debe tener formato YYYY-MM-DD');
+        }
+        // El XSD del e-CF 31 exige <FechaVencimientoSecuencia> en IdDoc, así
+        // que una secuencia de Crédito Fiscal no puede guardarse sin ella.
+        if (data.type === '31' && !data.expires_at) {
+            throw new Error('El e-CF 31 (Crédito Fiscal) exige registrar la fecha de vencimiento de la secuencia.');
         }
 
         const repo = AppDataSource.getRepository(NcfSequence);

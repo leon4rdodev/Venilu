@@ -11,7 +11,12 @@
     "forceConsistentCasingInFileNames": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-    "types": ["node", "electron"],
+    // `electron` NO va en `types`: el paquete @types/electron (tipeado de
+    // Electron 1.x, obsoleto desde que Electron 1.12 trae los suyos) lo pisa y
+    // declara `showOpenDialog` con la firma antigua de callback. Los tipos
+    // correctos entran por `import ... from 'electron'`
+    // (node_modules/electron/electron.d.ts).
+    "types": ["node"],
     "baseUrl": "./",
     "paths": {
       "@/*": ["src/main/*"],

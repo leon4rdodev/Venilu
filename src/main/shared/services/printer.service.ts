@@ -4,6 +4,7 @@ import path from 'path';
 import { SalesService } from '../../modules/sales/services/sales.service';
 import { SettingsService } from '../../modules/settings/services/settings.service';
 import { formatQty, unitDef } from '@shared/units';
+import { ncfCompleto } from '@shared/ncf';
 // import { UsersService } from '../../modules/users/services/users.service';
 
 const salesService = new SalesService();
@@ -77,11 +78,6 @@ export class PrinterService {
             itbisAmount,
             // _shiftId // unused but kept for compatibility
         } = data;
-
-        const NCF_LABELS: { [key: string]: string } = {
-            B01: 'FACTURA DE CRÉDITO FISCAL',
-            B02: 'FACTURA DE CONSUMO',
-        };
 
         const {
             business_name,
@@ -285,8 +281,8 @@ export class PrinterService {
 
     ${ncf ? `
     <div style="text-align:center; font-weight:bold; margin: 2px 0 4px;">
-        ${esc(NCF_LABELS[ncfType] || 'COMPROBANTE FISCAL')}<br>
-        NCF: ${esc(ncf)}
+        ${esc(ncfCompleto(ncfType))}<br>
+        e-NCF: ${esc(ncf)}
     </div>
     ${fiscalCustomerRnc ? `
     <div class="ticket-info">

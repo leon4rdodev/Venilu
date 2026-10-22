@@ -52,6 +52,24 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
           if (result?.success) {
             console.log('[useUser] Backend session restored for:', initialUser.username);
+            // Los permisos viven en el rol y pueden cambiar entre sesiones (p. ej.
+            // al incorporar los de facturación electrónica: ecf:view|emit|config).
+            // El renderer solo los leía al hacer login y los guardaba en
+            // localStorage: sin este refresco, el backend concedía el permiso pero
+            // los controles seguían apagados hasta cerrar sesión.
+            try {
+              const refreshed = (await window.ipcRenderer.invoke('session:refresh')) as {
+                success: boolean;
+                data?: User;
+              };
+              if (refreshed?.success && refreshed.data?.id) {
+                window.localStorage.setItem('user', JSON.stringify(refreshed.data));
+                setUserState(refreshed.data);
+                console.log('[useUser] Permisos refrescados desde la base de datos');
+              }
+            } catch (error) {
+              console.error('[useUser] Error refreshing permissions:', error);
+            }
           } else {
             // Expired or invalid token — force a fresh login
             console.warn('[useUser] Session restore rejected:', result?.message);

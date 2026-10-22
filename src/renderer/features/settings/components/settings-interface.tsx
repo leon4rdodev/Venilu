@@ -58,7 +58,8 @@ const SECTIONS: Section[] = [
   {
     id: "fiscal",
     label: "Fiscal",
-    description: "Comprobantes fiscales (NCF), ITBIS y secuencias de la DGII",
+    description:
+      "Facturación electrónica: rangos e-NCF, certificado digital y conexión con la DGII",
     icon: Landmark,
     content: () => <FiscalSettings />,
   },

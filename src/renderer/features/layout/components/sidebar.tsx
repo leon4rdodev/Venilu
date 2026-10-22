@@ -9,6 +9,7 @@ import {
   Users,
   Truck,
   Settings,
+  ReceiptText,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@components/ui/tooltip';
 import { usePermission } from '@renderer/features/auth/hooks/use-permission';
@@ -27,6 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/inventory', icon: Package,         label: 'Inventario',     permission: 'inventory:view' },
   { to: '/customers', icon: Users,           label: 'Clientes',       permission: 'customers:view' },
   { to: '/suppliers', icon: Truck,           label: 'Suplidores',     permission: 'suppliers:view' },
+  { to: '/ecf',       icon: ReceiptText,     label: 'Comprobantes',    permission: 'ecf:view' },
   { to: '/reports',   icon: BarChart,        label: 'Reportes',       permission: 'reports:view_full' },
 ];
 
@@ -58,6 +60,7 @@ export function Sidebar() {
   const invView        = usePermission('inventory:view');
   const custView       = usePermission('customers:view');
   const supView        = usePermission('suppliers:view');
+  const ecfView        = usePermission('ecf:view');
   const rptFull        = usePermission('reports:view_full');
   const settingsView   = usePermission('settings:view');
 
@@ -66,6 +69,7 @@ export function Sidebar() {
     'inventory:view':      invView,
     'customers:view':      custView,
     'suppliers:view':      supView,
+    'ecf:view':            ecfView,
     'reports:view_full':   rptFull,
     'settings:view':       settingsView,
   };
@@ -73,7 +77,7 @@ export function Sidebar() {
   const visibleItems = useMemo(
     () => NAV_ITEMS.filter((item) => item.permission === null || permMap[item.permission]),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [posAccess, invView, custView, supView, rptFull, settingsView],
+    [posAccess, invView, custView, supView, ecfView, rptFull, settingsView],
   );
 
   // The rail item whose route is active (nested routes included)
