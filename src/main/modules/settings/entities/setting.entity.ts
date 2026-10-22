@@ -85,17 +85,6 @@ export class Setting {
     ecf_provincia?: string;
 
     /**
-     * Inicio de la contingencia por imposibilidad técnica (Informe Técnico
-     * §19.2). Mientras no sea `null`, las ventas con comprobante usan las
-     * secuencias NO electrónicas (B01/B02/B04). `null` = operación normal.
-     */
-    @Column({ type: 'datetime', nullable: true })
-    ecf_contingencia_desde?: Date | null;
-
-    @Column({ type: 'text', nullable: true })
-    ecf_contingencia_motivo?: string | null;
-
-    /**
      * Escala de interfaz (zoom tipo navegador): 1 = 100%, 1.25 = 125%…
      * Se aplica vía webContents.setZoomFactor y se persiste para que la vista
      * se mantenga entre sesiones. Rango editable: 0.75–1.5.

@@ -8,6 +8,7 @@ import { AppDataSource } from '@main/config/data-source';
 import { Setting } from '@main/modules/settings/entities/setting.entity';
 
 import { ecfService, EcfConfigView } from '@main/modules/ecf/services/ecf.service';
+import { contingenciaService } from '@main/modules/ecf/services/contingencia';
 import {
     consultarDocumento,
     emitirDocumento,
@@ -166,6 +167,55 @@ export function registerEcfHandlers() {
             requirePermission('ecf:view');
             const doc = await consultarDocumento(String(id ?? ''));
             return { success: true, data: await ecfService.obtener(doc.id) };
+        } catch (err: any) {
+            return { success: false, message: err.message };
+        }
+    });
+
+    // ── Contingencia por imposibilidad técnica (§4.19) ─────────────────────
+
+    ipcMain.handle('ecf:contingencia:estado', async () => {
+        try {
+            requirePermission('ecf:view');
+            return { success: true, data: await contingenciaService.estado() };
+        } catch (err: any) {
+            return { success: false, message: err.message };
+        }
+    });
+
+    ipcMain.handle('ecf:contingencia:iniciar', async (_event, { motivo } = {}) => {
+        try {
+            const user = requirePermission('ecf:config');
+            const c = await contingenciaService.iniciar(String(motivo ?? ''), user.username);
+            auditService.log('ecf:contingencia:iniciar', c.id, c.motivo);
+            return { success: true, data: c };
+        } catch (err: any) {
+            return { success: false, message: err.message };
+        }
+    });
+
+    ipcMain.handle('ecf:contingencia:finalizar', async (_event, { motivo } = {}) => {
+        try {
+            const user = requirePermission('ecf:config');
+            const r = await contingenciaService.finalizar(String(motivo ?? ''), user.username);
+            auditService.log(
+                'ecf:contingencia:finalizar',
+                r.contingencia.id,
+                `${r.reemplazos.creados} reemplazo(s), ${r.reemplazos.errores.length} error(es)`,
+            );
+            return { success: true, data: r };
+        } catch (err: any) {
+            return { success: false, message: err.message };
+        }
+    });
+
+    /** Reintenta crear los e-CF de reemplazo que quedaron pendientes. */
+    ipcMain.handle('ecf:contingencia:reemplazos', async () => {
+        try {
+            requirePermission('ecf:emit');
+            const r = await contingenciaService.generarReemplazos();
+            auditService.log('ecf:contingencia:reemplazos', 'lote', JSON.stringify(r));
+            return { success: true, data: r };
         } catch (err: any) {
             return { success: false, message: err.message };
         }

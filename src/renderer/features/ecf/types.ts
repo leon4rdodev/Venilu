@@ -58,6 +58,35 @@ export interface EcfStats {
   sent: number;
   accepted: number;
   rejected: number;
+  /** Pendientes de transmitir hace más de 72 h (Informe Técnico §19.1). */
+  fuera_de_plazo: number;
+  /** Pendientes de transmitir hace más de 48 h. */
+  por_vencer: number;
+}
+
+/** Contingencia por imposibilidad técnica (espejo de services/contingencia.ts). */
+export interface Contingencia {
+  id: string;
+  desde: string;
+  hasta: string | null;
+  motivo: string;
+  motivo_fin: string | null;
+  username: string | null;
+}
+
+export interface EstadoContingencia {
+  activa: Contingencia | null;
+  dias: number | null;
+  limite: string | null;
+  excede_limite: boolean;
+  historial: Contingencia[];
+  pendientes_reemplazo: number;
+  disponibles_b: Record<'B01' | 'B02' | 'B04', number>;
+}
+
+export interface ResumenReemplazos {
+  creados: number;
+  errores: string[];
 }
 
 /** Resumen de una pasada de emisión (`ecf:emit-pending`). */

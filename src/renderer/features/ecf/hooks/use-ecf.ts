@@ -1,7 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { IPCResponse } from '@shared/types/ipc';
-import { CODIGO_DGII, ESTADO_ECF, EcfDocument, EcfStats, ResumenEmision } from '../types';
+import {
+  CODIGO_DGII,
+  ESTADO_ECF,
+  EcfDocument,
+  EcfStats,
+  EstadoContingencia,
+  ResumenEmision,
+  ResumenReemplazos,
+} from '../types';
 
 /** Últimos comprobantes electrónicos emitidos, más recientes primero. */
 export function useEcfDocuments(limite = 200) {
@@ -25,6 +33,7 @@ export function useEcfStats() {
 function refrescar(qc: ReturnType<typeof useQueryClient>) {
   void qc.invalidateQueries({ queryKey: ['ecf-documents'] });
   void qc.invalidateQueries({ queryKey: ['ecf-stats'] });
+  void qc.invalidateQueries({ queryKey: ['ecf-contingencia'] });
 }
 
 function leer<T>(res: IPCResponse<T>): T {
@@ -119,6 +128,80 @@ export function useEcfPrint() {
     },
     onError: (err) => toast.error('No se pudo imprimir', { description: err.message }),
     // Imprimir puede firmar un borrador: refrescar el estado.
+    onSettled: () => refrescar(qc),
+  });
+}
+
+/** Estado de la contingencia por imposibilidad técnica. */
+export function useContingencia() {
+  return useQuery<IPCResponse<EstadoContingencia>>({
+    queryKey: ['ecf-contingencia'],
+    queryFn: async () =>
+      (await window.ipcRenderer.invoke('ecf:contingencia:estado')) as IPCResponse<EstadoContingencia>,
+    refetchInterval: 60_000,
+  });
+}
+
+function avisarReemplazos(r: ResumenReemplazos) {
+  if (r.errores.length > 0) {
+    toast.warning(`${r.creados} e-CF de reemplazo creados, ${r.errores.length} con error`, {
+      description: r.errores.slice(0, 3).join('\n'),
+      duration: 12_000,
+    });
+  } else if (r.creados > 0) {
+    toast.success(`${r.creados} e-CF de reemplazo creados`, {
+      description: 'Se firman y transmiten solos; no se entregan al cliente.',
+    });
+  }
+}
+
+export function useIniciarContingencia() {
+  const qc = useQueryClient();
+  return useMutation<unknown, Error, string>({
+    mutationFn: async (motivo) =>
+      leer(await (window.ipcRenderer.invoke('ecf:contingencia:iniciar', { motivo }) as Promise<IPCResponse<unknown>>)),
+    onSuccess: () =>
+      toast.warning('Contingencia activada', {
+        description: 'Las ventas con comprobante usarán NCF serie B. Registra la contingencia en la Oficina Virtual de la DGII.',
+        duration: 10_000,
+      }),
+    onError: (err) => toast.error('No se pudo activar la contingencia', { description: err.message }),
+    onSettled: () => refrescar(qc),
+  });
+}
+
+export function useFinalizarContingencia() {
+  const qc = useQueryClient();
+  return useMutation<{ reemplazos: ResumenReemplazos }, Error, string>({
+    mutationFn: async (motivo) =>
+      leer(
+        await (window.ipcRenderer.invoke('ecf:contingencia:finalizar', { motivo }) as Promise<
+          IPCResponse<{ reemplazos: ResumenReemplazos }>
+        >)
+      ),
+    onSuccess: ({ reemplazos }) => {
+      toast.success('Contingencia finalizada', {
+        description: 'Registra también la salida en la Oficina Virtual de la DGII.',
+      });
+      avisarReemplazos(reemplazos);
+    },
+    onError: (err) => toast.error('No se pudo finalizar la contingencia', { description: err.message }),
+    onSettled: () => refrescar(qc),
+  });
+}
+
+export function useGenerarReemplazos() {
+  const qc = useQueryClient();
+  return useMutation<ResumenReemplazos, Error, void>({
+    mutationFn: async () =>
+      leer(
+        await (window.ipcRenderer.invoke('ecf:contingencia:reemplazos') as Promise<IPCResponse<ResumenReemplazos>>)
+      ),
+    onSuccess: (r) => {
+      if (r.creados === 0 && r.errores.length === 0) toast.info('No hay comprobantes por reemplazar');
+      else avisarReemplazos(r);
+    },
+    onError: (err) => toast.error('No se pudieron generar los reemplazos', { description: err.message }),
     onSettled: () => refrescar(qc),
   });
 }

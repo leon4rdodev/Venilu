@@ -19,8 +19,9 @@ export class NcfSequence {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
 
+    /** e-CF (31/32/34) o serie B solo para contingencia (B01/B02/B04). */
     @Column()
-    type!: '31' | '32' | '34';
+    type!: '31' | '32' | '34' | 'B01' | 'B02' | 'B04';
 
     /** Inicio del rango autorizado (inclusive): 10 dígitos secuenciales. */
     @Column("integer")

@@ -391,7 +391,7 @@ export class PrinterService {
     ${ncf && !ri ? `
     <div style="text-align:center; font-weight:bold; margin: 2px 0 4px;">
         ${esc(ncfCompleto(ncfType))}<br>
-        e-NCF: ${esc(ncf)}
+        ${esElectronico(ncfType) ? 'e-NCF' : 'NCF'}: ${esc(ncf)}
     </div>
     ${fiscalCustomerRnc ? `
     <div class="ticket-info">

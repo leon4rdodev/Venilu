@@ -301,12 +301,14 @@ async function construirVentaEcf(doc: EcfDocument, settings: Setting): Promise<V
 
     if (doc.tipo === 34) {
         const ncfModificado = (venta.ncf ?? "").trim();
-        if (!ncfModificado) {
+        if (!ncfModificado && !doc.ncf_reemplazado) {
             throw new Error(`La Nota de Crédito ${doc.encf} no tiene el NCF original que modifica.`);
         }
 
+        // La devolución se registró con el NCF que se le entregó al cliente:
+        // el e-NCF o, si fue en contingencia, el B04 que este e-CF reemplaza.
         const devolucion = await AppDataSource.getRepository(SaleReturn).findOne({
-            where: { credit_note_ncf: doc.encf },
+            where: { credit_note_ncf: doc.ncf_reemplazado ?? doc.encf },
             relations: ["items"],
         });
 
@@ -333,6 +335,22 @@ async function construirVentaEcf(doc: EcfDocument, settings: Setting): Promise<V
             razonModificacion: devolucion
                 ? `Devolución de mercancía de la venta ${venta.id}`
                 : `Anulación de la venta ${venta.id}`,
+        };
+    }
+
+    // e-CF de REEMPLAZO de un NCF emitido en contingencia (Informe Técnico
+    // §19.2.3): la referencia apunta al comprobante no electrónico, código 4.
+    if (doc.ncf_reemplazado) {
+        if (!doc.fecha_ncf_reemplazado) {
+            throw new Error(`${doc.encf}: falta la fecha del NCF ${doc.ncf_reemplazado} que reemplaza.`);
+        }
+        referencia = {
+            encfModificado: doc.ncf_reemplazado,
+            fechaModificado: doc.fecha_ncf_reemplazado,
+            codigoModificacion: 4,
+            ...(doc.tipo === 34
+                ? { razonModificacion: `Reemplazo de ${doc.ncf_reemplazado} emitido en contingencia` }
+                : {}),
         };
     }
 

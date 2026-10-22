@@ -46,7 +46,20 @@ export interface EcfStats {
     sent: number;
     accepted: number;
     rejected: number;
+    /**
+     * Pendientes de transmitir hace más de 72 h: fuera del plazo de la
+     * contingencia por falta de conectividad (Informe Técnico §19.1: "Enviar
+     * los e-CF pendientes a la DGII una vez restablecida la conexión, en un
+     * plazo no mayor de setenta y dos (72) horas").
+     */
+    fuera_de_plazo: number;
+    /** Pendientes de transmitir hace más de 48 h (y menos de 72 h). */
+    por_vencer: number;
 }
+
+/** Plazo para transmitir un e-CF emitido sin conexión (§19.1). */
+export const PLAZO_TRANSMISION_MS = 72 * 60 * 60 * 1000;
+const AVISO_TRANSMISION_MS = 48 * 60 * 60 * 1000;
 
 export interface EcfConfigView {
     ambiente: Ambiente;
@@ -90,6 +103,10 @@ export class EcfService {
         monto_total: number;
         itbis_total: number;
         fecha_emision: string;
+        /** Reemplazo de contingencia: NCF serie B que este e-CF reemplaza. */
+        ncf_reemplazado?: string;
+        /** `dd-MM-yyyy` — fecha de emisión del NCF reemplazado. */
+        fecha_ncf_reemplazado?: string;
     }): Promise<EcfDocument> {
         const via: "ecf" | "rfce" =
             data.tipo === 32 && num(data.monto_total) < TOPE_RFCE ? "rfce" : "ecf";
@@ -106,6 +123,8 @@ export class EcfService {
             monto_total: num(data.monto_total),
             itbis_total: num(data.itbis_total),
             fecha_emision: data.fecha_emision,
+            ncf_reemplazado: data.ncf_reemplazado ?? null,
+            fecha_ncf_reemplazado: data.fecha_ncf_reemplazado ?? null,
         });
         return manager.save(EcfDocument, doc);
     }
@@ -124,15 +143,23 @@ export class EcfService {
         return row ? this.vista(row) : null;
     }
 
-    async stats(): Promise<EcfStats> {
+    async stats(ahora = Date.now()): Promise<EcfStats> {
         const rows = await AppDataSource.getRepository(EcfDocument).find({
-            select: ["estado"],
+            select: ["estado", "created_at", "ncf_reemplazado"],
         });
-        const stats: EcfStats = { total: rows.length } as EcfStats;
+        const stats: EcfStats = { total: rows.length, fuera_de_plazo: 0, por_vencer: 0 } as EcfStats;
         for (const e of ESTADOS) stats[e] = 0;
         for (const r of rows) {
             const e = (ESTADOS as readonly string[]).includes(r.estado) ? r.estado : "draft";
-            stats[e as keyof EcfStats] += 1;
+            stats[e as (typeof ESTADOS)[number]] += 1;
+
+            // El plazo de 72 h es de los e-CF entregados sin conexión; los
+            // reemplazos de contingencia corren "a partir del levantamiento".
+            if (r.ncf_reemplazado) continue;
+            if (e !== "draft" && e !== "signed" && e !== "queued") continue;
+            const edad = ahora - new Date(r.created_at).getTime();
+            if (edad > PLAZO_TRANSMISION_MS) stats.fuera_de_plazo += 1;
+            else if (edad > AVISO_TRANSMISION_MS) stats.por_vencer += 1;
         }
         return stats;
     }

@@ -64,9 +64,10 @@ export class Sale {
     @Column({ nullable: true })
     ncf?: string;
 
-    /** Tipo de e-CF: 31 Crédito Fiscal · 32 Consumo (B01/B02 solo histórico). */
+    /** Tipo de e-CF: 31 Crédito Fiscal · 32 Consumo. B01/B02: ventas
+     *  históricas en papel o emitidas durante una contingencia (§4.19). */
     @Column({ nullable: true })
-    ncf_type?: '31' | '32' | '34';
+    ncf_type?: '31' | '32' | '34' | 'B01' | 'B02' | 'B04';
 
     /** RNC/cédula del cliente (obligatorio en el e-CF 31). */
     @Column({ nullable: true })

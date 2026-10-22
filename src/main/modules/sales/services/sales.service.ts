@@ -282,9 +282,12 @@ export class SalesService {
 
             // NCF: asignado DENTRO de la transacción — si la venta falla, el
             // número no se consume; si no hay secuencia, la venta no procede.
+            // En contingencia por imposibilidad técnica sale un NCF serie B
+            // (sin e-CF); se reemplaza por un e-CF al cerrar la contingencia.
             if (fiscalRequest) {
-                sale.ncf = await fiscalService.assignNcf(transactionalEntityManager, fiscalRequest.ncfType);
-                sale.ncf_type = fiscalRequest.ncfType;
+                const comprobante = await fiscalService.assignComprobante(transactionalEntityManager, fiscalRequest.ncfType);
+                sale.ncf = comprobante.ncf;
+                sale.ncf_type = comprobante.tipo;
                 sale.fiscal_customer_rnc = fiscalRequest.customerRnc;
                 sale.fiscal_customer_name = fiscalRequest.customerName;
             }
@@ -646,9 +649,11 @@ export class SalesService {
             if (sale.ncf && !sale.credit_note_ncf) {
                 const settings = await transactionalEntityManager.findOneBy(SettingEntity, { id: 1 });
                 if (settings?.fiscal_enabled) {
-                    const ncNcf = await fiscalService.assignNcf(transactionalEntityManager, '34');
+                    const nc = await fiscalService.assignComprobante(transactionalEntityManager, '34');
+                    const ncNcf = nc.ncf;
                     sale.credit_note_ncf = ncNcf;
-                    await ecfService.registrarDraft(transactionalEntityManager, {
+                    // B04 (contingencia): sin e-CF hasta cerrar la contingencia.
+                    if (nc.tipo === '34') await ecfService.registrarDraft(transactionalEntityManager, {
                         sale_id: sale.id,
                         tipo: 34,
                         encf: ncNcf,
@@ -789,8 +794,10 @@ export class SalesService {
             let creditNoteNcf: string | undefined;
             const settings = await manager.findOneBy(SettingEntity, { id: 1 });
             if (sale.ncf && settings?.fiscal_enabled) {
-                creditNoteNcf = await fiscalService.assignNcf(manager, '34');
-                await ecfService.registrarDraft(manager, {
+                const nc = await fiscalService.assignComprobante(manager, '34');
+                creditNoteNcf = nc.ncf;
+                // B04 (contingencia): sin e-CF hasta cerrar la contingencia.
+                if (nc.tipo === '34') await ecfService.registrarDraft(manager, {
                     sale_id: sale.id,
                     tipo: 34,
                     encf: creditNoteNcf,

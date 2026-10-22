@@ -11,6 +11,7 @@ import {
   useEcfStats,
 } from '../hooks/use-ecf';
 import { EcfStatsBar } from './ecf-stats';
+import { EcfContingenciaPanel } from './ecf-contingencia';
 import { EcfTable } from './ecf-table';
 
 export function EcfInterface() {
@@ -19,8 +20,9 @@ export function EcfInterface() {
   const documentos = useEcfDocuments(200);
   const stats = useEcfStats();
 
-  const perms = usePermissions('ecf:view', 'ecf:emit');
+  const perms = usePermissions('ecf:view', 'ecf:emit', 'ecf:config');
   const puedeEmitir = perms['ecf:emit'];
+  const puedeConfigurar = perms['ecf:config'];
 
   const emitir = useEcfEmit();
   const emitirPendientes = useEcfEmitPending();
@@ -65,6 +67,12 @@ export function EcfInterface() {
       </div>
 
       <EcfStatsBar stats={stats.data?.data} loading={stats.isLoading} />
+
+      <EcfContingenciaPanel
+        stats={stats.data?.data}
+        puedeConfigurar={puedeConfigurar}
+        puedeEmitir={puedeEmitir}
+      />
 
       <EcfTable
         documentos={documentos.data?.data ?? []}

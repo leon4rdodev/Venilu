@@ -7,8 +7,8 @@ import { MigrationInterface, QueryRunner } from "typeorm";
  *   - Ajustes del emisor que la Representación Impresa debe mostrar
  *     (Informe Técnico §18.2.1-B): nombre comercial, municipio y provincia
  *     (códigos de `ProvinciaMunicipioType` del XSD oficial).
- *   - Contingencia por imposibilidad técnica (Informe Técnico §19.2): fecha de
- *     inicio y motivo mientras dura. `NULL` = sin contingencia.
+ *   - `ecf_contingencias`: períodos de contingencia por imposibilidad técnica
+ *     (Informe Técnico §19.2). `hasta IS NULL` = contingencia en curso.
  *   - `ecf_documents`: el e-CF de reemplazo guarda el NCF no electrónico que
  *     reemplaza (`InformacionReferencia`, código de modificación 4).
  *   - `ecf_anulaciones`: cada solicitud ANECF enviada a la DGII.
@@ -22,8 +22,6 @@ export class EcfFase41757650000000 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "settings" ADD COLUMN "ecf_nombre_comercial" varchar`);
         await queryRunner.query(`ALTER TABLE "settings" ADD COLUMN "ecf_municipio" varchar(6)`);
         await queryRunner.query(`ALTER TABLE "settings" ADD COLUMN "ecf_provincia" varchar(6)`);
-        await queryRunner.query(`ALTER TABLE "settings" ADD COLUMN "ecf_contingencia_desde" datetime`);
-        await queryRunner.query(`ALTER TABLE "settings" ADD COLUMN "ecf_contingencia_motivo" text`);
 
         await queryRunner.query(`ALTER TABLE "ecf_documents" ADD COLUMN "ncf_reemplazado" varchar(19)`);
         await queryRunner.query(`ALTER TABLE "ecf_documents" ADD COLUMN "fecha_ncf_reemplazado" varchar(10)`);
@@ -48,15 +46,25 @@ export class EcfFase41757650000000 implements MigrationInterface {
         await queryRunner.query(
             `CREATE INDEX "idx_ecf_anulaciones_tipo" ON "ecf_anulaciones" ("tipo")`,
         );
+
+        await queryRunner.query(`CREATE TABLE "ecf_contingencias" (
+            "id" varchar PRIMARY KEY NOT NULL,
+            "desde" datetime NOT NULL,
+            "hasta" datetime,
+            "motivo" text NOT NULL,
+            "motivo_fin" text,
+            "username" varchar,
+            "created_at" datetime NOT NULL DEFAULT (datetime('now')),
+            "updated_at" datetime NOT NULL DEFAULT (datetime('now'))
+        )`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`DROP TABLE "ecf_contingencias"`);
         await queryRunner.query(`DROP INDEX "idx_ecf_anulaciones_tipo"`);
         await queryRunner.query(`DROP TABLE "ecf_anulaciones"`);
         await queryRunner.query(`ALTER TABLE "ecf_documents" DROP COLUMN "fecha_ncf_reemplazado"`);
         await queryRunner.query(`ALTER TABLE "ecf_documents" DROP COLUMN "ncf_reemplazado"`);
-        await queryRunner.query(`ALTER TABLE "settings" DROP COLUMN "ecf_contingencia_motivo"`);
-        await queryRunner.query(`ALTER TABLE "settings" DROP COLUMN "ecf_contingencia_desde"`);
         await queryRunner.query(`ALTER TABLE "settings" DROP COLUMN "ecf_provincia"`);
         await queryRunner.query(`ALTER TABLE "settings" DROP COLUMN "ecf_municipio"`);
         await queryRunner.query(`ALTER TABLE "settings" DROP COLUMN "ecf_nombre_comercial"`);

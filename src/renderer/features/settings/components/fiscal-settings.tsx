@@ -61,7 +61,11 @@ import { cn } from "@lib/utils";
  * `TipoeCFType` de la DGII: 31 Factura de Crédito Fiscal Electrónica,
  * 32 Factura de Consumo Electrónica, 34 Nota de Crédito Electrónica.
  */
-type NcfType = "31" | "32" | "34";
+type NcfType = "31" | "32" | "34" | "B01" | "B02" | "B04";
+
+/** Serie B: comprobantes NO electrónicos, solo para la contingencia por
+ *  imposibilidad técnica (Informe Técnico §19.2). 8 dígitos secuenciales. */
+const esSerieB = (t: NcfType) => t.startsWith("B");
 
 interface SequenceStatus {
   id: string;
@@ -79,12 +83,18 @@ const NCF_TYPE_LABELS: Record<NcfType, string> = {
   "31": "Crédito Fiscal",
   "32": "Consumo",
   "34": "Nota de Crédito",
+  B01: "Crédito Fiscal · contingencia",
+  B02: "Consumo · contingencia",
+  B04: "Nota de Crédito · contingencia",
 };
 
 const NCF_TYPE_OPTIONS: { value: NcfType; label: string }[] = [
   { value: "32", label: "32 · Factura de Consumo Electrónica" },
   { value: "31", label: "31 · Factura de Crédito Fiscal Electrónica" },
   { value: "34", label: "34 · Nota de Crédito Electrónica" },
+  { value: "B02", label: "B02 · Consumo (solo contingencia)" },
+  { value: "B01", label: "B01 · Crédito Fiscal (solo contingencia)" },
+  { value: "B04", label: "B04 · Nota de Crédito (solo contingencia)" },
 ];
 
 /**
@@ -95,6 +105,10 @@ const MAX_NCF_NUMBER = 9_999_999_999;
 
 /** "9,999,999,999" para los mensajes de validación. */
 const MAX_NCF_LABEL = "9,999,999,999";
+
+/** Serie B: letra + 2 dígitos de tipo + 8 secuenciales (11 posiciones). */
+const MAX_NCF_B = 99_999_999;
+const MAX_NCF_B_LABEL = "99,999,999";
 
 /** "2026-12-31" → "31 dic 2026" (sin desfase de zona horaria). */
 function formatExpiryDate(value: string): string {
@@ -288,11 +302,13 @@ function SequenceDialog({
   const validate = (): string | null => {
     const from = parseIntField(formData.from_number);
     const to = parseIntField(formData.to_number);
-    if (!Number.isInteger(from) || from < 1 || from > MAX_NCF_NUMBER) {
-      return `El número inicial debe ser un entero entre 1 y ${MAX_NCF_LABEL}`;
+    const maximo = esSerieB(formData.type) ? MAX_NCF_B : MAX_NCF_NUMBER;
+    const maximoLabel = esSerieB(formData.type) ? MAX_NCF_B_LABEL : MAX_NCF_LABEL;
+    if (!Number.isInteger(from) || from < 1 || from > maximo) {
+      return `El número inicial debe ser un entero entre 1 y ${maximoLabel}`;
     }
-    if (!Number.isInteger(to) || to < from || to > MAX_NCF_NUMBER) {
-      return `El número final debe ser un entero mayor o igual al inicial (máx. ${MAX_NCF_LABEL})`;
+    if (!Number.isInteger(to) || to < from || to > maximo) {
+      return `El número final debe ser un entero mayor o igual al inicial (máx. ${maximoLabel})`;
     }
     // El XSD del e-CF 31 exige <FechaVencimientoSecuencia> en IdDoc.
     if (formData.type === "31" && !formData.expires_at.trim()) {
@@ -443,11 +459,19 @@ function SequenceDialog({
                 />
               </div>
             </div>
-            <p id="range-hint" className="text-xs text-muted-foreground">
-              Secuencia de 10 dígitos tal como aparece en la autorización de la DGII (máx.{" "}
-              {MAX_NCF_LABEL}). El e-NCF se imprime como <span className="font-mono">E</span> + tipo +
-              secuencia (13 posiciones).
-            </p>
+            {esSerieB(formData.type) ? (
+              <p id="range-hint" className="text-xs text-muted-foreground">
+                Secuencia de 8 dígitos (máx. {MAX_NCF_B_LABEL}). Se usa solo mientras haya una
+                contingencia activa en Facturación Electrónica; después, cada comprobante se reemplaza
+                por un e-CF.
+              </p>
+            ) : (
+              <p id="range-hint" className="text-xs text-muted-foreground">
+                Secuencia de 10 dígitos tal como aparece en la autorización de la DGII (máx.{" "}
+                {MAX_NCF_LABEL}). El e-NCF se imprime como <span className="font-mono">E</span> + tipo +
+                secuencia (13 posiciones).
+              </p>
+            )}
           </fieldset>
 
           {isEditing && (
