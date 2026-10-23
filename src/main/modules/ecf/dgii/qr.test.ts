@@ -135,7 +135,7 @@ describe('QR del timbre — elección de consulta', () => {
     });
 
     it('omite rnccomprador cuando el comprador no tiene RNC', () => {
-        const url = urlTimbreEcf({ ...base, rncComprador: undefined });
+        const url = urlTimbreEcf({ ...base, montoTotal: 1000, rncComprador: undefined });
         expect(url).not.toContain('rnccomprador');
         expect(url).toContain('&encf=');
     });
